@@ -15,3 +15,5 @@ since one has to become picky and rigourous with Tweens, if one wants a good/flu
 In simple, when creating, don't get frustrated, test it all over to finally choose the best tween for the right purpose.
 later, there shall be more to explain, but for more API info right now:
 http://www.libspark.org/wiki/BetweenAS3/en
+
+Needs jQuery, NS and Naja to work for now.
