@@ -1,0 +1,17 @@
+BetweenJS
+
+Highly inspired from BetweenAS3 (author:yossy(at)be-interactive.org), 
+Its API became for me primordial in hi-tech front-end development, 
+since one has to become picky and rigourous with Tweens, if one wants a good/fluid result.
+- for all known Easings, even Custom easing,
+- for relative tweening,
+- for Tween manipulation such as Reverse, gotoAndPlay, slice, delay 
+- for grouping, parallel, serial
+- for nested values to tween -> {x:150, nestedObject:{x:100}}
+- implements the 'yield'-type pattern
+- one unique enterframe and subscribe/unsubscribe
+- for callbacks, can work with or without events
+
+In simple, when creating, don't get frustrated, test it all over to finally choose the best tween for the right purpose.
+later, there shall be more to explain, but for more API info right now:
+http://www.libspark.org/wiki/BetweenAS3/en
