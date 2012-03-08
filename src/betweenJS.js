@@ -1,223 +1,9 @@
 
-/*
-* 
-* BetweenJS : Javascript Tweening Engine
-* author saz
-* copyright sazaam(at)gmail.com
-* 2011 All Rights Reserved
-* 
-* Based upon YOSSY's BetweenAS3 (yossi(at)be-interactive.org)
-* Thanks to him for API orientations, visions in object-structure, Tweener for AS3 and Robert Penner for world-famous easing algorithms.
-* 
-* 
-* Framework licensed under GNU-extended License
-* 
-* 
-* In the process of creating Base Toolkit for Spill Inc., Paris,
-* used by Spill 
-* courtesy of the author
-* All Paternity Rights Reserved (saz) since 2011
-* 
-*/
-
-// getTimer alternative (supposed to provide time (in ms) elapsed since application was initialized)
+// JS TWEENING ENGINE
 var ___d = new Date().getTime() ;
 function getTimer(){
    return new Date().getTime() - ___d ;
 } ;
-
-/* BETWEENJS */
-var BetweenJS = NS('BetweenJS', NS('org.libspark.betweenJS::BetweenJS', Class.$extend({
-    __classvars__:{version:'0.0.1',
-        toString:function()
-        {
-            return '[class BetweenJS]' ;
-        },
-        core:function(){
-        	var initialized = BetweenJS.initialized ;
-        	
-        	if(initialized === true) return ;
-        	//trace('core initializing BetweenJS') ;
-        	
-        	BetweenJS.ticker = new EnterFrameTicker() ;
-        	BetweenJS.intervalDelay = 0 ;
-			BetweenJS.ticker.start() ;
-			
-			//this.updaterClassRegistry = new ClassRegistry();
-			//this.updaterFactory = new UpdaterFactory(_updaterClassRegistry);
-			//
-			
-			BetweenJS.updaterFactory = new UpdaterFactory() ;
-			/*
-			 TODOS > make (custom) reflection classes matching special properties with native objects / other extended class objects
-			
-			_updaterClassRegistry = new ClassRegistry();
-			_updaterFactory = new UpdaterFactory(_updaterClassRegistry);
-			
-			ObjectUpdater.register(_updaterClassRegistry);
-			DisplayObjectUpdater.register(_updaterClassRegistry);
-			MovieClipUpdater.register(_updaterClassRegistry);
-			PointUpdater.register(_updaterClassRegistry);
-			*/
-			BetweenJS.initialized = true ;
-      },
-      ticker:undefined,
-		updaterClassRegistry:undefined,
-		updaterFactory:undefined,
-		
-		tween:function(target, to, from, time, easing)
-		{
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		to:function(target, to, time, easing)
-		{
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		from:function(target, from, time, easing)
-		{
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		apply:function(target, to, from, time, applyTime, easing)
-		{
-			
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			tween.update(applyTime || 1.0) ;
-			return tween ;
-		},
-		bezier:function(target, to, from, controlPoint, time, easing)
-		{
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		bezierTo:function(target, to, controlPoint, time, easing)
-		{
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		bezierFrom:function(target, from, controlPoint, time, easing)
-		{
-			
-			var tween = new ObjectTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
-			tween.time = time || 1.0 ;
-			tween.easing = easing || Linear.easeNone ;
-			return tween ;
-		},
-		physical:function(target, to, from, easing)
-		{
-			var tween = new PhysicalTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
-			return tween ;
-		},
-		physicalTo:function(target, to, easing)
-		{
-			var tween = new PhysicalTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
-			return tween ;
-		},
-		physicalFrom:function(target, from, easing)
-		{
-			
-			var tween = new PhysicalTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
-			return tween ;
-		},
-		physicalApply:function(target, to, from, applyTime, easing)
-		{
-			
-			var tween = new PhysicalTween(BetweenJS.ticker) ;
-			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
-			tween.update(applyTime || 1.0) ;
-			return tween ;
-		},
-		parallel:function(tweens)
-		{
-			return BetweenJS.parallelTweens([].slice.call(arguments)) ;
-		},
-		parallelTweens:function(tweens)
-		{
-			return new ParallelTween(tweens, BetweenJS.ticker, 0) ;
-		},
-		serial:function(tweens)
-		{
-			return BetweenJS.serialTweens([].slice.call(arguments)) ;
-		},
-		serialTweens:function(tweens)
-		{
-			return new SerialTween(tweens, BetweenJS.ticker, 0) ;
-		},
-		reverse:function(tween, reversePosition)
-		{
-			if(reversePosition === undefined) reversePosition = false ;
-			var pos = reversePosition ? tween.time - tween.position : 0.0 ;
-			if (tween instanceof ReversedTween) {
-				return new TweenDecorator(tween.baseTween, pos) ;
-			}
-			if (tween.constructor == TweenDecorator) {
-				tween = tween.baseTween ;
-			}
-			return new ReversedTween(tween, pos) ;
-		},
-		repeat:function(tween, repeatCount)
-		{
-			return new RepeatedTween(tween, repeatCount) ;
-		},
-		scale:function(tween, scale)
-		{
-			return new ScaledTween(tween, scale) ;
-		},
-		slice:function(tween, begin, end, isPercent)
-		{
-		    if(isPercent === undefined) isPercent = false ;
-			if (isPercent) {
-				begin = tween.time * begin ;
-				end = tween.time * end ;
-			}
-			if (begin > end) {
-				return new ReversedTween(new SlicedTween(tween, end, begin), 0) ;
-			}
-			return new SlicedTween(tween, begin, end) ;
-		},
-		delay:function(tween, delay, postDelay)
-		{
-			return new DelayedTween(tween, delay || 0, postDelay || 0) ;
-		},
-		addChild:function(target, parent)
-		{
-			//return new AddChildAction(_ticker, target, parent);
-		},
-		removeFromParent:function(target)
-		{
-			//return new RemoveFromParentAction(_ticker, target);
-		},
-		func:function(func, params, useRollback, rollbackFunc, rollbackParams)
-		{
-			//return new FunctionAction(_ticker, func, params, useRollback, rollbackFunc, rollbackParams);
-		}
-    }
-})));
-
 
 /*  EASINGS */
 // CUSTOM
@@ -692,118 +478,211 @@ var Sine = {
 	easeOutIn:new SineEaseOutIn()
 } ;
 
-// PHYSICAL
-var Physical = {
-	defaultFrameRate:30.0,
-	uniform:function(velocity, frameRate){
-		return new PhysicalUniform(velocity || 10.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	},
-	accelerate:function(acceleration, initialVelocity, frameRate){
-		return new PhysicalAccelerate(initialVelocity || 0.0, acceleration || 1.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	},
-	exponential:function(factor, threshold, frameRate){
-		return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	}
-} ;
-var PhysicalAccelerate = NS('PhysicalAccelerate', NS('org.libspark.betweenJS.core.easing::PhysicalAccelerate', Class.$extend({
-    __classvars__:{
-        version:'0.0.1',
+
+/* BETWEENJS */
+var BetweenJS = NS('BetweenJS', NS('org.libspark.betweenJS::BetweenJS', Class.$extend({
+    __classvars__:{version:'0.0.1',
         toString:function()
         {
-            return '[class PhysicalAccelerate]' ;
-        }
-    },
-    iv:undefined,
-    a:undefined,
-    fps:undefined,
-    __init__:function(iv, a, fps)
-    { 
-       this.iv = iv ;
-       this.a = a ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c)
-    {
-         var iv = c < 0 ? - this.iv : this.iv ;
-			var a = c < 0 ? - this.a : this.a ;
+            return '[class BetweenJS]' ;
+        },
+        core:function(){
+        	var cored = this.cored ;
+        	
+        	if(cored === true) return ;
+        	//trace('core initializing BetweenJS') ;
+        	
+        	BetweenJS.ticker = new EnterFrameTicker() ;
+        	BetweenJS.intervalDelay = 0 ;
+			BetweenJS.ticker.start() ;
 			
-			return ((-iv + Math.sqrt(iv * iv - 4 * (a / 2.0) * -c)) / (2 * (a / 2.0))) * (1.0 / this.fps);
+			//this.updaterClassRegistry = new ClassRegistry();
+			//this.updaterFactory = new UpdaterFactory(_updaterClassRegistry);
+			//
+			
+			this.updaterFactory = new UpdaterFactory() ;
+			/*
+			_updaterClassRegistry = new ClassRegistry();
+			_updaterFactory = new UpdaterFactory(_updaterClassRegistry);
+			
+			ObjectUpdater.register(_updaterClassRegistry);
+			DisplayObjectUpdater.register(_updaterClassRegistry);
+			MovieClipUpdater.register(_updaterClassRegistry);
+			PointUpdater.register(_updaterClassRegistry);
+			*/
+			this.cored = true ;
+        },
+        
+        ticker:undefined,//:ITicker,
+		updaterClassRegistry:undefined,//:ClassRegistry;
+		updaterFactory:undefined,//:UpdaterFactory;
+		
+		tween:function(target/*:Object*/, to/*:Object*/, from/*:Object = null*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			
+			var tween = new ObjectTween(BetweenJS.ticker) ;//:ObjectTween 
+			tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		to:function(target/*:Object*/, to/*:Object*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		from:function(target/*:Object*/, from/*:Object*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		apply:function(target/*:Object*/, to/*:Object*/, from/*:Object = null*/, time/*:Number = 1.0*/, applyTime/*:Number = 1.0*/, easing/*:IEasing = null*/)//:void
+		{
+			
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			tween.update(applyTime || 1.0) ;
+			return tween ;
+		},
+		bezier:function(target/*:Object*/, to/*:Object*/, from/*:Object = null*/, controlPoint/*:Object = null*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		bezierTo:function(target/*:Object*/, to/*:Object*/, controlPoint/*:Object = null*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		bezierFrom:function(target/*:Object*/, from/*:Object*/, controlPoint/*:Object = null*/, time/*:Number = 1.0*/, easing/*:IEasing = null*/)//:IObjectTween
+		{
+			
+			var tween = new ObjectTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
+			tween.time = time || 1.0 ;
+			tween.easing = easing || Linear.easeNone ;
+			return tween ;
+		},
+		physical:function(target/*:Object*/, to/*:Object*/, from/*:Object = null*/, easing/*:IPhysicalEasing = null*/)//:IObjectTween
+		{
+			var tween = new PhysicalTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
+			return tween ;
+		},
+		physicalTo:function(target/*:Object*/, to/*:Object*/, easing/*:IPhysicalEasing = null*/)//:IObjectTween
+		{
+			var tween = new PhysicalTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
+			return tween ;
+		},
+		physicalFrom:function(target/*:Object*/, from/*:Object*/, easing/*:IPhysicalEasing = null*/)//:IObjectTween
+		{
+			
+			var tween = new PhysicalTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
+			return tween ;
+		},
+		physicalApply:function(target/*:Object*/, to/*:Object*/, from/*:Object = null*/, applyTime/*:Number = 1.0*/, easing/*:IPhysicalEasing = null*/)//:void
+		{
+			
+			var tween = new PhysicalTween(BetweenJS.ticker) ;
+			tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
+			tween.update(applyTime || 1.0) ;
+			return tween ;
+		},
+		parallel:function(tweens)//:ITweenGroup
+		{
+			return BetweenJS.parallelTweens([].slice.call(arguments)) ;
+		},
+		parallelTweens:function(tweens)//:ITweenGroup
+		{
+			return new ParallelTween(tweens, BetweenJS.ticker, 0) ;
+		},
+		serial:function(tweens/*:Array*/)//:ITweenGroup
+		{
+			return BetweenJS.serialTweens([].slice.call(arguments)) ;
+		},
+		serialTweens:function(tweens/*:Array*/)//:ITweenGroup
+		{
+			return new SerialTween(tweens, BetweenJS.ticker, 0) ;
+		},
+		reverse:function(tween/*:ITween*/, reversePosition/*:Boolean = true*/)//:ITween
+		{
+			if(reversePosition === undefined) reversePosition = false ;
+			var pos = reversePosition ? tween.time - tween.position : 0.0 ;
+			if (tween instanceof ReversedTween) {
+				return new TweenDecorator(tween.baseTween, pos) ;
+			}
+			if (tween.constructor == TweenDecorator) {
+				tween = tween.baseTween ;
+			}
+			return new ReversedTween(tween, pos) ;
+		},
+		repeat:function(tween/*:ITween*/, repeatCount/*:uint*/)//:ITween
+		{
+			return new RepeatedTween(tween, repeatCount) ;
+		},
+		scale:function(tween/*:ITween*/, scale/*:Number*/)//:ITween
+		{
+			return new ScaledTween(tween, scale) ;
+		},
+		slice:function(tween/*:ITween*/, begin/*:Number*/, end/*:Number*/, isPercent/*:Boolean = false*/)//:ITween
+		{
+		    if(isPercent === undefined) isPercent = false ;
+			if (isPercent) {
+				begin = tween.time * begin ;
+				end = tween.time * end ;
+			}
+			if (begin > end) {
+				return new ReversedTween(new SlicedTween(tween, end, begin), 0) ;
+			}
+			return new SlicedTween(tween, begin, end) ;
+		},
+		delay:function(tween/*:ITween*/, delay/*:Number*/, postDelay/*:Number = 0.0*/)//:ITween
+		{
+			return new DelayedTween(tween, delay || 0, postDelay || 0) ;
+		},
+		addChild:function(target/*:DisplayObject*/, parent/*:DisplayObjectContainer*/)//:ITween
+		{
+			//return new AddChildAction(_ticker, target, parent);
+		},
+		removeFromParent:function(target/*:DisplayObject*/)//:ITween
+		{
+			//return new RemoveFromParentAction(_ticker, target);
+		},
+		func:function(func/*:Function*/, params/*:Array = null*/, useRollback/*:Boolean = false*/, rollbackFunc/*:Function = null*/, rollbackParams/*:Array = null*/)//:ITween
+		{
+			//return new FunctionAction(_ticker, func, params, useRollback, rollbackFunc, rollbackParams);
+		}
     },
-    calculate:function(t, b, c)
+    __init__:function()
     {
-         var f = c < 0 ? -1 : 1 ;
-			var n = t / (1.0 / this.fps) ;
-			return b + (f * this.iv) * n + ((f * this.a) * n) * n / 2.0 ;
+       
+       
+       
     },
     toString:function()
     {
         return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']';
     }
 })));
-var PhysicalExponential = NS('PhysicalExponential', NS('org.libspark.betweenJS.core.easing::PhysicalExponential', Class.$extend({
-    __classvars__:{
-        version:'0.0.1',
-        toString:function()
-        {
-            return '[class PhysicalExponential]' ;
-        }
-    },
-    f:undefined,
-    th:undefined,
-    fps:undefined,
-    __init__:function(f, th, fps)
-    { 
-       this.f = f ;
-       this.th = th ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c)
-    {
-         return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (1.0 / this.fps) ;
-    },
-    calculate:function(t, b, c)
-    {
-         return -c * Math.pow(1 - this.f, (t / (1.0 / this.fps)) - 1) + (b + c) ;
-    },
-    toString:function()
-    {
-        return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']' ;
-    }
-})));
-var PhysicalUniform = NS('PhysicalUniform', NS('org.libspark.betweenJS.core.easing::PhysicalUniform', Class.$extend({
-    __classvars__:{
-        version:'0.0.1',
-        toString:function()
-        {
-            return '[class PhysicalUniform]' ;
-        }
-    },
-    v:undefined,
-    fps:undefined,
-    __init__:function(v, fps)
-    { 
-       this.v = v ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c)
-    {
-         return (c / (c < 0 ? -this.v : this.v)) * (1.0 / this.fps) ;
-    },
-    calculate:function(t, b, c)
-    {
-         return b + (c < 0 ? -this.v : this.v) * (t / (1.0 / this.fps)) ;
-    },
-    toString:function()
-    {
-        return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']' ;
-    }
-})));
+
+
+
 
 // CORE.UPDATERS
 var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.updaters::UpdaterFactory', Class.$extend({
@@ -833,6 +712,7 @@ var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.update
     create:function(target, dest, source)
     {
         var map/*:Dictionary*/, updaters/*:Array*/, name/*:String*/, value/*:Object*/, isRelative/*:Boolean*/, parent/*:IUpdater*/, child/*:IUpdater*/, updater/*:IUpdater*/;
+        var units ;
         if (this.poolIndex > 0) {
             --this.poolIndex ;
             map = this.mapPool[this.poolIndex] /*as Dictionary*/;
@@ -849,6 +729,7 @@ var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.update
                     if ((isRelative = /^\$/.test(name))) {
                         name = name.substr(1) ;
                     }
+                    
                     this.getUpdaterFor(target, name, map, updaters).setSourceValue(name, parseInt(value), isRelative) ;
                 }
                 else {
@@ -865,9 +746,9 @@ var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.update
                     if ((isRelative = /^\$/.test(name))) {
                         name = name.substr(1) ;
                     }
+                    
                     this.getUpdaterFor(target, name, map, updaters).setDestinationValue(name, parseInt(value), isRelative) ;
-                }
-                else {
+                } else {
                     if (!(source !== undefined && name in source)) {
                         parent = this.getUpdaterFor(target, name, map, updaters) ;
                         child = this.create(parent.getObject(name), value, source !== undefined ? source[name] : undefined) ;
@@ -969,64 +850,54 @@ var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.update
         
         return updater ;
     },
-    createPhysical:function(target, dest, source, easing)
-	 {
-		var map = {}, updaters = [], physicalUpdater = new PhysicalUpdater(), name, value, isRelative, child, updater ;
-		
-		physicalUpdater.target = target ;
-		physicalUpdater.easing = easing ;
-		
-		updaters.push(physicalUpdater) ;
-		
-		if (source !== undefined) {
-			for (name in source) {
-				if (typeof(value = source[name]) == 'number') {
-					if ((isRelative = /^\$/.test(name))) {
-						name = name.substr(1) ;
-					}
-					physicalUpdater.setSourceValue(name, parseFloat(value), isRelative) ;
-				} else {
-					if (map[name] !== true) {
-						child = this.createPhysical(physicalUpdater.getObject(name), dest !== undefined ? dest[name] : undefined, value, easing) ;
-						updaters.push(new PhysicalUpdaterLadder(physicalUpdater, child, name)) ;
-						map[name] = true ;
-					}
-				}
-			}
-		}
-		if (dest !== undefined) {
-			for (name in dest) {
-				if (typeof(value = dest[name]) == 'number') {
-					if ((isRelative = /^\$/.test(name))) {
-						name = name.substr(1) ;
-					}
-					physicalUpdater.setDestinationValue(name, parseFloat(value), isRelative) ;
-				} else {
-					if (map[name] !== true) {
-						child = this.createPhysical(physicalUpdater.getObject(name), undefined, source !== undefined ? source[name] : undefined, easing) ;
-						updaters.push(new PhysicalUpdaterLadder(physicalUpdater, child, name)) ;
-						map[name] = true ;
-					}
-				}
-			}
-		}
-		if (updaters.length == 1) {
-			updater = updaters[0] ;
-		} else if (updaters.length > 1) {
-			updater = new CompositePhysicalUpdater(target, updaters) ;
-		}
-		return updater ;
-	},
-    getUpdaterFor:function(target/*:Object*/, propertyName/*:String*/, map/*:Dictionary*/, list/*:Array*/)///:IUpdater
+    getClassByTargetClassAndPropertyName:function(ctor){
+        
+        var type ;
+        switch(true){
+            
+            case /HTML[a-zA-Z]+Element/.test(ctor) :
+            case ctor === undefined : // IE 7-
+                type = DOMElementUpdater.ns ;
+            break ;
+            
+            case ctor === Class :
+            case ctor === Date :
+            case ctor === Number :
+            case ctor === String :
+            case ctor === Function :
+            case ctor === Object :
+            default:
+                type = ObjectUpdater.ns ;
+            break ;
+            
+        }
+        return type ;
+    },
+    getUpdaterFor:function(target, propertyName, map, list)// AbstractUpdater
     {
-        //var updaterClass/*:Class*/ = this.registry.getClassByTargetClassAndPropertyName(target.constructor, propertyName);
-        
-        var updaterClass/*:Class*/ = ObjectUpdater.ns ;
-        
+        var updaterClass = this.getClassByTargetClassAndPropertyName(target.constructor) ;
+        var units ;
+        trace(propertyName)
+        if ((/::PX$/i.test(propertyName))) {
+            propertyName = propertyName.substring(-2) ;
+            units = 'px' ;
+        }
+        if ((/::PC$/i.test(propertyName))) {
+            propertyName = propertyName.substring(-2) ;
+            units = 'pc' ;
+        }
+        if ((/::EM$/i.test(propertyName))) {
+            propertyName = propertyName.substring(-2) ;
+            units = 'em' ;
+        }
+        if ((/::%$/.test(propertyName))) {
+            propertyName = propertyName.substring(-1) ;
+            units = '%' ;
+        }
         if (updaterClass !== undefined) {
-            var updater/*:IUpdater*/ = map[updaterClass] /*as IUpdater*/;
+            var updater = map[updaterClass] ;
             if (updater === undefined) {
-                updater = new NS(updaterClass)() ;
+                updater = new NS(updaterClass)(units) ;
                 updater.target = target ;
                 map[updaterClass] = updater ;
                 if (list !== undefined) {
@@ -1201,6 +1072,117 @@ var ObjectUpdater = NS('ObjectUpdater', NS('org.libspark.betweenJS.core.updaters
         return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']';
     }
 })));
+
+var DOMElementUpdater = NS('DOMElementUpdater', NS('org.libspark.betweenJS.core.updaters::DOMElementUpdater', AbstractUpdater.$extend({
+    __classvars__:{
+        version:'0.0.1',
+        register:function(registry){
+            //registry.registerClassWithTargetClassAndPropertyName(ObjectUpdater, Object, '*');
+        },
+        toString:function()
+        {
+            return '[class DOMElementUpdater]' ;
+        }
+    },
+    target:undefined,
+    source:undefined,
+    destination:undefined,
+    relativeMap:undefined,
+    __init__:function(units)
+    {
+         this.$super() ;
+         this.source = {} ;
+         this.destination = {} ;
+         this.relativeMap = {} ;
+         this.units = units || 'px' ;
+         
+         this.reg = new RegExp('::'+this.units + '$') ;
+         
+       return this ;
+    },
+    setSourceValue:function(propertyName, value, isRelative){
+        propertyName = propertyName.replace(this.reg, '') ;
+        trace(propertyName)
+        if(isRelative === undefined) isRelative = false ;
+        this.source[propertyName] = value ;
+        this.relativeMap['source.' + propertyName] = isRelative ;
+    },
+    setDestinationValue:function(propertyName, value, isRelative){
+        propertyName = propertyName.replace(this.reg, '') ;
+        
+        if(isRelative === undefined) isRelative = false ;
+        this.destination[propertyName] = value ;
+        this.relativeMap['dest.' + propertyName] = isRelative ;
+    },
+    getObject:function(propertyName){
+        propertyName = propertyName.replace(this.reg, '') ;
+        
+        return this.target.style[propertyName] ;
+    },
+    setObject:function(propertyName, value){
+        propertyName = propertyName.replace(this.reg, '') ;
+        this.target.style[propertyName] = value ;
+    },
+    resolveValues:function(){
+        var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap ;
+        
+        for (key in source) {
+            if (dest[key] === undefined) {
+                dest[key] = target.style[key] ;
+                trace(target.style[key])
+            }
+            if (!!rMap['source.' + key]) {
+                source[key] += target.style[key] ;
+            }
+        }
+        for (key in dest) {
+            if (source[key] === undefined) {
+                source[key] = target.style[key] ;
+                trace(target.style[key])
+            }
+            if (!!rMap['dest.' + key]) {
+                dest[key] += target.style[key] ;
+            }
+        }
+    },
+    updateObject:function(factor)
+    {
+        var invert = 1.0 - factor ;
+        var t = this.target ;
+        var d = this.destination ;
+        var s = this.source ;
+        var str ;
+
+        for (str in d) {
+            t.style[str] = parseFloat(s[str] * invert + d[str] * factor ) + this.units ;
+        }
+    },
+    newInstance:function()
+    {
+        return new DOMElementUpdater() ;
+    },
+    copyFrom:function(source)
+    {
+        this.$super(source) ;
+        var obj = source ;
+        
+        this.target = obj.target ;
+        this.copyObject(this.source, obj.source) ;
+        this.copyObject(this.destination, obj.destination) ;
+        this.copyObject(this.relativeMap, obj.relativeMap) ;
+    },
+    copyObject:function(to, from)
+    {
+        for (var s in from) {
+            to[s] = from[s] ;
+        }
+    },
+    toString:function()
+    {
+        return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']';
+    }
+})));
+
 
 var CompositeUpdater = NS('CompositeUpdater', NS('org.libspark.betweenJS.core.updaters::CompositeUpdater', Class.$extend({
     __classvars__:{
@@ -1390,7 +1372,7 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
     destination:undefined,
     relativeMap:undefined,
     easing:undefined,
-    time:undefined,
+    duration:undefined,
     maxDuration:0.0,
     isResolved:false,
     __init__:function()
@@ -1399,7 +1381,7 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
         this.destination = {} ;
         this.relativeMap = {} ;
         
-        this.time = {} ;
+        this.duration = {} ;
         return this ;
     },
     setSourceValue:function(propertyName, value, isRelative){
@@ -1411,42 +1393,41 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
         this.relativeMap['dest.' + propertyName] = isRelative ;
     },
     getObject:function(propertyName){
-        return this.target[propertyName] ;
+        return this.target[propertyName];
     },
     setObject:function(propertyName, value){
-        this.target[propertyName] = value ;
+        this.target[propertyName] = value;
     },
     resolveValues:function(){
-        var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap, d = this.time, 
-        time, maxDuration = 0.0 ;
+        var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap, d = this.duration, 
+        duration, maxDuration = 0.0 ;
             
             for (key in source) {
-                if (dest[key] === undefined) {
+                if (dest[key] == undefined) {
                     dest[key] = target[key] ;
                 }
-                if (!!rMap['source.' + key]) {
+                if (rMap['source.' + key]) {
                     source[key] += target[key] ;
                 }
             }
             for (key in dest) {
-                if (source[key] === undefined) {
+                if (source[key] == undefined) {
                     source[key] = target[key] ;
                 }
-                if (!!rMap['dest.' + key]) {
+                if (rMap['dest.' + key]) {
                     dest[key] += target[key] ;
                 }
-                time = this.easing.getDuration(source[key], dest[key] - source[key]) ;
-                
-                d[key] = time ;
-                if (maxDuration < time) {
-                    maxDuration = time ;
+                duration = this.easing.getDuration(source[key], dest[key] - source[key]) ;
+                d[key] = duration ;
+                if (maxDuration < duration) {
+                    maxDuration = duration ;
                 }
             }
             
             this.maxDuration = maxDuration ;
             
             this.isResolved = true ;
-        		trace(this)
+        
     },
     update:function(time)
     {
@@ -1459,7 +1440,7 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
         e = this.easing,
         dest = this.destination,
         src = this.source,
-        d = this.time,
+        d = this.duration,
         s,name ;
         
         for (name in dest) {
@@ -1481,7 +1462,7 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
     },
     newInstance:function()
     {
-        return new PhysicalUpdater ;
+        return new NS('PhysicalUpdater') ;
     },
     copyFrom:function(source)
     {
@@ -1490,7 +1471,7 @@ var PhysicalUpdater = NS('PhysicalUpdater', NS('org.libspark.betweenJS.core.upda
         this.target = obj.target ;
         this.easing = obj.easing ;
         copyObject(this.source, obj.source) ;
-        copyObject(this.time, obj.time) ;
+        copyObject(this.destination, obj.destination) ;
         copyObject(this.relativeMap, obj.relativeMap) ;
     },
     copyObject:function(to, from)
@@ -1518,13 +1499,13 @@ var PhysicalUpdaterLadder = NS('PhysicalUpdaterLadder', NS('org.libspark.between
     child:undefined,
     propertyName:undefined,
     easing:undefined,
-    time:0.0,
+    duration:0.0,
     __init__:function(parent, child, propertyName)
     {
         this.parent = parent ;
         this.child = child ;
         this.propertyName = propertyName ;
-        this.time = this.parent.time ;
+        this.duration = this.parent.duration ;
         
         return this ;
     },
@@ -1718,6 +1699,7 @@ var TickerListener = NS('TickerListener', NS('org.libspark.betweenJS.core.ticker
     {
         
         this.$super(new EventDispatcher()) ;
+        
         return this ;
     },
     tick:function(time)
@@ -1780,7 +1762,7 @@ var EnterFrameTicker = NS('EnterFrameTicker', NS('org.libspark.betweenJS.tickers
 		
 		++this.numListeners ;
 	},
-	 removeTickerListener:function(listener)
+	removeTickerListener:function(listener)
 	{
 		var l = this.first ;
 		
@@ -1804,17 +1786,17 @@ var EnterFrameTicker = NS('EnterFrameTicker', NS('org.libspark.betweenJS.tickers
 			l = l.nextListener ;
 		}
 	},
-	 start:function()
+	start:function()
 	{
 		this.time = getTimer() * .001 ;
 		var eft = this ;
 		this.interval = setInterval(function(){eft.update()}, 20) ;
 	},
-	 stop:function()
+	stop:function()
 	{
 		clearInterval(this.interval) ;
 	},
-	 update:function(e)
+	update:function(e)
 	{
 		
 		var t = this.time = getTimer() * .001 ;
@@ -1989,7 +1971,6 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
     
     play:function()
     {
-    	
         if (!this.isPlaying) {
             if (this.position >= this.time) {
                 this.position = 0 ;
@@ -2121,6 +2102,7 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
         this.position = t ;
         this.internalUpdate(t) ;
         
+        
         if ((this.willTriggerFlags & 0x04) != 0) {
             this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
         }
@@ -2199,7 +2181,8 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
     },
     addEL:function(type, listener)
     {
-    	  this.$super(type, listener) ;
+        trace('>>>>>>>>>>>>>>>>>'+type)
+    	this.$super(type, listener) ;
         this.updateWillTriggerFlags() ;
         
         return this ;
@@ -2213,7 +2196,10 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
     },
     dispatch:function(e)
     {
-		return this.$super(e) ;
+		if (this.target !== undefined) {
+			return this.target.dispatch(e);
+		}
+		return false ;
     },
     updateWillTriggerFlags:function()
     {
@@ -2284,7 +2270,7 @@ var ObjectTween = NS('ObjectTween', NS('org.libspark.betweenJS.tweens::ObjectTwe
     },
     copyFrom:function(source)
     {
-        this.$super(source);
+        this.$super.copyFrom(source);
         
         this.easing = source.easing ;
         this.updater = source.updater.clone() ;
@@ -2296,53 +2282,6 @@ var ObjectTween = NS('ObjectTween', NS('org.libspark.betweenJS.tweens::ObjectTwe
     }
 })));
 
-var PhysicalTween = NS('PhysicalTween', NS('org.libspark.betweenJS.tweens::PhysicalTween', AbstractTween.$extend({
-    __classvars__:{
-        version:'0.0.1',
-        toString:function()
-        {
-            return '[class PhysicalTween]' ;
-        }
-    },
-    updater:undefined,
-    target:undefined,
-    setted:false,
-    __init__:function(ticker)
-    {
-       this.$super(ticker, 0) ;
-       
-       trace(this.time)
-       
-       return this ;
-    },
-    settings:function(){
-    	if(this.updater !== undefined){
-    		this.time = this.updater.time ;
-    		this.target = this.updater.target ;
-    	}
-    },
-    internalUpdate:function(time)
-    {
-    	 if(this.setted !== true){
-    	 	this.settings() ;
-    	 	this.setted = true ;
-    	 }
-       this.updater.update(time);
-    },
-    newInstance:function()
-    {
-        return new PhysicalTween(this.ticker) ;
-    },
-    copyFrom:function(source)
-    {
-        this.$super(source) ;
-		  this.updater = source.updater.clone() ;
-    },
-    toString:function()
-    {
-        return '[ object ' + this.$class.ns + ' v.'+this.$class.version +']';
-    }
-})));
 // DECORATORS
 var TweenDecorator = NS('TweenDecorator', NS('org.libspark.betweenJS.tweens::TweenDecorator', AbstractTween.$extend({
     __classvars__:{
