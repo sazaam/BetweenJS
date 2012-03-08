@@ -1101,7 +1101,6 @@ var DOMElementUpdater = NS('DOMElementUpdater', NS('org.libspark.betweenJS.core.
     },
     setSourceValue:function(propertyName, value, isRelative){
         propertyName = propertyName.replace(this.reg, '') ;
-        trace(propertyName)
         if(isRelative === undefined) isRelative = false ;
         this.source[propertyName] = value ;
         this.relativeMap['source.' + propertyName] = isRelative ;
@@ -1128,7 +1127,6 @@ var DOMElementUpdater = NS('DOMElementUpdater', NS('org.libspark.betweenJS.core.
         for (key in source) {
             if (dest[key] === undefined) {
                 dest[key] = target.style[key] ;
-                trace(target.style[key])
             }
             if (!!rMap['source.' + key]) {
                 source[key] += target.style[key] ;
@@ -1137,7 +1135,6 @@ var DOMElementUpdater = NS('DOMElementUpdater', NS('org.libspark.betweenJS.core.
         for (key in dest) {
             if (source[key] === undefined) {
                 source[key] = target.style[key] ;
-                trace(target.style[key])
             }
             if (!!rMap['dest.' + key]) {
                 dest[key] += target.style[key] ;
