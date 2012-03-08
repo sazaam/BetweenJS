@@ -877,7 +877,6 @@ var UpdaterFactory = NS('UpdaterFactory', NS('org.libspark.betweenJS.core.update
     {
         var updaterClass = this.getClassByTargetClassAndPropertyName(target.constructor) ;
         var units ;
-        trace(propertyName)
         if ((/::PX$/i.test(propertyName))) {
             propertyName = propertyName.substring(-2) ;
             units = 'px' ;
@@ -1734,7 +1733,7 @@ var EnterFrameTicker = NS('EnterFrameTicker', NS('org.libspark.betweenJS.tickers
     time:undefined,
     __init__:function()
     {
-        this.numListeners = 0 ;
+      this.numListeners = 0 ;
 		this.tickerListenerPaddings = new Array(10) ;
 		var prevListener = undefined ;
 		
@@ -1851,6 +1850,10 @@ var EnterFrameTicker = NS('EnterFrameTicker', NS('org.libspark.betweenJS.tickers
 			 	 listener = ll; 
 			 	 --this.numListeners; 
 		 	 }
+		 	 
+		 	 
+		 	 
+		 	 
 		    if ((listener = listener.nextListener).tick(t)) { 
 			 	 if (listener.prevListener !== undefined) { 
 			 	 	listener.prevListener.nextListener = listener.nextListener ; 
@@ -2084,7 +2087,7 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
 			  this.startTime = t - this.position ; 
 			  this.tick(t) ; 
 		  }else { 
-		  		this.play() ; 
+		  		this.play() ;
 		  }
     },
     gotoAndStop:function(position)
@@ -2222,7 +2225,6 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
     },
     addEL:function(type, listener)
     {
-        trace('>>>>>>>>>>>>>>>>>'+type)
     	this.$super(type, listener) ;
         this.updateWillTriggerFlags() ;
         
