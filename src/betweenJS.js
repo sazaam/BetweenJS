@@ -1630,7 +1630,15 @@ var BezierUpdater = NS('BezierUpdater', NS('org.libspark.betweenJS.core.updaters
                 if ((l = cpVec.length) == 1) {
                     t[name] = b + factor * (2 * invert * (cpVec[0] - b) + factor * (d[name] - b)) ;
                 } else {
-                    ip = (factor * l) >> 0 ;
+                    //ip = (factor * l) >> 0 ;
+                    if (factor < 0.0) { 
+								ip = 0 ; 
+							} else if (factor > 1.0) { 
+								ip = l - 1 ; 
+							}else { 
+								ip = (factor * l) >> 0 ; 
+							}
+							
                     it = (factor - (ip * (1 / l))) * l ;
                     if (ip == 0) {
                         p1 = b ;
@@ -1810,112 +1818,136 @@ var EnterFrameTicker = NS('EnterFrameTicker', NS('org.libspark.betweenJS.tickers
 		}
 		
 		while (listener.nextListener !== undefined) {
+			
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
+		    if ((listener = listener.nextListener).tick(t)) { 
+			 	 if (listener.prevListener !== undefined) { 
+			 	 	listener.prevListener.nextListener = listener.nextListener ; 
+			 	 } 
+			 	 if (listener.nextListener !== undefined) { 
+			 	 	listener.nextListener.prevListener = listener.prevListener ; 
+			 	 } 
+			 	 if (listener == this.first) { 
+			 	 	this.first = listener.nextListener ; 
+			 	 }  
+			 	 ll = listener.prevListener; 
+			 	 listener.nextListener = undefined ; 
+			 	 listener.prevListener = undefined ; 
+			 	 listener = ll; 
+			 	 --this.numListeners; 
+		 	 }
 		    
-		    
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
-            if ((listener = listener.nextListener).tick(t)) {
-                if (listener.prevListener !== undefined) {
-                    listener.prevListener.nextListener = listener.nextListener ;
-                }
-                if (listener.nextListener !== undefined) {
-                    listener.nextListener.prevListener = listener.prevListener ;
-                }
-                ll = listener.prevListener ;
-                listener.nextListener = undefined ;
-                listener.prevListener = undefined ;
-                listener = ll ;
-                --this.numListeners ;
-            }
 		}
 		if ((this.first = l.nextListener) !== undefined) {
 			this.first.prevListener = undefined ;
@@ -2044,7 +2076,16 @@ var AbstractTween = NS('AbstractTween', NS('org.libspark.betweenJS.core.tweens::
             position = this.time ;
         }
         this.position = position ;
-        this.play();
+        if (this.isPlaying) {
+			  if (this.position >= this.time) { 
+			  		this.position = 0 ;
+			  } 
+			  var t = this.ticker.time ; 
+			  this.startTime = t - this.position ; 
+			  this.tick(t) ; 
+		  }else { 
+		  		this.play() ; 
+		  }
     },
     gotoAndStop:function(position)
     {
