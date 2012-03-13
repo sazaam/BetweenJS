@@ -10,10 +10,43 @@ since one has to become picky and rigourous with Tweens, if one wants a good/flu
 - for nested values to tween -> {x:150, nestedObject:{x:100}}
 - implements the 'yield'-type pattern
 - one unique enterframe and subscribe/unsubscribe
+- RequestAnimationFrame implementation in case native support
 - for callbacks, can work with or without events
+- units handled :
+    API syntax is as following:
+        BetweenJS.to(target, {'width':130, 'height::%':100}, .25, Expo.easeOut)  ;
+    Percents : 'height::%'
+    Ems :'fontSize::EM' (case insensitive)
+    Pcs :'fontSize::PC' (case insensitive)
+    (DEFAULT) Pixels :'fontSize::PX' (case insensitive), or not specified at all ('width':150 will fallback to Pixel units)
+    if NO NEED FOR UNITS (opacity, z-index:those type of unitless declarations), use {'opacity::NONE':.4}
+
+
 
 In simple, when creating, don't get frustrated, test it all over to finally choose the best tween for the right purpose.
 later, there shall be more to explain, but for more API info right now:
 http://www.libspark.org/wiki/BetweenAS3/en
 
 Needs jQuery, NS and Naja to work for now.
+
+
+
+
+
+Update Log v 0.65
+
+Fixed issues :
+- Back.easeOut and Back.easeIn showed the same effect (easeOut was wrongly implemented, fixed now)
+- Event > Event implementation was overriding native Events (NOT GOOD AT ALL), fiwed by calling it IEvent, instead of Event.
+- DOMElementUpdater > Couldn't pass a tween of two properties(or more) tweening on different units. (ex: width tweening in pixels, ad height tweening in percents),
+now all following units will be co-working buglessly : 'px', 'em', '%', 'pc'.
+- For nested object values/properties tweening, just like Bezier, could only work on other updaters than DomElementUpdater.
+
+Known Issues :
+- Only DomElementUpdater will work directly and tween DOM elements Properties, 
+Meaning that requesting for BetweenJS.bezier, bezierTo, bezierFrom, will tween indeed, but won't update Dom Element, 
+same goes for physicalTo, physicalFrom, and physical...
+Only works with Abstract / custom Objects. (for now)
+Unless, of course, you decide to pass as Target, the 'style' object of a DOM element.
+- doesn't compute colors yet. (no color tweens implementation)
+
