@@ -27,6 +27,9 @@ In simple, when creating, don't get frustrated, test it all over to finally choo
 later, there shall be more to explain, but for more API info right now:
 http://www.libspark.org/wiki/BetweenAS3/en
 
+Live demo :
+http://sazaam.net/demos/betweenJS/
+
 Needs jQuery, NS and Naja to work for now.
 
 
