@@ -2620,8 +2620,8 @@ var BackEaseInOut = function(s){
 	s = s || 1.70158 ;
 	return {calculate:function(t, b, c, d)
 	{
-		if ((t /= d / 2) < 1) return c / 2 * (t*t*(((s*=(1.525))+1)*t - s)) + b ;
-		else return c / 2 * ((t -= 2) * t * (((s*=(1.525))+1)*t + s) + 2) + b ;
+		if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
+		else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
 	}} ;
 }
 var BackEaseOutIn = function(s){
