@@ -7,16 +7,16 @@
  * Dependancies : 
  * 	jQuery 1.6.1+ (required for event handling)
  * 
- * @author : saz aka True
- * sazaam(at)gmail.com
- * 
  * Highly Inspired by Yossi (up to the name)
  * yossi(at)be-interactive.org
  * 
- * GNU-extended Licence
+ * author saz aka True
  * 
+ * licensed under GNU GPL-General Public License
+ * copyright sazaam[(at)gmail.com]
+ * 2011-2012
  * 
- * */
+ */
 
 'use strict' ;
 // REQUESTANIMATIONFRAME implementation BY PAUL IRISH
