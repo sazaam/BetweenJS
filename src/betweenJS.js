@@ -93,13 +93,8 @@ if(Class === undefined){
 	
 }
 
-
 if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt implementation
 	/* EVENTS */
-	for(var i in Class){
-	   jQuery.Event.constructor.prototype[i] = Class[i] ;
-	}
-	
 	var IEvent = Class('naja.net::IEvent', {
 	   __init__:function(type, data)
 	   {
@@ -113,7 +108,6 @@ if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt impleme
 				this[s] = data[s] ;
 			 }
 		  }
-		  
 		  return this ;
 	   }
 	}, jQuery.Event) ;
@@ -121,7 +115,7 @@ if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt impleme
 	var EventDispatcher = Class('naja.event::EventDispatcher', {
 		__init__:function(el)
 		{
-			this.setDispatcher(el || this) ;
+			this.setDispatcher(this) ;
 		},
 		setDispatcher:function(el) // @return void
 		{
@@ -163,6 +157,7 @@ if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt impleme
 		{
 			if(this.dispatcher !== undefined)
 			this.dispatcher.unbind(type, closure) ;
+			
 			return this ;
 		},
 		unbind:function(type, closure){
@@ -189,12 +184,11 @@ if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt impleme
 			return this ;
 		}
 	}) ;
-	
 }
 
 var BetweenJS = (function(){
 	// GetTimer Implementation
-	
+	var __global__ = window ;
 	var getTimer = getTimer || function(){
 	   return new Date().getTime() - ___d ;
 	} , ___d = new Date().getTime() ;
@@ -202,7 +196,8 @@ var BetweenJS = (function(){
 	function concat(p){
 		return (CSSPropertyMapper.isIE && p === undefined) ? [] : p ;
 	}
-	
+	var cacheInterval = {}, cacheTimeout = {} ;
+	var unitsreg = /(px|em|pc|pt|%)$/ ;
 	/* BETWEENJS 
 		Main class, all methods considerated static, needless instantiation
 		BetweenJS.core() method supposed to be executed ok after script evaluation
@@ -227,6 +222,80 @@ var BetweenJS = (function(){
 				BetweenJS.ticker.start() ;
 				
 				BetweenJS.updaterFactory = new UpdaterFactory() ;
+				var exclude = {
+					'getTimer':undefined,
+					'toString':undefined,
+					'core':undefined,
+					'parallel':undefined,
+					'parallelTweens':undefined,
+					'serial':undefined,
+					'serialTweens':undefined,
+					'reverse':undefined,
+					'repeat':undefined,
+					'scale':undefined,
+					'slice':undefined,
+					'delay':undefined,
+					'func':undefined,
+					'interval':undefined,
+					'clearInterval':undefined,
+					'timeout':undefined,
+					'clearTimeout':undefined
+				}
+				
+				for(var n in BetweenJS){
+					(function(ind){
+						if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
+							var ff = BetweenJS[ind] ;
+							 
+							BetweenJS[ind] = function(target){
+								var tar , arr ;
+								var args = [].slice.call(arguments) ;
+								
+								if('jquery' in target) { // is jquery element
+									var s = target.size() ;
+									
+									if(s > 1){
+										tar = args.shift() ;
+										arr = tar.map(function(i, el){
+											return ff.apply(null, [el].concat(args)) ;
+										}).toArray() ;
+										
+										return BetweenJS.parallelTweens(arr) ;
+									}else if(s == 1){
+										tar = args.shift() ;
+										return ff.apply(null, [tar[0]].concat(args)) ;
+										
+									}else{
+										return false ;
+									}
+									
+								}else if(('length' in target) && !isNaN(target['length'])){
+									
+									if(target.length > 1){
+										
+										tar = args.shift() ;
+										var l = tar.length , arr = [] ;
+										for(var i = 0 ; i < l ; i++)
+											arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
+										return BetweenJS.parallelTweens(arr) ;
+										
+									}else if(target.length == 1){
+										
+										var tar = args.shift() ;
+										return ff.apply(null, [tar[0]].concat(args)) ;
+										
+									}else{
+										return false ;
+									}
+								}else{
+									return ff.apply(null, args) ;
+								}
+								return true ;
+							}
+						}
+					})(n) ;
+				}
+				
 				BetweenJS.cored = true ;
 			},
 			/*
@@ -300,11 +369,12 @@ var BetweenJS = (function(){
 				@return TweenLike Object
 			*/
 			apply:function(target, to, from, time, applyTime, easing){
+				if(applyTime === undefined) applyTime = 1.0 ;
 				var tween = new ObjectTween(BetweenJS.ticker) ;
 				tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
 				tween.time = time || 1.0 ;
 				tween.easing = easing || Linear.easeNone ;
-				tween.update(applyTime || 1.0) ;
+				tween.update(applyTime) ;
 				return tween ;
 			},
 			/*
@@ -417,9 +487,10 @@ var BetweenJS = (function(){
 				@return TweenLike Object
 			*/
 			physicalApply:function(target, to, from, applyTime, easing){
+				if(applyTime === undefined) applyTime = 1.0 ;
 				var tween = new PhysicalTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
-				tween.update(applyTime || 1.0) ;
+				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.uniform()) ;
+				tween.update(applyTime) ;
 				return tween ;
 			},
 			/*
@@ -476,9 +547,6 @@ var BetweenJS = (function(){
 				if (tween instanceof ReversedTween) {
 					return new TweenDecorator(tween.baseTween, pos) ;
 				}
-				if (tween instanceof TweenDecorator) {
-					tween = tween.baseTween ;
-				}
 				return new ReversedTween(tween, pos) ;
 			},
 			/*
@@ -524,6 +592,7 @@ var BetweenJS = (function(){
 				if (begin > end) {
 					return new ReversedTween(new SlicedTween(tween, end, begin), 0) ;
 				}
+				
 				return new SlicedTween(tween, begin, end) ;
 			},
 			/*
@@ -584,7 +653,15 @@ var BetweenJS = (function(){
 				@return TweenLike AbstactActionTween Object
 			*/
 			timeout:function(duration, func, params){
-				return new TimeoutAction(BetweenJS.ticker, duration, func, params) ;
+				var uid = getTimer() ;
+				var tw = new TimeoutAction(BetweenJS.ticker, duration, func, params) ;
+				tw.uid = uid ;
+				return (cacheTimeout[uid] = tw) ;
+			},
+			clearTimeout:function(uid){
+				var cc = cacheTimeout[uid] ;
+				delete cacheTimeout[uid] ;
+				return cc.stop() ;
 			},
 			/*
 				interval
@@ -596,7 +673,15 @@ var BetweenJS = (function(){
 				@return TweenLike AbstactActionTween Object
 			*/
 			interval:function(timer, func, params){
-				return new IntervalAction(BetweenJS.ticker, timer, func, params) ;
+				var uid = getTimer() ;
+				var tw = new IntervalAction(BetweenJS.ticker, timer, func, params) ;
+				tw.uid = uid ;
+				return (cacheInterval[uid] = tw) ;
+			},
+			clearInterval:function(uid){
+				var cc = cacheInterval[uid] ;
+				delete cacheInterval[uid] ;
+				return cc.stop() ;
 			}
 		},
 		__init__:function(){
@@ -612,6 +697,7 @@ var BetweenJS = (function(){
 				if(cored === true) return ;
 				
 				var comp = window.getComputedStyle ;
+				
 				CSSPropertyMapper.hasComputedStyle = comp !== undefined && typeof(comp) == 'function';
 				CSSPropertyMapper.isIE = /MSIE/.test(navigator.userAgent) ;
 				CSSPropertyMapper.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
@@ -622,10 +708,7 @@ var BetweenJS = (function(){
 			formats:{
 				'positionprop':/scroll(left|top)?/gi,
 				'separatorprop':/-/,
-				'extendedprop':/^./,
-				'colorextprop':/((border|background)?color|background)[^:]*$/gi,
-				'colorprop':/::(rgba?|hsba?|#)$/,
-				'complexprop':/^./
+				'colorextprop':/((border|background)?color|background)[^:]*$/gi
 			},
 			cache:{},
 			getScroll:function(target, name, unit) {
@@ -664,24 +747,26 @@ var BetweenJS = (function(){
 			},
 			cssSimpleGet:function(target, pname, unit){
 				var str = target['style'][pname] ;
-				if(str == '') str = CSSPropertyMapper.hasComputedStyle ? 
-					window.getComputedStyle (target, '')[pname] :
-					target.currentStyle[pname] ;
-				
+				if(str == '') {
+					str = CSSPropertyMapper.hasComputedStyle ? 
+					window.getComputedStyle (target, '')[pname].replace(unitsreg, '') :
+					target.currentStyle[pname].replace(unitsreg, '') ;
+				}
 				return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
 			},
+			cssSimpleSet:function(target, pname, unit, val){
+				return target['style'][pname] = val + unit ;
+			},
 			cssColorGet:function(target, pname, unit){
-				var val ;
+				var val, n, o ;
+				
 				if(CSSPropertyMapper.hasComputedStyle){
 					var shortreg = /(border)(width|color)/gi ;
-					if(shortreg.test(pname)){
-						pname = pname.replace(shortreg, '$1Top$2') ;
-					}
+					(shortreg.test(pname) && (pname = pname.replace(shortreg, '$1Top$2'))) ;
 					val = (target.style[pname] !== '') ? target.style[pname] : window.getComputedStyle (target, '')[pname] ;
 				}else{
 					val = pname == 'backgroundColor' ? target.currentStyle[pname] : CSSPropertyMapper.cssHackGet(target, pname)
 				}
-				
 				if(val == '') val = 'transparent' ;
 				
 				switch(true){
@@ -691,58 +776,117 @@ var BetweenJS = (function(){
 							hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
 						}
 						n = parseInt('0x'+hex) ;
+						o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
 					break ;
-					
 					case (/rgb/i.test(val)) :
 						var str = val.replace(/(rgb\(|\)| )/gi, '') ;
-						
 						var p = str.split(',') ;
-						var r = (p[0] & 0xFF), 
-						g = (p[1] & 0xFF), 
-						b = (p[2] & 0xFF) ;
-						return {r:r,g:g,b:b} ;
+						var r = (p[0] & 0xFF), g = (p[1] & 0xFF), b = (p[2] & 0xFF) ;
+						o = {r:r,g:g,b:b} ;
 					break ;
+					default:
+						o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
+					break;
 				}
-				return {r:(n & 0xFF0000) >> 16,g:(n & 0xFF00) >> 8,b:(n & 0xFF)} ;
+				
+				if(BetweenJS.colormode == 'hsv'){ // only h, s, v in o
+					o = CSSPropertyMapper.RGBtoHSV(o) ;
+				}
+				
+				return o ;
 			},
 			cssColorSet:function(target, pname, unit, val){
-				var n , hex;
-				switch(true){
-					case !isNaN(hex = parseInt(val)) :
-						target['style'][pname] = '#' + hex.toString(16) ;
-					break ;
-					case isNaN(val) && typeof(val) != 'string':
-						var r = parseInt(val.r), 
-						g = parseInt(val.g), 
-						b = parseInt(val.b) ;
-						target['style'][pname] = 'rgb('+r+','+g+','+b+')'  ;
-					break ;
-					case (/^#/.test(val)) :
-						hex = val.replace(/^#/, '') ;
-						if(hex.length == 3){
-							hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
-						}
-						n = parseInt('0x'+hex) ;
-					break ;
-					
-					case (/rgb/i.test(val)) :
-						var str = val.replace(/(rgb\(|\)| )/gi, '') ;
-						
-						var p = str.split(',') ;
-						var r = (p[0] & 0xFF).toString(16), 
-						g = (p[1] & 0xFF).toString(16), 
-						b = (p[2] & 0xFF).toString(16) ;
-						
-						if(r.length == 1) r += r ;
-						if(g.length == 1) g += g ; 
-						if(b.length == 1) b += b ; 
-						
-						n = parseInt('0x'+ r + g + b) ;
-					break ;
+				
+			    if (BetweenJS.colormode == 'hsv' && 'h' in val && 's' in val && 'v' in val){
+					val = CSSPropertyMapper.HSVtoRGB(val) ;
 				}
+				
+				var r = parseInt(val.r), 
+				g = parseInt(val.g), 
+				b = parseInt(val.b) ; 
+				return target['style'][pname] = 'rgb('+r+','+g+','+b+')'  ;
 			},
-			cssSimpleSet:function(target, pname, unit, val){
-				target['style'][pname] = val + unit ;
+			RGBtoHSV:function(o, r, g, b){ // obsolete and not debugged
+				var m = {} ;
+				r = r || o.r ,
+				g = g || o.g ,
+				b = b || o.b ;
+				if( r != g || r != b ){
+					if ( g > b ) {
+						if ( r > g ) { //r>g>b
+							m.h = 60 * (g - b) / (r - b) ;
+							m.s = (r - b) / r * 100 ;
+							m.v = r / 255 * 100 ;
+						}else if( r < b ){ //g>b>r
+							m.v = g / 255 * 100 ;
+							m.s = (g - r) / g * 100 ;
+							m.h = 60 * (b - r) / (g - r) + 120 ;
+						}else { //g=>r=>b
+							m.v = g / 255 * 100 ;
+							m.s = (g - b) / g * 100 ;
+							m.h = 60 * (b - r) / (g - b) + 120 ;
+						}
+					}else{
+						if ( r > b ) { // r>b=>g
+							m.v = r / 255 * 100 ;
+							m.s = (r - g) / r * 100 ;
+							m.h = 60 * (g - b) / (r - g) ;
+							if ( m.h < 0 ) m.h += 360 ;
+						}else if ( r < g ){ //b=>g>r
+							m.v = b / 255 * 100 ;
+							m.s = (b - r) / b * 100 ;
+							m.h = 60 * (r - g) / (b - r) + 240 ;
+						}else { //b=>r=>g
+							m.v = b / 255 * 100 ;
+							m.s = (b - g) / b  * 100 ;
+							m.h = 60 * (r - g) / (b - g) + 240 ;
+						}
+					}
+				}else {
+					m.h = m.s = 0 ;
+					m.v = r / 255 * 100 ;
+				}
+				m.h = Math.round(m.h) ;
+				return m ;
+			},
+			HSVtoRGB:function(o, h, s, v){
+				var m = {} , oh ;
+				h = h || o.h ,
+				s = (s || o.s) * .01 ,
+				v = (v || o.v) * .01 ;
+				if ( s > 0 ) {
+					if(h > 360) h = h % 360 ;
+					else if(h < -360) h = h % -360 ;
+					h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
+					if ( h < 1 ) {
+						m.r = 255 * v ;
+						m.g = 255 * v * ( 1 - s * (1 - h) ) ;
+						m.b = 255 * v * ( 1 - s ) ;
+					}else if ( h < 2 ) {
+						m.r = 255 * v * ( 1 - s * (h - 1) ) ;
+						m.g = 255 * v ;
+						m.b = 255 * v * ( 1 - s ) ;
+					}else if ( h < 3 ) {
+						m.r = 255 * v * ( 1 - s ) ;
+						m.g = 255 * v ;
+						m.b = 255 * v * ( 1 - s * (3 - h) ) ;
+					}else if ( h < 4 ) {
+						m.r = 255 * v * ( 1 - s ) ;
+						m.g = 255 * v * ( 1 - s * (h - 3) ) ;
+						m.b = 255 * v ;
+					}else if ( h < 5 ) {
+						m.r = 255 * v * ( 1 - s * (5 - h) ) ;
+						m.g = 255 * v * ( 1 - s ) ;
+						m.b = 255 * v ;
+					}else{
+						m.r = 255 * v ;
+						m.g = 255 * v * ( 1 - s ) ;
+						m.b = 255 * v * ( 1 - s * (h - 5) ) ;
+					}
+				}else {
+					m.r = m.g = m.b = 255 * v ;
+				}
+				return m ;
 			},
 			cssScrollPositionGet:function(target, pname, unit){
 				return CSSPropertyMapper.getScroll(target, pname, unit) ;
@@ -753,9 +897,7 @@ var BetweenJS = (function(){
 			check:function(name){
 				var formats = CSSPropertyMapper.formats ;
 				var cache = CSSPropertyMapper.cache ;
-				
 				if(name in cache) {return cache[name] } ;
-				
 				var o ;
 				switch(true){
 					case formats['positionprop'].test(name) :
@@ -769,11 +911,8 @@ var BetweenJS = (function(){
 						return (cache[name] = CSSPropertyMapper.check(name.replace(/-(\w)/g, function($0, $1){return $1.toUpperCase()}))) ;
 					break ;
 					case formats['colorextprop'].test(name) :
-						return (cache[name] = CSSPropertyMapper.check(name + '::#')) ;
-					break ;
-					case formats['colorprop'].test(name) :
 						o = {
-							cssprop:name.replace(formats['colorprop'], ''),
+							cssprop:name,
 							cssget:CSSPropertyMapper.cssColorGet,
 							cssset:CSSPropertyMapper.cssColorSet
 						} ;
@@ -882,7 +1021,7 @@ var BetweenJS = (function(){
 			return updater ;
 		},
 		createBezier:function(target, dest, source, controlPoint){
-			var map, updaters, name, value, isRelative, parent, child, updater, cp ;
+			var map, updaters, name, value, isRelative, parent, child, updater, cp, i ;
 			var units ;
 			if (this.poolIndex > 0) {
 				--this.poolIndex ;
@@ -994,7 +1133,6 @@ var BetweenJS = (function(){
 				map = {} ;
 				updaters = [] ;
 			}
-			
 			if (source !== undefined) {
 				
 				source = this.checkStringObj(source) ;
@@ -1082,18 +1220,40 @@ var BetweenJS = (function(){
 			}
 			return undefined ;
 		},
-		checkStringObj:function(o){
+		checkStringObj:function(val, n, res){
 			
-			if(typeof(o) != 'string') return o ;
-			var n ;
-			var hex = o.replace(/^(0x|#)/, '') ;
-			if(hex.length == 3){
-				hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
+			if(typeof(val) != 'string') {
+				if('h' in val && 's' in val && 'v' in val){
+					val = 'hsv('+val['h']+','+val['s']+','+val['v']+')' ;
+				}else if('r' in val && 'g' in val && 'b' in val ){
+					val = 'rgb('+val['r']+','+val['g']+','+val['b']+')' ;
+				}else return val ;
 			}
-
-			n = parseInt('0x'+hex) ;
-
-			return {r:(n & 0xFF0000) >> 16,g:(n & 0xFF00) >> 8,b:(n & 0xFF)} ;
+			if(typeof(val) != 'string') return val ;
+			
+			if(/^(0x|#)/.test(val)){
+				var hex = val.replace(/^(0x|#)/, '') ;
+				if(hex.length == 3)
+					hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
+				n = parseInt('0x'+hex) ;
+				res = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)} ;
+			}else if(/rgb/i.test(val)){
+				var str = val.replace(/(rgb\(|\)| )/gi, '') ;
+				var p = str.split(',') ;
+				var r = (p[0] & 0xFF), 
+				g = (p[1] & 0xFF), 
+				b = (p[2] & 0xFF) ;
+				res = {r:r,g:g,b:b} ;
+			}else if(/hsv/i.test(val)){
+				var str = val.replace(/(hsv\(|\)| )/gi, '') ;
+				var p = str.split(',') ;
+				var h = p[0], 
+				s = p[1],
+				v = p[2] ;
+				res = CSSPropertyMapper.HSVtoRGB({h:h,s:s,v:v}) ;
+			}
+			if(BetweenJS.colormode == 'hsv'){return CSSPropertyMapper.RGBtoHSV(res)}
+			return res ;
 		}
 	});
 
@@ -1104,8 +1264,9 @@ var BetweenJS = (function(){
 		   this.isResolved = false ;
 		   return this ;
 		},
-		setTarget:function(target){
+		setTarget:function(target, easing){
 			this.target = target ;
+			if(easing !== undefined) this.easing = easing ;
 		},
 		setSourceValue:function(propertyName, value, isRelative){},
 		setDestinationValue:function(propertyName, value, isRelative){},
@@ -1148,15 +1309,12 @@ var BetweenJS = (function(){
 		},
 		setTarget:function(target, easing){
 			
-			this.$super(target) ;
+			this.$super(target, easing) ;
 			var ctor = target.constructor ;
 			
-			if(easing !== undefined) this.easing = easing ;
-			
 			switch(true){
-				
-				case (/HTML[a-zA-Z]+Element/.test(ctor)) :
 				case ctor === undefined : // IE 7-
+				case (/HTML[a-zA-Z]+Element/.test(ctor)) :
 					this.units = {} ;
 				break ;
 				
@@ -1195,17 +1353,16 @@ var BetweenJS = (function(){
 				this.relativeMap['dest.' + propertyName] = isRelative ;
 			}
 		},
-		getObject:function(propertyName){
+		getObject:function(propertyName, cond){
 			if(this.units === undefined){
 				return this.target[propertyName] ;
 			}else{
 				propertyName = this.retrieveUnits(propertyName) ; // here check for unit in string
-				
 				var props = CSSPropertyMapper.check(propertyName) ;
 				var pname = props.cssprop ;
 				var pget = props.cssget ;
 				
-				var n = pget(this.target, pname, this.units[propertyName]) ; // here wil apply special treatment upon checks in CSSPropertyMapper.check() method
+				var n = pget(this.target, pname, this.units[propertyName], cond) ; // here will apply special treatment upon checks in CSSPropertyMapper.check() method
 				return n ;
 			}
 		},
@@ -1214,6 +1371,7 @@ var BetweenJS = (function(){
 				this.target[propertyName] = value ;
 			}else{
 				propertyName = this.retrieveUnits(propertyName) ;
+				
 				var props = CSSPropertyMapper.check(propertyName) ;
 				var pname = props.cssprop ;
 				var pset = props.cssset ;
@@ -1223,7 +1381,7 @@ var BetweenJS = (function(){
 		retrieveUnits:function(propertyName){
 			
 			if(this.units[propertyName] !== undefined) {
-				return this.units[propertyName] == '' ? propertyName : propertyName.replace(new RegExp(this.units[propertyName]+'$', 'gi')) ;
+				return this.units[propertyName] == '' ? propertyName : propertyName.replace(new RegExp(this.units[propertyName]+'$', 'gi'), '') ;
 			}
 			
 			var regPX = /::PX$/i,
@@ -1269,6 +1427,8 @@ var BetweenJS = (function(){
 					source[key] += this.getObject(key) ;
 				}
 			}
+			
+			
 			for (key in dest) {
 				if (source[key] === undefined) {
 					source[key] = this.getObject(key) ;
@@ -1283,9 +1443,8 @@ var BetweenJS = (function(){
 			var t = this.target ;
 			var d = this.destination ;
 			var s = this.source ;
-			var name ;
 			
-			for (name in d) {
+			for (var name in d) {
 				var val = s[name] * invert + d[name] * factor ;
 				if(this.units === undefined){
 					this.setObject(name, val) ;
@@ -1293,7 +1452,7 @@ var BetweenJS = (function(){
 					try{
 						this.setObject(name, val) ;
 					}catch(e){
-						trace('heyyy cousin blarf...', e)
+						trace('setting the object throws an error...', e)
 					}
 				}
 			}
@@ -1577,6 +1736,7 @@ var BetweenJS = (function(){
 		relativeMap:undefined,
 		easing:undefined,
 		duration:undefined,
+		time:undefined,
 		maxDuration:0.0,
 		isResolved:false,
 		__init__:function(){
@@ -1614,13 +1774,14 @@ var BetweenJS = (function(){
 				}
 			}
 			for (key in dest) {
+				
 				if (source[key] === undefined) {
 					source[key] = this.getObject(key) ;
 				}
 				if (!!rMap['dest.' + key]) {
 					dest[key] += this.getObject(key) ;
 				}
-				duration = this.easing.getDuration(source[key], dest[key] - source[key]) ;
+				duration = this.easing.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 				d[key] = duration ;
 				if (maxDuration < duration) {
 					maxDuration = duration ;
@@ -1628,6 +1789,7 @@ var BetweenJS = (function(){
 			}
 			
 			this.maxDuration = maxDuration ;
+			this.time = this.maxDuration ;
 			this.isResolved = true ;
 		},
 		update:function(time){
@@ -1635,12 +1797,12 @@ var BetweenJS = (function(){
 				this.resolveValues() ;
 			}
 			
-			t = this.target,
+			var t = this.target,
 			e = this.easing,
 			dest = this.destination,
 			src = this.source,
 			d = this.duration,
-			s,name ;
+			s, name, val ;
 			for (name in dest) {
 				if (time >= d[name]) {
 					val = dest[name] ;
@@ -1671,7 +1833,7 @@ var BetweenJS = (function(){
 		prevListener:undefined,
 		nextListener:undefined,
 		__init__:function(){
-			this.$super(new EventDispatcher()) ;
+			this.$super() ;
 			return this ;
 		},
 		tick:function(time){
@@ -1744,11 +1906,11 @@ var BetweenJS = (function(){
 		render:function(){
 			var eft = this ;
 			eft.update() ;
-			//eft.interval = setTimeout(function(){eft.render()}, 1000 / 60) ;
+			// eft.interval = setTimeout(function(){eft.render()}, 1000 / 60) ;
 			eft.interval = window.requestAnimationFrame(function(){eft.render()}) ;
 		},
 		stop:function(){
-			//clearTimeout(this.interval) ;
+			// clearTimeout(this.interval) ;
 			window.cancelAnimationFrame(this.interval) ;
 		},
 		update:function(e){
@@ -1876,13 +2038,13 @@ var BetweenJS = (function(){
 	}) ;
 
 	// CORE.TWEENS
-	var AbstractTween = Class('org.libspark.betweenJS.core.tweens::AbstractTween', {
+	var AbstractTween = __global__.AbstractTween = Class('org.libspark.betweenJS.core.tweens::AbstractTween', {
 		__init__:function(ticker, position){
 		   this.isPlaying = false ;
 		   this.time = .5 ;
 		   this.stopOnComplete = true ;
 		   this.willTriggerFlags = 0 ;
-		   this.$super(new EventDispatcher()) ;
+		   this.$super() ;
 		   this.ticker = ticker ;
 		   this.position = position || 0 ;
 		   
@@ -1919,7 +2081,7 @@ var BetweenJS = (function(){
 				}
 				
 				if (this.onPlay !== undefined) {
-				   this.onPlay.apply(null, concat(this.onPlayParams)) ;
+				   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 				}
 				this.tick(t) ;
 			}
@@ -1931,8 +2093,9 @@ var BetweenJS = (function(){
 				this.dispatch(new TweenEvent(TweenEvent.PLAY, undefined, this)) ;
 			}
 			if (this.onPlay !== undefined) {
-			   this.onPlay.apply(null, concat(this.onPlayParams)) ;
+			   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 			}
+			return this ;
 		},
 		stop:function(){
 			if (this.isPlaying) {
@@ -1942,7 +2105,7 @@ var BetweenJS = (function(){
 					this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
 				}
 				if (this.onStop !== undefined) {
-					this.onStop.apply(null, concat(this.onStopParams)) ;
+					this.onStop.apply(this, concat(this.onStopParams)) ;
 				}
 			}
 			return this ;
@@ -1952,15 +2115,16 @@ var BetweenJS = (function(){
 				this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
 			}
 			if (this.onStop !== undefined) {
-				this.onStop.apply(null, concat(this.onStopParams)) ;
+				this.onStop.apply(this, concat(this.onStopParams)) ;
 			}
+			return this ;
 		},
 		togglePause:function(){
 			if (this.isPlaying) {
-				this.stop() ;
+				return this.stop() ;
 			}
 			else {
-				this.play() ;
+				return this.play() ;
 			}
 		},
 		gotoAndPlay:function(position){
@@ -1971,7 +2135,7 @@ var BetweenJS = (function(){
 				position = this.time ;
 			}
 			this.position = position ;
-			this.play();
+			return this.play() ;
 		},
 		gotoAndStop:function(position){
 			if (position < 0) {
@@ -1986,9 +2150,9 @@ var BetweenJS = (function(){
 				this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
 			}
 			if (this.onUpdate !== undefined) {
-				this.onUpdate.apply(null, concat(this.onUpdateParams)) ;
+				this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 			}
-			this.stop() ;
+			return this.stop() ;
 		},
 		update:function(time){
 			var isComplete = false ;
@@ -2003,7 +2167,7 @@ var BetweenJS = (function(){
 				this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
 			}
 			if (this.onUpdate !== undefined) {
-				this.onUpdate.apply(null, concat(this.onUpdateParams)) ;
+				this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 			}
 			
 			if (isComplete) {
@@ -2011,7 +2175,7 @@ var BetweenJS = (function(){
 					this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
 				}
 				if (this.onComplete !== undefined) {
-					this.onComplete.apply(null, concat(this.onCompleteParams)) ;
+					this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 				}
 			}
 			
@@ -2032,19 +2196,22 @@ var BetweenJS = (function(){
 			}
 			
 			if (this.onUpdate !== undefined) {
-				this.onUpdate.apply(null, concat(this.onUpdateParams)) ;
+				this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 			}
 			
 			if (this.isPlaying === true) {
+				
 				if (t >= this.time) {
+					
 					this.position = this.time ;
+					
 					if (this.stopOnComplete === true) {
 						this.isPlaying = false ;
 						if ((this.willTriggerFlags & 0x08) != 0) {
 							this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
 						}
 						if (this.onComplete !== undefined) {
-							this.onComplete.apply(null, concat(this.onCompleteParams)) ;
+							this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 						}
 						return true ;
 					}else {
@@ -2052,7 +2219,7 @@ var BetweenJS = (function(){
 							this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
 						}
 						if (this.onComplete !== undefined) {
-							this.onComplete.apply(null, concat(this.onCompleteParams)) ;
+							this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 						}
 						this.position = t - this.time ;
 						this.startTime = time - this.position ;
@@ -2077,6 +2244,7 @@ var BetweenJS = (function(){
 		copyFrom:function(source){
 			this.ticker = source.ticker ;
 			this.time = source.time ;
+			this.easing = source.easing ;
 			this.stopOnComplete = source.stopOnComplete ;
 			this.copyHandlersFrom(source);
 			this.willTriggerFlags = source.willTriggerFlags ;
@@ -2091,21 +2259,27 @@ var BetweenJS = (function(){
 			this.onComplete = source.onComplete ;
 			this.onCompleteParams = source.onCompleteParams ; 
 		},
-		addEL:function(type, listener){
-			this.$super(type, listener) ;
+		addEL:function(type, closure){
+			this.$super.apply(this, [type, closure]) ;
 			this.updateWillTriggerFlags() ;
 			return this ;
 		},
-		removeEL:function(type, listener){
-			this.$super(type, listener) ;
+		bind:function(type, closure){
+			return this.addEL(type, closure) ;
+		},
+		removeEL:function(type, closure){
+			this.$super.apply(this, [type, closure]) ;
 			this.updateWillTriggerFlags() ;
 			return this ;
+		},
+		unbind:function(type, closure){
+			return this.removeEL(type, closure) ;
 		},
 		dispatch:function(e){
-			if (this.target !== undefined) {
-				return this.target.dispatch(e);
-			}
-			return false ;
+			return this.$super.apply(this, [e]) ;
+		},
+		trigger:function(type){
+			return this.dispatch(type) ;
 		},
 		updateWillTriggerFlags:function(){
 			if (this.willTrigger(TweenEvent.PLAY)) {
@@ -2135,12 +2309,13 @@ var BetweenJS = (function(){
 		 }
 	}, TickerListener) ;
 
-	var AbstractActionTween = Class('org.libspark.betweenJS.core.tweens::AbstractActionTween', {
+	var AbstractActionTween = __global__.AbstractActionTween = Class('org.libspark.betweenJS.core.tweens::AbstractActionTween', {
 		lastTime:undefined,
 		__init__:function(ticker){
 			this.$super(ticker, 0) ;
 			this.time = 0.01 ;
 			this.lastTime = -1 ;
+			
 			return this ;
 		},
 		internalUpdate:function(time){
@@ -2156,7 +2331,7 @@ var BetweenJS = (function(){
 	}, AbstractTween) ;
 
 	// TWEENS
-	var ObjectTween = Class('org.libspark.betweenJS.tweens::ObjectTween', {
+	var ObjectTween = __global__.ObjectTween = Class('org.libspark.betweenJS.tweens::ObjectTween', {
 		easing:undefined,
 		updater:undefined,
 		target:undefined,
@@ -2180,13 +2355,11 @@ var BetweenJS = (function(){
 		},
 		copyFrom:function(source){
 			this.$super(source);
-			
-			this.easing = source.easing ;
 			this.updater = source.updater.clone() ;
 		}
 	}, AbstractTween) ;
 
-	var PhysicalTween = Class('org.libspark.betweenJS.tweens::PhysicalTween', {
+	var PhysicalTween = __global__.PhysicalTween = Class('org.libspark.betweenJS.tweens::PhysicalTween', {
 		updater:undefined,
 		target:undefined,
 		setted:false,
@@ -2197,7 +2370,6 @@ var BetweenJS = (function(){
 		},
 		settings:function(){
 			if(this.updater !== undefined){
-				this.time = this.updater.time ;
 				this.target = this.updater.target ;
 			}
 		},
@@ -2206,7 +2378,9 @@ var BetweenJS = (function(){
 				this.settings() ;
 				this.setted = true ;
 			}
+			
 			this.updater.update(time);
+			this.time = this.updater.time ;
 		},
 		newInstance:function(){
 			return new PhysicalTween(this.ticker) ;
@@ -2218,7 +2392,7 @@ var BetweenJS = (function(){
 	}, AbstractTween) ;
 
 	// ACTIONS
-	var FunctionAction = Class('org.libspark.betweenJS.actions::FunctionAction', {
+	var FunctionAction = __global__.FunctionAction = Class('org.libspark.betweenJS.actions::FunctionAction', {
 		func:undefined,
 		params:undefined,
 		useRollback:false,
@@ -2241,41 +2415,62 @@ var BetweenJS = (function(){
 			return this ;
 		},
 		action:function(){
-			if (this.func !== undefined) {
-				this.func.apply(null, concat(this.params)) ;
-			}
+			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
 		},
 		rollback:function(){
-			if (this.rollbackFunc !== undefined) {
-				this.rollbackFunc.apply(null, concat(this.rollbackParams)) ;
-			}
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
 		}
 	}, AbstractActionTween) ;
 
-	var TimeoutAction = Class('org.libspark.betweenJS.actions::TimeoutAction', {
+	var TimeoutAction = __global__.TimeoutAction = Class('org.libspark.betweenJS.actions::TimeoutAction', {
 		duration:0,
 		func:undefined,
 		params:undefined,
-		__init__:function(ticker, duration, func, params){
+		__init__:function(ticker, duration, func, params, useRollback, rollbackFunc, rollbackParams){
 			this.$super(ticker, 0) ;
 			this.time = duration || 0 ;
 			this.func = func ;
 			this.params = params ;
 			
+			if (useRollback !== undefined) {
+				if (rollbackFunc !== undefined) {
+					this.rollbackFunc = rollbackFunc ;
+					this.rollbackParams = rollbackParams ;
+				} else {
+					this.rollbackFunc = func ;
+					this.rollbackParams = params ;
+				}
+			}
+			
 			return this ;
 		},
-		internalUpdate:function(time){},
-		action:function(){},
-		rollback:function(){}
+		internalUpdate:function(time){
+			if(time >= this.time){
+				this.action() ;
+			}
+		},
+		action:function(){
+			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
+		},
+		clear:function(){
+			return this.stop() ;
+		},
+		stop:function(){
+			return this.$super() ;
+		},
+		rollback:function(){
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
+		}
 	}, AbstractActionTween) ;
 
-	var IntervalAction = Class('org.libspark.betweenJS.actions::IntervalAction', {
+	var IntervalAction = __global__.IntervalAction = Class('org.libspark.betweenJS.actions::IntervalAction', {
 		duration:0,
 		func:undefined,
 		params:undefined,
 		__init__:function(ticker, timer, func, params, useRollback, rollbackFunc, rollbackParams){
 			this.$super(ticker, 0) ;
-			this.time = timer || 0 ;
+			this.time = NaN ;
+			this.timer = (timer / 1000) || 0 ;
 			this.func = func ;
 			this.count = 0 ;
 			this.params = params ;
@@ -2290,34 +2485,35 @@ var BetweenJS = (function(){
 				}
 			}
 			
-			this.stopOnComplete = false ;
-			
 			return this ;
 		},
 		internalUpdate:function(time){
-			this.globaltime = (this.count * this.time) + time ;
-			if(time > this.time && this.stopOnComplete !== true){
+			this.globaltime = time ;
+			this.timestamp = time ;
+			
+			var t = time / (this.timer) ;
+			
+			if(t > (this.count + 1)){
+				this.count++ ;
 				this.action() ;
-				this.count ++ ;
 			}
 		},
 		action:function(){
-			if(this.func !== undefined){
-				this.func.apply(null, concat(this.params)) ;
-			}
+			if(this.func !== undefined) this.func.apply(this, concat(this.params)) ;
 		},
 		clear:function(){
-			this.stopOnComplete = true ;
-			this.fireStop() ;
+			this.time = 0 ;
+			return this ;
+		},
+		stop:function(){
+			return this.clear() ;
 		},
 		rollback:function(){
-			if (this.rollbackFunc !== undefined) {
-				this.rollbackFunc.apply(null, concat(this.rollbackParams)) ;
-			}
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
 		}
 	}, AbstractActionTween) ;
 
-	var AddChildAction = Class('org.libspark.betweenJS.actions::AddChildAction', {
+	var AddChildAction = __global__.AddChildAction = Class('org.libspark.betweenJS.actions::AddChildAction', {
 		target:undefined,
 		parent:undefined,
 		__init__:function(ticker, target, parent){
@@ -2339,7 +2535,7 @@ var BetweenJS = (function(){
 		}
 	}, AbstractActionTween) ;
 
-	var RemoveFromParentAction = Class('org.libspark.betweenJS.actions::RemoveFromParentAction', {
+	var RemoveFromParentAction = __global__.RemoveFromParentAction = Class('org.libspark.betweenJS.actions::RemoveFromParentAction', {
 		target:undefined,
 		__init__:function(ticker, target){
 			this.$super(ticker, 0) ;
@@ -2363,7 +2559,7 @@ var BetweenJS = (function(){
 	}, AbstractActionTween) ;
 
 	// DECORATORS
-	var TweenDecorator = Class('org.libspark.betweenJS.tweens::TweenDecorator', {
+	var TweenDecorator = __global__.TweenDecorator = Class('org.libspark.betweenJS.tweens::TweenDecorator', {
 		baseTween:undefined,
 		__init__:function(baseTween, position){
 		   this.$super(baseTween.ticker, position) ;
@@ -2379,27 +2575,32 @@ var BetweenJS = (function(){
 				this.baseTween.firePlay() ;
 				this.$super() ;
 			}
+			return this ;
 		},
 		firePlay:function(){
 			this.$super() ;
 			this.baseTween.firePlay() ;
+			
+			return this ;
 		},
 		stop:function(){
 			if (this.isPlaying === true) {
 				this.$super() ;
 				this.baseTween.fireStop() ;
 			}
+			return this ;
 		},
 		fireStop:function(){
 			this.$super() ;
 			this.baseTween.fireStop() ;
+			return this ;
 		},
 		internalUpdate:function(time){
 		   this.baseTween.update(time) ;
 		}
 	}, AbstractTween) ;
 
-	var SlicedTween = Class('org.libspark.betweenJS.tweens.decorators::SlicedTween', {
+	var SlicedTween = __global__.SlicedTween = Class('org.libspark.betweenJS.tweens.decorators::SlicedTween', {
 		begin:0,
 		end:1,
 		__init__:function(baseTween, begin, end){
@@ -2409,9 +2610,17 @@ var BetweenJS = (function(){
 		   this.begin = begin || 0 ;
 		   this.time = this.end - this.begin ;
 		   
+		   if(end - begin == 0) this.instantUpdate = true ;
+		   
 		   return this ;
 		},
 		internalUpdate:function(time){
+			
+			if(this.instantUpdate === true){
+				time = 0 ;
+				this.baseTween.update(this.begin) ;
+			}
+			
 			if (time > 0) {
 				if (time < this.time) {
 					this.baseTween.update(time + this.begin) ;
@@ -2427,7 +2636,7 @@ var BetweenJS = (function(){
 		}
 	}, TweenDecorator) ;
 
-	var ScaledTween = Class('org.libspark.betweenJS.tweens.decorators::ScaledTween', {
+	var ScaledTween = __global__.ScaledTween = Class('org.libspark.betweenJS.tweens.decorators::ScaledTween', {
 		scale:1,
 		__init__:function(baseTween, scale){
 		   this.$super(baseTween, 0) ;
@@ -2445,11 +2654,10 @@ var BetweenJS = (function(){
 		}
 	}, TweenDecorator) ;
 
-	var ReversedTween = Class('org.libspark.betweenJS.tweens.decorators::ReversedTween', {
+	var ReversedTween = __global__.ReversedTween = Class('org.libspark.betweenJS.tweens.decorators::ReversedTween', {
 		__init__:function(baseTween, position){
 		   this.$super(baseTween, position) ;
 		   this.time = baseTween.time ;
-		   
 		   return this ;
 		},
 		internalUpdate:function(time){
@@ -2460,7 +2668,7 @@ var BetweenJS = (function(){
 		}
 	}, TweenDecorator) ;
 
-	var RepeatedTween = Class('org.libspark.betweenJS.tweens.decorators::RepeatedTween', {
+	var RepeatedTween = __global__.RepeatedTween = Class('org.libspark.betweenJS.tweens.decorators::RepeatedTween', {
 		basetime:undefined,
 		repeatCount:2,
 		__init__:function(baseTween, repeatCount){
@@ -2482,7 +2690,7 @@ var BetweenJS = (function(){
 		}
 	}, TweenDecorator) ;
 
-	var DelayedTween = Class('org.libspark.betweenJS.tweens.decorators::DelayedTween', {
+	var DelayedTween = __global__.DelayedTween = Class('org.libspark.betweenJS.tweens.decorators::DelayedTween', {
 		basetime:undefined,
 		preDelay:.5,
 		postDelay:.5,
@@ -2503,7 +2711,7 @@ var BetweenJS = (function(){
 	}, TweenDecorator) ;
 
 	// GROUPS
-	var ParallelTween = Class('org.libspark.betweenJS.tweens::ParallelTween', {
+	var ParallelTween = __global__.ParallelTween = Class('org.libspark.betweenJS.tweens::ParallelTween', {
 		a:undefined,
 		b:undefined,
 		c:undefined,
@@ -2667,7 +2875,7 @@ var BetweenJS = (function(){
 		}
 	}, AbstractTween) ;
 
-	var SerialTween = Class('org.libspark.betweenJS.tweens::SerialTween', {
+	var SerialTween = __global__.SerialTween = Class('org.libspark.betweenJS.tweens::SerialTween', {
 		a:undefined,
 		b:undefined,
 		c:undefined,
