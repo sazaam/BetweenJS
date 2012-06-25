@@ -1,50 +1,24 @@
 BetweenJS
 
-Robust tween API for JS
+Tweening Engine for JS
 
+
+API :
+http://betweenjs.sazaam.net
+
+
+Original AS3 Project
 Highly inspired from BetweenAS3 (author:yossy(at)be-interactive.org), 
-Its API became for me primordial in hi-tech front-end development, 
-since one has to become picky and rigourous with Tweens, if one wants a good/fluid result.
-- for all known Easings, even Custom easing,
-- for relative tweening,
-- for Tween manipulation such as Reverse, gotoAndPlay, slice, delay 
-- for grouping, parallel, serial
-- for nested values to tween -> {x:150, nestedObject:{x:100}}
-- suggests a 'yield' pattern workaround
-- one unique enterframe
-- RequestAnimationFrame implementation in case of native support
-- callbacks can work via events
-- units handled :
-    API syntax is as following:
-        BetweenJS.to(target, {'width':130, 'height::%':100}, .25, Expo.easeOut)  ;
-    Percents : 'height::%'
-    Ems :'fontSize::EM' (case insensitive)
-    Pcs :'fontSize::PC' (case insensitive)
-    (DEFAULT) Pixels :'fontSize::PX' (case insensitive), or not specified at all ('width':150 will fallback to Pixel units)
-    if NO NEED FOR UNITS (opacity, z-index:those type of unitless declarations), use {'opacity::NONE':.4}
-- colors handled :
-    Hex : 'color::#' or 'color'
-    RGB : 'color::rgb'
-    (DEFAULT) Hex
-    No HSB implementation yet, coming up next
 
-original API info :
 http://www.libspark.org/wiki/BetweenAS3/en
 
 
-
-Dependancies : jQuery.
-
-
-
-
-
-Update Log v 0.9
+Update Log v 0.95
 
 - Works on all kind of objects
 - All units available
 - Lighter class system
 - Color (hex and rgb)
 - scrollLeft/scrollTop properties
-
+- custom tween & easing interfaces available
 
