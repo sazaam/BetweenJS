@@ -18,7 +18,7 @@ Update Log v 0.95
 - Works on all kind of objects
 - All units available
 - Lighter class system
-- Color (hex and rgb)
+- Color (hex, rgb & hsv)
 - scrollLeft/scrollTop properties
 - custom tween & easing interfaces available
 
