@@ -3128,7 +3128,7 @@ var TweenEvent = Class('org.libspark.betweenJS.events::TweenEvent', {
 
 // CUSTOM
 var CustomFunctionEasing = function(f){
-	if(typeof(f) !== 'function') throw('function parameter is not a function...(customEasing)', f ) ;
+	if(typeof(f) !== 'function') throw new Error('function parameter is not a function...(customEasing)', f ) ;
 	return {calculate:function(t, b, c, d){
 		return f(t, b, c, d) ;
 	}} ;
