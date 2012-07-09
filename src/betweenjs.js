@@ -64,6 +64,7 @@ if(Class === undefined){
 				ch = sp[i], (i < l - 1) && (p = (!!p[ch] ? p[ch] : (p[ch] = {name:ch}))) ;
 			cl = p[ch] ;
 			if(obj !== undefined) cl = undefined ;
+			else return p[ch] ;p
 			return cl || (function(){
 				var kl = function(){return (no_ctor)? this : '__init__' in this ? this['__init__'].apply(this, arguments) : this } ;
 				kl.$ns = path.replace(/((.*)[.])*([^.]+)$/i, function($0, $1, $2, $3){return kl.$pkg = $2, kl.$classname = $3, $0 }) ;
