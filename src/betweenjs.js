@@ -1315,7 +1315,7 @@ var BetweenJS = (function(){
 			
 			switch(true){
 				case ctor === undefined : // IE 7-
-				case (/HTML[a-zA-Z]+Element/.test(ctor)) :
+				case (/HTML[a-zA-Z]*Element/.test(ctor)) :
 					this.units = {} ;
 				break ;
 				
