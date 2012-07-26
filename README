@@ -2,12 +2,6 @@ BetweenJS
 
 Tweening Engine for JS
 
-!!! IMPORTANT !!!
-DO NOT USE THE MINIFIED VERSION OF BETWEENJS
-I WILL UPDATE IT AS SOON AS POSSIBLE
-SORRY.
-
-
 API :
 http://betweenjs.sazaam.net
 
@@ -16,6 +10,12 @@ Original AS3 Project
 Highly inspired from BetweenAS3 (author:yossy(at)be-interactive.org), 
 
 http://www.libspark.org/wiki/BetweenAS3/en
+
+
+Update Log v 0.96 :
+- Fixed critical error at loading in Evt implementation from Naja Framework.
+- Fixed -Nothing happening- bug on Safari with span-like Elements.
+
 
 
 Update Log v 0.95
