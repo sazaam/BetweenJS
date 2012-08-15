@@ -1,3 +1,8 @@
+
+var __dependancies__ = [
+	{name:'jquery', url:'./jquery-1.7.1.min.js'}
+] ;
+
 /*
  *
  * BETWEENJS Tweening Engine for Javascript
@@ -45,78 +50,76 @@
         };
 })() ;
 
-if(Class === undefined){
-	
-	/* 
-		ClassLite Version 1.0
-
-		@author saz aka True
-		API Inspired by Classy (http://classy.pocoo.org)
-	*/
-	var Class = Class || (function(){
-		var ns = {}, ks, no_ctor = false, regNS = /::/ , keep = {'__static__':1 , '$ns':1, '$pkg':1, '$classname':1, 'toString':1} ;
-		return ks = function(namespace, properties, extendclass){
-			var xt = extendclass, path = namespace, obj = properties , cl , spy ;
-			if(regNS.test(path)) return ks(path.replace(regNS, '.'), obj, xt) ;
-			var sp = path.split('.') ;
-			var l = sp.length, p = ns, ch ;
-			for(var i = 0 ; i < l ; i++)
-				ch = sp[i], (i < l - 1) && (p = (!!p[ch] ? p[ch] : (p[ch] = {name:ch}))) ;
-			cl = p[ch] ;
-			if(obj !== undefined) cl = undefined ;
-			else return p[ch] ;
-			return cl || (function(){
-				var kl = function(){return (no_ctor)? this : '__init__' in this ? this['__init__'].apply(this, arguments) : this } ;
-				kl.$ns = path.replace(/((.*)[.])*([^.]+)$/i, function($0, $1, $2, $3){return kl.$pkg = $2, kl.$classname = $3, $0 }) ;
-				kl.toString = function(){ return '[object ' + path + ']' } ;
-				if(!!xt) {
-					spy = xt.prototype, kl.$super = xt;
-					kl.prototype = (function(el) { return no_ctor = true, el = new xt, no_ctor = false, el })() ;
-					for(var i in xt) if(!!!kl[i] && !(i in keep)) kl[i] = xt[i] ;
-				}
-				kl.prototype.constructor = kl.prototype.$class = kl ;
-				if('__classvars__' in obj){
-					for(var i in obj['__classvars__']) kl[i] = obj['__classvars__'][i] ;
-					delete obj['__classvars__'] ;
-				}
-				kl.prototype.toString = function(){	return '[object ' +  path + ']' }
-				for(var s in obj)
-					kl.prototype[s] =
-						(!!xt && typeof obj[s] == 'function') ?
-						(function(meth, name, nn, old_super) {return function() {return (old_super = this.$super, this.$super = spy[name] , nn = meth.apply(this, arguments), this.$super = old_super , nn)}})(obj[s], s) 
-						: obj[s] ;
-				('__static__' in kl) && kl.__static__.apply(kl) ;
-				return (p[ch] = kl) ;
-			})() ;
-		} ;
-	})() ;
-	
-	
-}
+/* 
+ClassLite Version 1.0
+author saz aka True | contributor Ornorm
+GNU GPL-General Public License
+copyright sazaam[(at)gmail.com] 2012
+*/
+'use strict' ;
+var Class = Class || (function(){
+	var ns = {}, ks, regNS = /::|[.]/ , keep = {'constructor':1 , 'factory':1, 'base':1, 'ns':1} ;
+	return ks = function(namespace, properties, extendclass){
+		var xt = extendclass, path = namespace, cl , spy ;
+		var sp = path.split(regNS) ;
+		var $ns = path.replace(regNS, '.') ;
+		var l = sp.length, p = ns, ch ;
+		for(var i = 0 ; i < l ; i++)
+			ch = sp[i], (i < l - 1) && (p = (!!p[ch] ? p[ch] : (p[ch] = {name:ch}))) ;
+		cl = p[ch] ;
+		if(properties !== undefined) cl = undefined ;
+		else return p[ch] ;
+		return cl || (function(){
+			var sub = !! properties ? properties : {} ;
+			var sup = !!xt ? xt : Object ;
+			var T = function(){} ;
+			T.prototype = sup.prototype ;
+			if(sub.constructor == Function){
+				sub.prototype = new T ;
+			}else{
+				sub = (function(def, t){
+					var body = def, p, s, o, T = t || function T(){} ;
+					body.__proto__ = def.constructor ;
+					def = body.constructor ;
+					def.prototype = new T ;
+					for(p in body) {
+						if(p == 'statics') {
+							o = body['statics'] ;
+							for(s in o) {
+								if(o.hasOwnProperty(s) && !(s in keep)) (s == 'initialize') ? (def[s] = o[s]).call(def) : def[s] = o[s] ;
+								else if(s == 'toString') def[s] = o[s] ;
+							}
+							delete body['statics'] ;
+						}else if(p == "constructor") continue;
+						else def.prototype[p] = body[p] ;
+					}
+					return def ;
+				})(sub, T) ;
+			}
+			sub.ns = $ns ;
+			sub.base = sup ;
+			sub.factory = sup.prototype ;
+			sub.prototype.constructor = sub ;
+			return (p[ch] = sub) ;
+		})() ;
+	} ;
+})() ;
 
 if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt implementation
-	/* EVENTS */
+	// /* EVENTS */
 	var IEvent = Class('naja.net::IEvent', {
-	   __init__:function(type, data)
-	   {
-		  if(type instanceof jQuery.Event) {
-			 for(var s in type){
-				this[s] = type[s] ;
-			 }
-		  }else{
-			 this.type = type ;
-			 for(var s in data){
-				this[s] = data[s] ;
-			 }
-		  }
-		  return this ;
-	   }
-	}, jQuery.Event) ;
-	
-	var EventDispatcher = Class('naja.event::EventDispatcher', {
-		__init__:function(el)
+		constructor:function IEvent(type, data)
 		{
-			this.setDispatcher(this) ;
+			IEvent.base.apply(this, [].slice.call(arguments)) ;
+			return this ;
+		}
+	}, jQuery.Event) ;
+
+	var EventDispatcher = Class('naja.event::EventDispatcher', {
+		constructor:function EventDispatcher(el)
+		{
+			EventDispatcher.base.call(this) ;
+			this.setDispatcher(el || this) ;
 		},
 		setDispatcher:function(el) // @return void
 		{
@@ -158,7 +161,6 @@ if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt impleme
 		{
 			if(this.dispatcher !== undefined)
 			this.dispatcher.unbind(type, closure) ;
-			
 			return this ;
 		},
 		unbind:function(type, closure){
@@ -204,7 +206,7 @@ var BetweenJS = (function(){
 		BetweenJS.core() method supposed to be executed ok after script evaluation
 	*/
 	var BetweenJS = Class('org.libspark.betweenJS::BetweenJS', {
-		__classvars__:{
+		statics:{
 			ticker:undefined, // main and unique ticker, see class EnterFrameTicker
 			getTimer:getTimer, // points towards shortened-scope getTimer method
 			updaterFactory:undefined, // all in the name, generated updaters are intermede objects between tweens and their target
@@ -685,13 +687,13 @@ var BetweenJS = (function(){
 				return cc.stop() ;
 			}
 		},
-		__init__:function(){
+		constructor:function(){
 		   trace('Not meant to be instanciated...') ;
 		}
 	}) ;
 
 	var CSSPropertyMapper = Class('org.libspark.betweenJS::CSSPropertyMapper', {
-		__classvars__:{
+		statics:{
 			core:function(){
 				var cored = this.cored ;
 				
@@ -930,14 +932,14 @@ var BetweenJS = (function(){
 				return o ;
 			}
 		},
-		__init__:function(){
+		constructor:function(){
 		   trace('Not meant to be instanciated...') ;
 		}
 	}) ;
 
 	// CORE.UPDATERS
 	var UpdaterFactory = Class('org.libspark.betweenJS.core.updaters::UpdaterFactory', {
-		__classvars__:{
+		statics:{
 			instance:undefined,
 			getInstance:function(){
 				return UpdaterFactory.instance || (UpdaterFactory.instance = new UpdaterFactory()) ;
@@ -946,7 +948,7 @@ var BetweenJS = (function(){
 		poolIndex:0,
 		mapPool:[],
 		listPool:[],
-		__init__:function(){
+		constructor:function(){
 		   return this ;
 		},
 		create:function(target, dest, source){
@@ -1197,13 +1199,13 @@ var BetweenJS = (function(){
 			var updaterClass ;
 			switch(mode){
 				case 'bezier' :
-					updaterClass = BezierUpdater.$ns ;
+					updaterClass = BezierUpdater.ns ;
 				break ;
 				case 'physical' :
-					updaterClass = PhysicalUpdater.$ns ;
+					updaterClass = PhysicalUpdater.ns ;
 				break ;
 				default:
-					updaterClass = ObjectUpdater.$ns ;
+					updaterClass = ObjectUpdater.ns ;
 				break ;
 			}
 			if (updaterClass !== undefined) {
@@ -1261,7 +1263,7 @@ var BetweenJS = (function(){
 	var AbstractUpdater = Class('org.libspark.betweenJS.core.updaters::AbstractUpdater', {
 		isResolved:false,
 		target:undefined,
-		__init__:function(){ 
+		constructor:function(){ 
 		   this.isResolved = false ;
 		   return this ;
 		},
@@ -1302,15 +1304,15 @@ var BetweenJS = (function(){
 		source:undefined,
 		destination:undefined,
 		relativeMap:undefined,
-		__init__:function(){
+		constructor:function ObjectUpdater(){
+			ObjectUpdater.base.call(this) ;
 			this.source = {} ;
 			this.destination = {} ;
 			this.relativeMap = {} ;
 			return this ;
 		},
 		setTarget:function(target, easing){
-			
-			this.$super(target, easing) ;
+			ObjectUpdater.factory.setTarget.apply(this, [target, easing]) ;
 			var ctor = target.constructor ;
 			
 			switch(true){
@@ -1462,7 +1464,7 @@ var BetweenJS = (function(){
 			return new ObjectUpdater() ;
 		},
 		copyFrom:function(source){
-			this.$super(source) ;
+			ObjectUpdater.factory.copyFrom.apply(this, [source]) ;
 			var obj = source ;
 			
 			this.target = obj.target ;
@@ -1485,7 +1487,7 @@ var BetweenJS = (function(){
 		c:undefined,
 		d:undefined,
 		updaters:undefined,
-		__init__:function(target, updaters){
+		constructor:function(target, updaters){
 			this.target = target ;
 			
 			var l = updaters.length ;
@@ -1586,7 +1588,7 @@ var BetweenJS = (function(){
 		parent:undefined,
 		child:undefined,
 		propertyName:undefined,
-		__init__:function(parent, child, propertyName){
+		constructor:function(parent, child, propertyName){
 			this.parent = parent ;
 			this.child = child ;
 			this.propertyName = propertyName ;
@@ -1615,7 +1617,7 @@ var BetweenJS = (function(){
 		propertyName:undefined,
 		easing:undefined,
 		duration:0.0,
-		__init__:function(parent, child, propertyName){
+		constructor:function(parent, child, propertyName){
 			this.parent = parent ;
 			this.child = child ;
 			this.propertyName = propertyName ;
@@ -1642,8 +1644,8 @@ var BetweenJS = (function(){
 		destination:undefined,
 		relativeMap:undefined,
 		controlPoint:undefined,
-		__init__:function(){
-			this.$super() ;
+		constructor:function BezierUpdater(){
+			BezierUpdater.base.call(this) ;
 			this.controlPoint = {} ;
 			return this ;
 		},
@@ -1654,19 +1656,19 @@ var BetweenJS = (function(){
 			this.relativeMap['cp.' + propertyName + '.' + controlPoint.length] = isRelative ;
 		},
 		setSourceValue:function(propertyName, value, isRelative){
-			this.$super(propertyName, value, isRelative) ;
+			BezierUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
 		},
 		setDestinationValue:function(propertyName, value, isRelative){
-			this.$super(propertyName, value, isRelative) ;
+			BezierUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
 		},
 		getObject:function(propertyName){
-			return this.$super(propertyName) ;
+			return BezierUpdater.factory.getObject.apply(this, [propertyName]) ;
 		},
 		setObject:function(propertyName, value){
-			this.$super(propertyName, value) ;
+			return BezierUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 		},
 		resolveValues:function(){
-			this.$super() ;
+			BezierUpdater.factory.resolveValues.call(this) ;
 			var key, target = this.target, rMap = this.relativeMap, 
 			controlPoint = this.controlPoint, cpVec, l, i ;
 			for (key in controlPoint) {
@@ -1716,17 +1718,17 @@ var BetweenJS = (function(){
 			}
 		},
 		clone:function(source){
-			return this.$super(source) ;
+			return BezierUpdater.factory.clone.apply(this, [source]) ;
 		},
 		newInstance:function(){
 			return new BezierUpdater() ;
 		},
 		copyFrom:function(source)		{
-			this.$super(source) ;
+			BezierUpdater.factory.copyFrom.apply(this, [source])
 			this.copyObject(this.controlPoint, source.controlPoint) ;
 		},
-		copyObject:function(to, from)		{
-			this.$super(to, from) ;
+		copyObject:function(to, from){
+			BezierUpdater.factory.copyObject.apply(this, [to, from]) ;
 		}
 	}, ObjectUpdater) ;
 
@@ -1740,24 +1742,24 @@ var BetweenJS = (function(){
 		time:undefined,
 		maxDuration:0.0,
 		isResolved:false,
-		__init__:function(){
-			this.$super() ;
+		constructor:function PhysicalUpdater(){
+			PhysicalUpdater.base.call(this) ;
 			this.duration = {} ;
 			this.maxDuration = 0.0 ;
 			this.isResolved = false ;
 			return this ;
 		},
 		setSourceValue:function(propertyName, value, isRelative){
-			this.$super(propertyName, value, isRelative) ;
+			PhysicalUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
 		},
 		setDestinationValue:function(propertyName, value, isRelative){
-			this.$super(propertyName, value, isRelative) ;
+			PhysicalUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
 		},
 		getObject:function(propertyName){
-			return this.$super(propertyName) ;
+			return PhysicalUpdater.factory.getObject.apply(this, [propertyName]) ;
 		},
 		setObject:function(propertyName, value){
-			this.$super(propertyName, value) ;
+			return PhysicalUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 		},
 		resolveValues:function(){
 			var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap,
@@ -1815,17 +1817,17 @@ var BetweenJS = (function(){
 			}
 		},
 		clone:function(source){
-			return this.$super(source) ;
+			return PhysicalUpdater.factory.clone.apply(this, [source]) ;
 		},
 		newInstance:function(){
 			return new PhysicalUpdater() ;
 		},
 		copyFrom:function(source){
-			this.$super(source) ;
+			PhysicalUpdater.factory.copyFrom.apply(this, [source]) ;
 			this.easing = source.easing ;
 		},
 		copyObject:function(to, from){
-			this.$super(to, from) ;
+			PhysicalUpdater.factory.copyObject.apply(this, [to, from]) ;
 		}
 	}, ObjectUpdater) ;
 
@@ -1833,8 +1835,8 @@ var BetweenJS = (function(){
 	var TickerListener = Class('org.libspark.betweenJS.core.ticker::TickerListener', {
 		prevListener:undefined,
 		nextListener:undefined,
-		__init__:function(){
-			this.$super() ;
+		constructor:function TickerListener(){
+			TickerListener.base.call(this) ;
 			return this ;
 		},
 		tick:function(time){
@@ -1848,7 +1850,7 @@ var BetweenJS = (function(){
 		numListeners:0,
 		tickerListenerPaddings:undefined,
 		time:undefined,
-		__init__:function(){
+		constructor:function(){
 			this.numListeners = 0 ;
 			this.tickerListenerPaddings = new Array(10) ;
 			var prevListener = undefined ;
@@ -2040,12 +2042,12 @@ var BetweenJS = (function(){
 
 	// CORE.TWEENS
 	var AbstractTween = __global__.AbstractTween = Class('org.libspark.betweenJS.core.tweens::AbstractTween', {
-		__init__:function(ticker, position){
+		constructor:function AbstractTween(ticker, position){
 		   this.isPlaying = false ;
 		   this.time = .5 ;
 		   this.stopOnComplete = true ;
 		   this.willTriggerFlags = 0 ;
-		   this.$super() ;
+		   AbstractTween.base.call(this) ;
 		   this.ticker = ticker ;
 		   this.position = position || 0 ;
 		   
@@ -2261,7 +2263,7 @@ var BetweenJS = (function(){
 			this.onCompleteParams = source.onCompleteParams ; 
 		},
 		addEL:function(type, closure){
-			this.$super.apply(this, [type, closure]) ;
+			AbstractTween.factory.addEL.apply(this, [type, closure]) ;
 			this.updateWillTriggerFlags() ;
 			return this ;
 		},
@@ -2269,7 +2271,7 @@ var BetweenJS = (function(){
 			return this.addEL(type, closure) ;
 		},
 		removeEL:function(type, closure){
-			this.$super.apply(this, [type, closure]) ;
+			AbstractTween.factory.removeEL.apply(this, [type, closure]) ;
 			this.updateWillTriggerFlags() ;
 			return this ;
 		},
@@ -2277,7 +2279,7 @@ var BetweenJS = (function(){
 			return this.removeEL(type, closure) ;
 		},
 		dispatch:function(e){
-			return this.$super.apply(this, [e]) ;
+			return AbstractTween.factory.dispatch.apply(this, [e]) ;
 		},
 		trigger:function(type){
 			return this.dispatch(type) ;
@@ -2312,8 +2314,8 @@ var BetweenJS = (function(){
 
 	var AbstractActionTween = __global__.AbstractActionTween = Class('org.libspark.betweenJS.core.tweens::AbstractActionTween', {
 		lastTime:undefined,
-		__init__:function(ticker){
-			this.$super(ticker, 0) ;
+		constructor:function AbstractActionTween(ticker){
+			AbstractActionTween.base.apply(this, [ticker, 0]) ;
 			this.time = 0.01 ;
 			this.lastTime = -1 ;
 			
@@ -2336,8 +2338,8 @@ var BetweenJS = (function(){
 		easing:undefined,
 		updater:undefined,
 		target:undefined,
-		__init__:function(ticker){
-		   this.$super(ticker, 0) ;
+		constructor:function ObjectTween(ticker){
+		   ObjectTween.base.apply(this, [ticker, 0]) ;
 		   return this ;
 		},
 		internalUpdate:function(time){
@@ -2355,7 +2357,7 @@ var BetweenJS = (function(){
 			return new ObjectTween(this.ticker); 
 		},
 		copyFrom:function(source){
-			this.$super(source);
+			ObjectTween.factory.copyFrom.apply(this, [source]) ;
 			this.updater = source.updater.clone() ;
 		}
 	}, AbstractTween) ;
@@ -2364,8 +2366,8 @@ var BetweenJS = (function(){
 		updater:undefined,
 		target:undefined,
 		setted:false,
-		__init__:function(ticker){
-			this.$super(ticker, 0) ;
+		constructor:function PhysicalTween(ticker){
+			PhysicalTween.base.apply(this, [ticker, 0]) ;
 			this.setted = false ;
 			return this ;
 		},
@@ -2387,7 +2389,7 @@ var BetweenJS = (function(){
 			return new PhysicalTween(this.ticker) ;
 		},
 		copyFrom:function(source){
-			this.$super(source) ;
+			PhysicalTween.factory.copyFrom.apply(this, [source]) ;
 			this.updater = source.updater.clone() ;
 		}
 	}, AbstractTween) ;
@@ -2399,8 +2401,8 @@ var BetweenJS = (function(){
 		useRollback:false,
 		rollbackFunc:undefined,
 		rollbackParams:undefined,
-		__init__:function(ticker, func, params, useRollback, rollbackFunc, rollbackParams){
-			this.$super(ticker, 0) ;
+		constructor:function FunctionAction(ticker, func, params, useRollback, rollbackFunc, rollbackParams){
+			FunctionAction.base.apply(this, [ticker, 0]) ;
 			this.func = func ;
 			this.params = params ;
 			
@@ -2427,8 +2429,8 @@ var BetweenJS = (function(){
 		duration:0,
 		func:undefined,
 		params:undefined,
-		__init__:function(ticker, duration, func, params, useRollback, rollbackFunc, rollbackParams){
-			this.$super(ticker, 0) ;
+		constructor:function TimeoutAction(ticker, duration, func, params, useRollback, rollbackFunc, rollbackParams){
+			TimeoutAction.base.apply(this, [ticker, 0]) ;
 			this.time = duration || 0 ;
 			this.func = func ;
 			this.params = params ;
@@ -2457,7 +2459,7 @@ var BetweenJS = (function(){
 			return this.stop() ;
 		},
 		stop:function(){
-			return this.$super() ;
+			return TimeoutAction.factory.stop.call(this) ;
 		},
 		rollback:function(){
 			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
@@ -2468,8 +2470,8 @@ var BetweenJS = (function(){
 		duration:0,
 		func:undefined,
 		params:undefined,
-		__init__:function(ticker, timer, func, params, useRollback, rollbackFunc, rollbackParams){
-			this.$super(ticker, 0) ;
+		constructor:function IntervalAction(ticker, timer, func, params, useRollback, rollbackFunc, rollbackParams){
+			IntervalAction.base.apply(this, [ticker, 0]) ;
 			this.time = NaN ;
 			this.timer = (timer / 1000) || 0 ;
 			this.func = func ;
@@ -2517,8 +2519,8 @@ var BetweenJS = (function(){
 	var AddChildAction = __global__.AddChildAction = Class('org.libspark.betweenJS.actions::AddChildAction', {
 		target:undefined,
 		parent:undefined,
-		__init__:function(ticker, target, parent){
-			this.$super(ticker, 0) ;
+		constructor:function AddChildAction(ticker, target, parent){
+			AddChildAction.base.apply(this, [ticker, 0]) ;
 			this.target = target ;
 			this.parent = parent ;
 			
@@ -2538,8 +2540,8 @@ var BetweenJS = (function(){
 
 	var RemoveFromParentAction = __global__.RemoveFromParentAction = Class('org.libspark.betweenJS.actions::RemoveFromParentAction', {
 		target:undefined,
-		__init__:function(ticker, target){
-			this.$super(ticker, 0) ;
+		constructor:function RemoveFromParentAction(ticker, target){
+			RemoveFromParentAction.base.apply(this, [ticker, 0]) ;
 			
 			this.target = target ;
 			
@@ -2562,8 +2564,8 @@ var BetweenJS = (function(){
 	// DECORATORS
 	var TweenDecorator = __global__.TweenDecorator = Class('org.libspark.betweenJS.tweens::TweenDecorator', {
 		baseTween:undefined,
-		__init__:function(baseTween, position){
-		   this.$super(baseTween.ticker, position) ;
+		constructor:function TweenDecorator(baseTween, position){
+		   TweenDecorator.base.apply(this, [baseTween.ticker, position]) ;
 		   
 		   this.baseTween = baseTween ;
 		   this.time = baseTween.time ;
@@ -2574,25 +2576,25 @@ var BetweenJS = (function(){
 			if (this.isPlaying === false) {
 				
 				this.baseTween.firePlay() ;
-				this.$super() ;
+				TweenDecorator.factory.play.call(this) ;
 			}
 			return this ;
 		},
 		firePlay:function(){
-			this.$super() ;
+			TweenDecorator.factory.firePlay.call(this) ;
 			this.baseTween.firePlay() ;
 			
 			return this ;
 		},
 		stop:function(){
 			if (this.isPlaying === true) {
-				this.$super() ;
+				TweenDecorator.factory.stop.call(this) ;
 				this.baseTween.fireStop() ;
 			}
 			return this ;
 		},
 		fireStop:function(){
-			this.$super() ;
+			TweenDecorator.factory.fireStop.call(this) ;
 			this.baseTween.fireStop() ;
 			return this ;
 		},
@@ -2604,8 +2606,8 @@ var BetweenJS = (function(){
 	var SlicedTween = __global__.SlicedTween = Class('org.libspark.betweenJS.tweens.decorators::SlicedTween', {
 		begin:0,
 		end:1,
-		__init__:function(baseTween, begin, end){
-		   this.$super(baseTween, 0) ;
+		constructor:function SlicedTween(baseTween, begin, end){
+		   SlicedTween.base.apply(this, [baseTween, 0]) ;
 		   
 		   this.end = end || 1 ;
 		   this.begin = begin || 0 ;
@@ -2639,8 +2641,8 @@ var BetweenJS = (function(){
 
 	var ScaledTween = __global__.ScaledTween = Class('org.libspark.betweenJS.tweens.decorators::ScaledTween', {
 		scale:1,
-		__init__:function(baseTween, scale){
-		   this.$super(baseTween, 0) ;
+		constructor:function ScaledTween(baseTween, scale){
+		   ScaledTween.base.apply(this, [baseTween, 0]) ;
 		   
 		   this.scale = scale || 1 ;
 		   this.time = this.scale * baseTween.time ;
@@ -2656,8 +2658,8 @@ var BetweenJS = (function(){
 	}, TweenDecorator) ;
 
 	var ReversedTween = __global__.ReversedTween = Class('org.libspark.betweenJS.tweens.decorators::ReversedTween', {
-		__init__:function(baseTween, position){
-		   this.$super(baseTween, position) ;
+		constructor:function ReversedTween(baseTween, position){
+		   ReversedTween.base.apply(this, [baseTween, position]) ;
 		   this.time = baseTween.time ;
 		   return this ;
 		},
@@ -2672,8 +2674,8 @@ var BetweenJS = (function(){
 	var RepeatedTween = __global__.RepeatedTween = Class('org.libspark.betweenJS.tweens.decorators::RepeatedTween', {
 		basetime:undefined,
 		repeatCount:2,
-		__init__:function(baseTween, repeatCount){
-		   this.$super(baseTween, 0) ;
+		constructor:function RepeatedTween(baseTween, repeatCount){
+		   RepeatedTween.base.apply(this, [baseTween, 0]) ;
 		   this.repeatCount = repeatCount || 2 ;
 		   this.basetime = baseTween.time ;
 		   
@@ -2695,8 +2697,8 @@ var BetweenJS = (function(){
 		basetime:undefined,
 		preDelay:.5,
 		postDelay:.5,
-		__init__:function(baseTween, preDelay, postDelay){
-		   this.$super(baseTween, 0) ;
+		constructor:function DelayedTween(baseTween, preDelay, postDelay){
+		   DelayedTween.base.apply(this, [baseTween, 0]) ;
 		   this.preDelay = preDelay || 0 ;
 		   this.postDelay = postDelay || 0 ;
 		   this.time = this.preDelay + baseTween.time + this.postDelay ;
@@ -2718,8 +2720,8 @@ var BetweenJS = (function(){
 		c:undefined,
 		d:undefined,
 		targets:undefined,
-		__init__:function(targets, ticker, position){
-			this.$super(ticker, position) ;
+		constructor:function ParallelTween(targets, ticker, position){
+			ParallelTween.base.apply(this, [ticker, position]) ;
 				
 			var l = targets.length ;
 			this.time = 0 ;
@@ -2883,8 +2885,8 @@ var BetweenJS = (function(){
 		d:undefined,
 		targets:undefined,
 		lastTime:0,
-		__init__:function(targets, ticker, position){
-			this.$super(ticker, position) ;
+		constructor:function SerialTween(targets, ticker, position){
+			SerialTween.base.apply(this, [ticker, position]) ;
 				
 			var l = targets.length ;
 			
@@ -3106,17 +3108,15 @@ var BetweenJS = (function(){
 	return BetweenJS ;
 })() ;
 
-
-
 // EVENTS
 var TweenEvent = Class('org.libspark.betweenJS.events::TweenEvent', {
-   __classvars__:{
+   statics:{
       PLAY:'play',
       STOP:'stop',
       UPDATE:'update',
       COMPLETE:'complete'
    },
-   __init__:function(type, data, tween){
+   constructor:function(type, data, tween){
       this.type = type, this.data = data ;
       this.tween = tween ;
       return this ;
@@ -3573,7 +3573,7 @@ var PhysicalAccelerate = Class('org.libspark.betweenJS.core.easing::PhysicalAcce
     iv:undefined,
     a:undefined,
     fps:undefined,
-    __init__:function(iv, a, fps){ 
+    constructor:function(iv, a, fps){ 
        this.iv = iv ;
        this.a = a ;
        this.fps = fps ;
@@ -3596,7 +3596,7 @@ var PhysicalExponential = Class('org.libspark.betweenJS.core.easing::PhysicalExp
     f:undefined,
     th:undefined,
     fps:undefined,
-    __init__:function(f, th, fps){ 
+    constructor:function(f, th, fps){ 
        this.f = f ;
        this.th = th ;
        this.fps = fps ;
@@ -3613,7 +3613,7 @@ var PhysicalExponential = Class('org.libspark.betweenJS.core.easing::PhysicalExp
 var PhysicalUniform = Class('org.libspark.betweenJS.core.easing::PhysicalUniform', {
     v:undefined,
     fps:undefined,
-    __init__:function(v, fps){ 
+    constructor:function(v, fps){ 
        this.v = v ;
        this.fps = fps ;
        
