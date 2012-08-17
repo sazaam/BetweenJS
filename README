@@ -13,8 +13,9 @@ http://www.libspark.org/wiki/BetweenAS3/en
 
 
 Update Log v 0.96 :
-- Fixed critical error at loading in Evt implementation from Naja Framework.
+- Changed Class system again, no closures, more simple and readable --> quicker
 - Fixed -Nothing happening- bug on Safari with span-like Elements.
+- Fixed critical error at loading in Evt implementation from Naja Framework.
 
 
 
