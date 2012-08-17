@@ -55,7 +55,7 @@ author saz aka True | contributor Ornorm
 GNU GPL-General Public License
 copyright sazaam[(at)gmail.com] 2012
 */
-var Class = (function(){
+var Class = Class || (function(){
 	var NS = {}, rNS = /::|[.]/ , kp = {'factory':1, 'base':1, 'ns':1} ; 
 	var ks = function Class(namespace, properties, extendclass){
 		var xt = extendclass, pr = properties, xy = namespace, cl ;
