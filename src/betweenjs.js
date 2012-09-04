@@ -97,90 +97,86 @@ var Class = Class || (function(){
 	return ks ;
 })() ;
 
-if(Class('naja.net::IEvent') === undefined){ // Forcing Writing Naja evt implementation
-	// /* EVENTS */
-	var IEvent = Class('naja.net::IEvent', {
-		constructor:function IEvent(type, data)
-		{
-			IEvent.base.apply(this, [].slice.call(arguments)) ;
-			return this ;
-		}
-	}, jQuery.Event) ;
+/* EVENTS */
+var IEvent = Class('naja.net::IEvent', {
+	constructor:function IEvent(type, data)
+	{
+		IEvent.base.apply(this, [].slice.call(arguments)) ;
+		return this ;
+	}
+}, jQuery.Event) ;
 
-	var EventDispatcher = Class('naja.event::EventDispatcher', {
-		constructor:function EventDispatcher(el)
-		{
-			EventDispatcher.base.call(this) ;
-			this.setDispatcher(el || this) ;
-		},
-		setDispatcher:function(el) // @return void
-		{
-			this.dispatcher = $(el) ;
-			this.target = (typeof(el) == 'string') ? this.dispatcher[0] : el ;
-		},
-		hasEL:function(type) // @return Boolean
-		{
-			var dataEvents = this.dispatcher.data('events') ;
-			if(dataEvents !== undefined) {
-				return type in dataEvents ;
-			}
-			return false ;
-		},
-		willTrigger:function(type) // @return Boolean
-		{
-			var dataEvents = this.dispatcher.data('events') ;
-			if(dataEvents !== undefined) {
-				return type in dataEvents ;
-			}
-			return false ;
-		},
-		dispatch:function(e) // @return void
-		{
-			if(this.dispatcher !== undefined)
-			this.dispatcher.trigger(e) ;
-		},
-		addEL:function(type, closure) // @return Boolean
-		{
-			if(this.dispatcher !== undefined){
-				this.dispatcher.bind(type, closure) ;
-			}
-			return this ;
-		},
-		bind:function(type, closure){
-			return this.addEL(type, closure) ;
-		},
-		removeEL:function(type, closure) // @return Boolean
-		{
-			if(this.dispatcher !== undefined)
-			this.dispatcher.unbind(type, closure) ;
-			return this ;
-		},
-		unbind:function(type, closure){
-			return this.removeEL(type, closure) ;
-		},
-		copyFrom:function(source)
-		{
-			if(!source instanceof EventDispatcher) {
-				trace('wrong input for EventDispatcher CopyFrom...');
-				return ;
-			}
-			if(source.dispatcher !== undefined) this.setDispatcher(source.target) ;
-			var listeners = source.dispatcher.data('events') ;
-			if(listeners !== undefined){
-				for (var type in listeners) {
-					var list = listeners[type] ;
-					var l = list.length;
-					for (var i = 0; i < l; ++i) {
-						var data = list[i] ;
-						this.addEL(type, data.listener);
-					}
-				}
-			}
-			return this ;
-		}
-	}) ;
-}
-
+var EventDispatcher = Class('naja.event::EventDispatcher', {
+    constructor:function EventDispatcher(el)
+    {
+        this.setDispatcher(el || this) ;
+    },
+    setDispatcher:function(el) // @return void
+    {
+        this.dispatcher = $(el) ;
+        this.target = (typeof(el) == 'string') ? this.dispatcher[0] : el ;
+    },
+    hasEL:function(type) // @return Boolean
+    {
+        var dataEvents = this.dispatcher.data('events') ;
+        if(dataEvents !== undefined) {
+            return type in dataEvents ;
+        }
+        return false ;
+    },
+    willTrigger:function(type) // @return Boolean
+    {
+        var dataEvents = this.dispatcher.data('events') ;
+        if(dataEvents !== undefined) {
+            return type in dataEvents ;
+        }
+        return false ;
+    },
+    dispatch:function(e) // @return void
+    {
+    	if(this.dispatcher !== undefined)
+        this.dispatcher.trigger(e) ;
+    },
+    addEL:function(type, closure) // @return Boolean
+    {
+        if(this.dispatcher !== undefined){
+            this.dispatcher.bind(type, closure) ;
+        }
+        return this ;
+    },
+	bind:function(type, closure){
+		return this.addEL(type, closure) ;
+	},
+    removeEL:function(type, closure) // @return Boolean
+    {
+        if(this.dispatcher !== undefined)
+        this.dispatcher.unbind(type, closure) ;
+        return this ;
+    },
+	unbind:function(type, closure){
+		return this.removeEL(type, closure) ;
+	},
+    copyFrom:function(source)
+    {
+        if(!source instanceof EventDispatcher) {
+            trace('wrong input for EventDispatcher CopyFrom...');
+            return ;
+        }
+        if(source.dispatcher !== undefined) this.setDispatcher(source.target) ;
+        var listeners = source.dispatcher.data('events') ;
+        if(listeners !== undefined){
+            for (var type in listeners) {
+                var list = listeners[type] ;
+                var l = list.length;
+                for (var i = 0; i < l; ++i) {
+                    var data = list[i] ;
+                    this.addEL(type, data.listener);
+                }
+            }
+        }
+        return this ;
+    }
+}) ;
 var BetweenJS = (function(){
 	// GetTimer Implementation
 	var __global__ = window ;
