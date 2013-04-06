@@ -1,9 +1,4 @@
-var __dependancies__ = [
-	{name:'jquery', url:'./jquery-1.7.1.min.js'}
-] ;
-
 /*
- *
  * BETWEENJS Tweening Engine for Javascript
  * 
  * V 0.95
@@ -21,166 +16,11 @@ var __dependancies__ = [
  * 2011-2012
  * 
  */
-
 'use strict' ;
-// REQUESTANIMATIONFRAME implementation BY PAUL IRISH
-(function() {
-    var lastTime = 0;
-    var vendors = ['ms', 'moz', 'webkit', 'o'];
-    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
-        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
-        window.cancelAnimationFrame = 
-          window[vendors[x]+'CancelAnimationFrame'] || window[vendors[x]+'CancelRequestAnimationFrame'];
-    }
- 
-    if (!window.requestAnimationFrame)
-        window.requestAnimationFrame = function(callback, element) {
-            var currTime = new Date().getTime();
-            var timeToCall = Math.max(0, 16 - (currTime - lastTime));
-            var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
-              timeToCall);
-            lastTime = currTime + timeToCall;
-            return id;
-        };
- 
-    if (!window.cancelAnimationFrame)
-        window.cancelAnimationFrame = function(id) {
-            clearTimeout(id);
-        };
-})() ;
 
-/* 
-ClassLite Version 1.1
-author saz aka True | contributor Ornorm
-GNU GPL-General Public License
-copyright sazaam[(at)gmail.com] 2012
-*/
-var Class = Class || (function(){
-	var NS = {}, rNS = /::|[.]/ , kp = {'factory':1, 'base':1, 'ns':1} ; 
-	var ks = function Class(namespace, properties, extendclass){
-		var xt = extendclass, pr = properties, xy = namespace, cl ;
-		var sp = xy.split(rNS), ns = xy.replace(rNS, '.') ;
-		var l = sp.length, p = NS, ch ;
-		for(var i = 0 ; i < l ; i++)
-			ch = sp[i], (i < l - 1) && (p = (!!p[ch] ? p[ch] : (p[ch] = {name:ch}))) ;
-		cl = p[ch] ;
-		return (!!!pr && !!!xt) ? cl : (function(){
-			var s = !! pr ? pr : {} ;
-			var ss = !!xt ? xt : Object ;
-			var T = function(){} ;
-			T.prototype = ss.prototype ;
-			if(s.constructor == Function) s.prototype = new T ;
-			else s = mk(s, T) ;
-			s.ns = ns ;
-			s.base = ss ;
-			s.factory = ss.prototype ;
-			s.prototype.constructor = s ;
-			return (p[ch] = s) ;
-		})() ;
-	} ;
-	var mk = ks.make = function make(o, t){
-		var b = o, p, s, k, T = t || function T(){} ;
-		b.__proto__ = o.constructor ;
-		o = b.constructor ;
-		o.prototype = new T ;
-		for(p in b) {
-			if(p == 'statics') {
-				for(s in (k = b['statics']))
-					if(k.hasOwnProperty(s) && !(s in kp)) (s == 'initialize') ? (o[s] = k[s]).call(o) : o[s] = k[s] ;
-					else if(s == 'toString') o[s] = k[s] ;
-				delete b['statics'] ;
-			}else if(p == "constructor" || p == 'init') continue ;
-			else o.prototype[p] = b[p] ;
-		}
-		return o ;
-	}
-	return ks ;
-})() ;
-
-/* EVENTS */
-var IEvent = Class('naja.net::IEvent', {
-	constructor:function IEvent(type, data)
-	{
-		IEvent.base.apply(this, [].slice.call(arguments)) ;
-		return this ;
-	}
-}, jQuery.Event) ;
-
-var EventDispatcher = Class('naja.event::EventDispatcher', {
-    constructor:function EventDispatcher(el)
-    {
-        this.setDispatcher(el || this) ;
-    },
-    setDispatcher:function(el) // @return void
-    {
-        this.dispatcher = $(el) ;
-        this.target = (typeof(el) == 'string') ? this.dispatcher[0] : el ;
-    },
-    hasEL:function(type) // @return Boolean
-    {
-        var dataEvents = this.dispatcher.data('events') ;
-        if(dataEvents !== undefined) {
-            return type in dataEvents ;
-        }
-        return false ;
-    },
-    willTrigger:function(type) // @return Boolean
-    {
-        var dataEvents = this.dispatcher.data('events') ;
-        if(dataEvents !== undefined) {
-            return type in dataEvents ;
-        }
-        return false ;
-    },
-    dispatch:function(e) // @return void
-    {
-    	if(this.dispatcher !== undefined)
-        this.dispatcher.trigger(e) ;
-    },
-    addEL:function(type, closure) // @return Boolean
-    {
-        if(this.dispatcher !== undefined){
-            this.dispatcher.bind(type, closure) ;
-        }
-        return this ;
-    },
-	bind:function(type, closure){
-		return this.addEL(type, closure) ;
-	},
-    removeEL:function(type, closure) // @return Boolean
-    {
-        if(this.dispatcher !== undefined)
-        this.dispatcher.unbind(type, closure) ;
-        return this ;
-    },
-	unbind:function(type, closure){
-		return this.removeEL(type, closure) ;
-	},
-    copyFrom:function(source)
-    {
-        if(!source instanceof EventDispatcher) {
-            trace('wrong input for EventDispatcher CopyFrom...');
-            return ;
-        }
-        if(source.dispatcher !== undefined) this.setDispatcher(source.target) ;
-        var listeners = source.dispatcher.data('events') ;
-        if(listeners !== undefined){
-            for (var type in listeners) {
-                var list = listeners[type] ;
-                var l = list.length;
-                for (var i = 0; i < l; ++i) {
-                    var data = list[i] ;
-                    this.addEL(type, data.listener);
-                }
-            }
-        }
-        return this ;
-    }
-}) ;
-var BetweenJS = (function(){
+module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	// GetTimer Implementation
-	var __global__ = window ;
-	var getTimer = getTimer || function(){
+	var getTimer = function(){
 	   return new Date().getTime() - ___d ;
 	} , ___d = new Date().getTime() ;
 	// will need that...
@@ -189,512 +29,40 @@ var BetweenJS = (function(){
 	}
 	var cacheInterval = {}, cacheTimeout = {} ;
 	var unitsreg = /(px|em|pc|pt|%)$/ ;
-	/* BETWEENJS 
-		Main class, all methods considerated static, needless instantiation
-		BetweenJS.core() method supposed to be executed ok after script evaluation
-	*/
-	var BetweenJS = Class('org.libspark.betweenJS::BetweenJS', {
-		statics:{
-			ticker:undefined, // main and unique ticker, see class EnterFrameTicker
-			getTimer:getTimer, // points towards shortened-scope getTimer method
-			updaterFactory:undefined, // all in the name, generated updaters are intermede objects between tweens and their target
-			/*
-				Core (static-like init), where 
-				main Ticker instance created & launched, 
-				(also set to tick forever from start, to disable, @see BetweenJS.ticker.stop())
-			*/
-			core:function(){
-				var cored = BetweenJS.cored ;
-				if(cored === true) return ;
-				
-				CSSPropertyMapper.core() ;
-				
-				BetweenJS.ticker = new EnterFrameTicker() ;
-				BetweenJS.ticker.start() ;
-				
-				BetweenJS.updaterFactory = new UpdaterFactory() ;
-				var exclude = {
-					'getTimer':undefined,
-					'toString':undefined,
-					'core':undefined,
-					'parallel':undefined,
-					'parallelTweens':undefined,
-					'serial':undefined,
-					'serialTweens':undefined,
-					'reverse':undefined,
-					'repeat':undefined,
-					'scale':undefined,
-					'slice':undefined,
-					'delay':undefined,
-					'func':undefined,
-					'interval':undefined,
-					'clearInterval':undefined,
-					'timeout':undefined,
-					'clearTimeout':undefined
-				}
-				
-				for(var n in BetweenJS){
-					(function(ind){
-						if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
-							var ff = BetweenJS[ind] ;
-							 
-							BetweenJS[ind] = function(target){
-								var tar , arr ;
-								var args = [].slice.call(arguments) ;
-								
-								if('jquery' in target) { // is jquery element
-									var s = target.size() ;
-									
-									if(s > 1){
-										tar = args.shift() ;
-										arr = tar.map(function(i, el){
-											return ff.apply(null, [el].concat(args)) ;
-										}).toArray() ;
-										
-										return BetweenJS.parallelTweens(arr) ;
-									}else if(s == 1){
-										tar = args.shift() ;
-										return ff.apply(null, [tar[0]].concat(args)) ;
-										
-									}else{
-										return false ;
-									}
-									
-								}else if(('length' in target) && !isNaN(target['length'])){
-									
-									if(target.length > 1){
-										
-										tar = args.shift() ;
-										var l = tar.length , arr = [] ;
-										for(var i = 0 ; i < l ; i++)
-											arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
-										return BetweenJS.parallelTweens(arr) ;
-										
-									}else if(target.length == 1){
-										
-										var tar = args.shift() ;
-										return ff.apply(null, [tar[0]].concat(args)) ;
-										
-									}else{
-										return false ;
-									}
-								}else{
-									return ff.apply(null, args) ;
-								}
-								return true ;
-							}
-						}
-					})(n) ;
-				}
-				
-				BetweenJS.cored = true ;
-			},
-			/*
-				tween
-				
-				Creates a regular tween object.
-				Takes in a target object, any object. Values in target such as numerals or other objects with numerals, will be able to tween.
-				Passing in a 'to' and a 'from' object will set source and destination values for the tween.
-				time is the duration of the tween.
-				set an easing for the tween in the set of provided easings, or custom one @see CustomFunctionEasing
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param from Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			tween:function(target, to, from, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				to
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			to:function(target, to, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				from
-				
-				@param target Object/HtmlDomElement
-				@param from Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			from:function(target, from, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				apply
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param from Object
-				@param time Float (default : 1.0)
-				@param applyTime Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			apply:function(target, to, from, time, applyTime, easing){
-				if(applyTime === undefined) applyTime = 1.0 ;
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				tween.update(applyTime) ;
-				return tween ;
-			},
-			/*
-				bezier
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param from Object
-				@param controlPoint Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			bezier:function(target, to, from, controlPoint, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				bezierTo
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param controlPoint Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			bezierTo:function(target, to, controlPoint, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				bezierFrom
-				
-				@param target Object/HtmlDomElement
-				@param from Object
-				@param controlPoint Object
-				@param time Float (default : 1.0)
-				@param easing Easing (default : Linear.easeNone)
-				
-				@return TweenLike Object
-			*/
-			bezierFrom:function(target, from, controlPoint, time, easing){
-				var tween = new ObjectTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
-				tween.time = time || 1.0 ;
-				tween.easing = easing || Linear.easeNone ;
-				return tween ;
-			},
-			/*
-				physical
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param from Object
-				@param easing Easing (default : Physical.exponential())
-				
-				@return TweenLike Object
-			*/
-			physical:function(target, to, from, easing){
-				var tween = new PhysicalTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
-				return tween ;
-			},
-			/*
-				physicalTo
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param easing Easing (default : Physical.exponential())
-				
-				@return TweenLike Object
-			*/
-			physicalTo:function(target, to, easing){
-				var tween = new PhysicalTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
-				return tween ;
-			},
-			/*
-				physicalFrom
-				
-				@param target Object/HtmlDomElement
-				@param from Object
-				@param easing Easing (default : Physical.exponential())
-				
-				@return TweenLike Object
-			*/
-			physicalFrom:function(target, from, easing){
-				var tween = new PhysicalTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
-				return tween ;
-			},
-			/*
-				physicalApply
-				
-				@param target Object/HtmlDomElement
-				@param to Object
-				@param from Object
-				@param applyTime Float (default : 1.0)
-				@param easing Easing (default : Physical.exponential())
-				
-				@return TweenLike Object
-			*/
-			physicalApply:function(target, to, from, applyTime, easing){
-				if(applyTime === undefined) applyTime = 1.0 ;
-				var tween = new PhysicalTween(BetweenJS.ticker) ;
-				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.uniform()) ;
-				tween.update(applyTime) ;
-				return tween ;
-			},
-			/*
-				parallel
-				
-				@param [tween TweenLike, ...]
-				
-				@return TweenLike Object
-			*/
-			parallel:function(tween){
-				return BetweenJS.parallelTweens([].slice.call(arguments)) ;
-			},
-			/*
-				parallelTweens
-				
-				@param tweens Array[TweenLike]
-				
-				@return TweenLike Object
-			*/
-			parallelTweens:function(tweens){
-				return new ParallelTween(tweens, BetweenJS.ticker, 0) ;
-			},
-			/*
-				serial
-				
-				@param [tween TweenLike, ...]
-				
-				@return TweenLike Object
-			*/
-			serial:function(tween){
-				return BetweenJS.serialTweens([].slice.call(arguments)) ;
-			},
-			/*
-				serialTweens
-				
-				@param tweens Array[TweenLike]
-				
-				@return TweenLike Object
-			*/
-			serialTweens:function(tweens){
-				return new SerialTween(tweens, BetweenJS.ticker, 0) ;
-			},
-			/*
-				reverse
-				
-				@param tween TweenLike
-				@param reversePosition Float (default : 0.0)
-				
-				@return TweenLike TweenDecorator Object
-			*/
-			reverse:function(tween, reversePosition){
-				if(reversePosition === undefined) reversePosition = false ;
-				var pos = reversePosition !== undefined ? tween.time - tween.position : 0.0 ;
-				if (tween instanceof ReversedTween) {
-					return new TweenDecorator(tween.baseTween, pos) ;
-				}
-				return new ReversedTween(tween, pos) ;
-			},
-			/*
-				repeat
-				
-				@param tween TweenLike
-				@param repeatCount Integer (default : 2)
-				
-				@return TweenLike TweenDecorator Object
-			*/
-			repeat:function(tween, repeatCount){
-				return new RepeatedTween(tween, repeatCount) ;
-			},
-			/*
-				repeat
-				
-				@param tween TweenLike
-				@param scale Float (percent, default : 1)
-				
-				@return TweenLike TweenDecorator Object
-			*/
-			scale:function(tween, scale){
-				return new ScaledTween(tween, scale) ;
-			},
-			/*
-				slice
-				
-				@param tween TweenLike
-				@param begin Float (default : 0)
-				@param end Float (default : 1)
-				@param isPercent Boolean (default : false)
-				
-				@return TweenLike TweenDecorator Object
-			*/
-			slice:function(tween, begin, end, isPercent){
-				if(begin === undefined) begin = 0 ;
-				if(end === undefined) end = 1 ;
-				if(isPercent === undefined) isPercent = false ;
-				if(isPercent){
-					begin = tween.time * begin ;
-					end = tween.time * end ;
-				}
-				if (begin > end) {
-					return new ReversedTween(new SlicedTween(tween, end, begin), 0) ;
-				}
-				
-				return new SlicedTween(tween, begin, end) ;
-			},
-			/*
-				delay
-				
-				@param tween TweenLike
-				@param delay Float (default : 0)
-				@param postDelay Float (default : 0)
-				
-				@return TweenLike TweenDecorator Object
-			*/
-			delay:function(tween, delay, postDelay){
-				return new DelayedTween(tween, delay || 0, postDelay || 0) ;
-			},
-			/*
-				addChild
-				
-				@param target HtmlDomElement
-				@param parent HtmlDomElement
-				
-				@return TweenLike AbstactActionTween Object
-			*/
-			addChild:function(target, parent){
-				return new AddChildAction(BetweenJS.ticker, target, parent) ;
-			},
-			/*
-				removeFromParent
-				
-				@param target HtmlDomElement
-				@param parent HtmlDomElement
-				
-				@return TweenLike AbstactActionTween Object
-			*/
-			removeFromParent:function(target){
-				return new RemoveFromParentAction(BetweenJS.ticker, target) ;
-			},
-			/*
-				func
-				
-				@param func Function
-				@param params Array
-				@param useRollback Boolean
-				@param rollbackFunc Function
-				@param rollbackParams Array
-				
-				@return TweenLike AbstactActionTween Object
-			*/
-			func:function(func, params, useRollback, rollbackFunc, rollbackParams){
-				return new FunctionAction(BetweenJS.ticker, func, params, useRollback, rollbackFunc, rollbackParams) ;
-			},
-			/*
-				timeout
-				
-				@param duration Float
-				@param func Function
-				@param params Array
-				
-				@return TweenLike AbstactActionTween Object
-			*/
-			timeout:function(duration, func, params){
-				var uid = getTimer() ;
-				var tw = new TimeoutAction(BetweenJS.ticker, duration, func, params) ;
-				tw.uid = uid ;
-				return (cacheTimeout[uid] = tw) ;
-			},
-			clearTimeout:function(uid){
-				var cc = cacheTimeout[uid] ;
-				delete cacheTimeout[uid] ;
-				return cc.stop() ;
-			},
-			/*
-				interval
-				
-				@param timer Integer
-				@param func Function
-				@param params Array
-				
-				@return TweenLike AbstactActionTween Object
-			*/
-			interval:function(timer, func, params){
-				var uid = getTimer() ;
-				var tw = new IntervalAction(BetweenJS.ticker, timer, func, params) ;
-				tw.uid = uid ;
-				return (cacheInterval[uid] = tw) ;
-			},
-			clearInterval:function(uid){
-				var cc = cacheInterval[uid] ;
-				delete cacheInterval[uid] ;
-				return cc.stop() ;
-			}
-		},
-		constructor:function(){
-		   trace('Not meant to be instanciated...') ;
+	// REQUESTANIMATIONFRAME implementation BY PAUL IRISH
+	(function() {
+		var lastTime = 0;
+		var vendors = ['ms', 'moz', 'webkit', 'o'];
+		for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+			window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'] ;
+			window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] || window[vendors[x]+'CancelRequestAnimationFrame'] ;
 		}
-	}) ;
-
-	var CSSPropertyMapper = Class('org.libspark.betweenJS::CSSPropertyMapper', {
+		if (!window.requestAnimationFrame)
+			window.requestAnimationFrame = function(callback, element) {
+				var currTime = new Date().getTime() ;
+				var timeToCall = Math.max(0, 16 - (currTime - lastTime)) ;
+				var id = window.setTimeout(function() { callback(currTime + timeToCall) ; }, timeToCall) ;
+				lastTime = currTime + timeToCall ;
+				return id ;
+			}
+		if (!window.cancelAnimationFrame)
+			window.cancelAnimationFrame = function(id) {
+				clearTimeout(id) ;
+			}
+	})() ;
+	
+	// here other classes
+	var CSSPropertyMapper = Type.define({
+		constructor:CSSPropertyMapper = function CSSPropertyMapper(){
+			throw 'Not meant to be instanciated... CSSPropertyMapper' ;
+		},
 		statics:{
-			core:function(){
-				var cored = this.cored ;
-				
-				if(cored === true) return ;
-				
+			initialize:function initialize(domain){
 				var comp = window.getComputedStyle ;
-				
 				CSSPropertyMapper.hasComputedStyle = comp !== undefined && typeof(comp) == 'function';
 				CSSPropertyMapper.isIE = /MSIE/.test(navigator.userAgent) ;
 				CSSPropertyMapper.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
 				CSSPropertyMapper.isIEunder8 = /MSIE [0-7]/.test(navigator.userAgent) ;
-				
-				this.cored = true ;
 			},
 			formats:{
 				'positionprop':/scroll(left|top)?/gi,
@@ -743,6 +111,8 @@ var BetweenJS = (function(){
 					window.getComputedStyle (target, '')[pname].replace(unitsreg, '') :
 					target.currentStyle[pname].replace(unitsreg, '') ;
 				}
+				// trace(str, target.currentStyle[pname], unit, target)
+				// trace(target)
 				return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
 			},
 			cssSimpleSet:function(target, pname, unit, val){
@@ -890,6 +260,7 @@ var BetweenJS = (function(){
 				var cache = CSSPropertyMapper.cache ;
 				if(name in cache) {return cache[name] } ;
 				var o ;
+				
 				switch(true){
 					case formats['positionprop'].test(name) :
 						o = {
@@ -919,26 +290,17 @@ var BetweenJS = (function(){
 				cache[name] = o ;
 				return o ;
 			}
-		},
-		constructor:function(){
-		   trace('Not meant to be instanciated...') ;
 		}
 	}) ;
-
-	// CORE.UPDATERS
-	var UpdaterFactory = Class('org.libspark.betweenJS.core.updaters::UpdaterFactory', {
-		statics:{
-			instance:undefined,
-			getInstance:function(){
-				return UpdaterFactory.instance || (UpdaterFactory.instance = new UpdaterFactory()) ;
-			}
+	// SINGLE.UPDATER
+	var UpdaterFactory = Type.define({
+		pkg:'single.updater',
+		constructor:UpdaterFactory = function UpdaterFactory(){
+		   //
 		},
 		poolIndex:0,
 		mapPool:[],
 		listPool:[],
-		constructor:function(){
-		   return this ;
-		},
 		create:function(target, dest, source){
 			var map, updaters, name, value, isRelative, parent, child, updater ;
 			var units ;
@@ -971,10 +333,10 @@ var BetweenJS = (function(){
 					}
 				}
 			}
+			
 			if (dest !== undefined) {
 				
 				dest = this.checkStringObj(dest) ;
-				
 				for (name in dest) {
 					if (typeof(value = dest[name]) == "number") {
 						if ((isRelative = /^\$/.test(name))) {
@@ -982,7 +344,6 @@ var BetweenJS = (function(){
 						}
 						this.getUpdaterFor(target, name, map, updaters).setDestinationValue(name, parseFloat(value), isRelative) ;
 					} else {
-					
 						if (!(source !== undefined && name in source)) {
 							parent = this.getUpdaterFor(target, name, map, updaters) ;
 							child = this.create(parent.getObject(name), value, source !== undefined ? source[name] : undefined) ;
@@ -991,8 +352,8 @@ var BetweenJS = (function(){
 					}
 				}
 			}
-			var l = updaters.length ;
 			
+			var l = updaters.length ;
 			if (l == 1) {
 				updater = updaters[0] ;
 			}else if (l > 1) {
@@ -1066,12 +427,12 @@ var BetweenJS = (function(){
 			if (controlPoint !== undefined) {
 				
 				controlPoint = this.checkStringObj(controlPoint) ;
-				
 				for (name in controlPoint) {
+					
 					if (typeof(value = controlPoint[name]) == 'number') {
 						value = [value] ;
 					}
-					if (value.constructor == Array) {
+					if (!!value.slice && value.slice === Array.prototype.slice) {
 						if ((isRelative = /^\$/.test(name))) {
 							name = name.substr(1) ;
 						}
@@ -1187,22 +548,25 @@ var BetweenJS = (function(){
 			var updaterClass ;
 			switch(mode){
 				case 'bezier' :
-					updaterClass = BezierUpdater.ns ;
+					updaterClass = BezierUpdater ;
 				break ;
 				case 'physical' :
-					updaterClass = PhysicalUpdater.ns ;
+					updaterClass = PhysicalUpdater ;
 				break ;
 				default:
-					updaterClass = ObjectUpdater.ns ;
+					updaterClass = ObjectUpdater ;
 				break ;
 			}
+			
 			if (updaterClass !== undefined) {
-				var updater = map[updaterClass] ;
+				var upstr = updaterClass.slot.qualifiedclassname ;
+				
+				var updater = map[upstr] ;
 				if (updater === undefined) {
-					updater = new (Class(updaterClass))() ;
+					updater = new (updaterClass)() ;
 					updater.setTarget(target, easing) ;
 					
-					map[updaterClass] = updater ;
+					map[upstr] = updater ;
 					if (list !== undefined) {
 						list.push(updater) ;
 					}
@@ -1247,13 +611,229 @@ var BetweenJS = (function(){
 			return res ;
 		}
 	});
-
-	var AbstractUpdater = Class('org.libspark.betweenJS.core.updaters::AbstractUpdater', {
+	// SINGLE.TICKER
+	var EnterFrameTicker = Type.define({
+		pkg:'single.ticker',
+		first:undefined,
+		numListeners:0,
+		tickerListenerPaddings:undefined,
+		time:undefined,
+		constructor:EnterFrameTicker = function EnterFrameTicker(){
+			this.numListeners = 0 ;
+			this.tickerListenerPaddings = new Array(10) ;
+			var prevListener = undefined ;
+			this.all = {} ;
+			for (var i = 0 ; i < 10 ; ++i ) {
+				var listener = new TickerListener() ; 
+				if (prevListener !== undefined) {
+					prevListener.nextListener = listener ;
+					listener.prevListener = prevListener ;
+				}
+				prevListener = listener ;
+				this.tickerListenerPaddings[i] = listener ;
+			}
+		},
+		addTickerListener:function(listener){
+			if(!!listener.nextListener || !!listener.prevListener) {
+				return ;
+			}
+			if (!!this.first) {
+				if (!!this.first.prevListener) {
+					this.first.prevListener.nextListener = listener ;
+					listener.prevListener = this.first.prevListener ;
+				}
+				listener.nextListener = this.first ;
+				this.first.prevListener = listener ;
+			}
+			this.first = listener ;
+			// var uid = listener.uid = this.time+'::'+this.numListeners ;
+			
+			// this.all[uid] = listener ;
+			
+			++this.numListeners ;
+		},
+		removeTickerListener:function(listener){
+			var l = this.first ;
+			while (!!l) {
+				if (l == listener) {
+					if (!!l.prevListener) {
+						l.prevListener.nextListener = l.nextListener ;
+						l.nextListener = undefined ;
+					}
+					else {
+						this.first = l.nextListener;
+					}
+					if (!!l.nextListener) {
+						l.nextListener.prevListener = l.prevListener ;
+						l.prevListener = undefined ;
+					}
+					--this.numListeners ;
+				}
+				l = l.nextListener ;
+			}
+			// delete this.all[listener.uid] ;
+			// delete listener['uid'] ;
+		},
+		start:function(){
+			this.time = getTimer() * .001 ;
+			this.render() ;
+		},
+		render:function(){
+			var eft = this ;
+			eft.update() ;
+			var f = function(){eft.render()} ;
+			eft.interval = window.requestAnimationFrame(f) ;
+		},
+		stop:function(){
+			window.cancelAnimationFrame(this.interval) ;
+		},
+		setInactive:function(cond){
+			if(cond) this.stop() ;
+			else this.start() ;
+		},
+		update:function(){
+			var t = this.time = getTimer() * .001 ;
+			var n = 8 - (this.numListeners % 8) ;
+			var listener = this.tickerListenerPaddings[0] ; 
+			var l = this.tickerListenerPaddings[n] ;
+			var ll ;
+			
+			if (!!(l.nextListener = this.first)) {
+				this.first.prevListener = l ;
+			}
+			
+			while (!!listener.nextListener) {
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+				if ((listener = listener.nextListener).tick(t)) {
+					if (!!listener.prevListener) {
+						listener.prevListener.nextListener = listener.nextListener ;
+					}
+					if (!!listener.nextListener) {
+						listener.nextListener.prevListener = listener.prevListener ;
+					}
+					ll = listener.prevListener ;
+					listener.nextListener = undefined ;
+					listener.prevListener = undefined ;
+					listener = ll ;
+					--this.numListeners ;
+				}
+			}
+			if (!!(this.first = l.nextListener)) {
+				this.first.prevListener = undefined ;
+			}
+			l.nextListener = this.tickerListenerPaddings[n + 1] ;
+		}
+	}) ;
+	// CORE.TICKERS
+	var TickerListener = Type.define({
+		pkg:'core.tickers',
+		inherits:EventDispatcher,
+		prevListener:undefined,
+		nextListener:undefined,
+		constructor:TickerListener = function TickerListener(){
+			TickerListener.base.call(this) ;
+		},
+		tick:function(time){
+			return false ;
+		}
+	}) ;
+	// CORE.UPDATERS
+	var AbstractUpdater = Type.define({
+		pkg:'core.updaters',
 		isResolved:false,
 		target:undefined,
-		constructor:function(){ 
+		constructor:AbstractUpdater = function AbstractUpdater(){ 
 		   this.isResolved = false ;
-		   return this ;
 		},
 		setTarget:function(target, easing){
 			this.target = target ;
@@ -1286,21 +866,22 @@ var BetweenJS = (function(){
 			// Do NOT copy _isResolved property.
 		}
 	}) ;
-
-	var ObjectUpdater = Class('org.libspark.betweenJS.core.updaters::ObjectUpdater', {
+	var ObjectUpdater = Type.define({
+		pkg:'core.updaters',
+		inherits:AbstractUpdater,
 		target:undefined,
 		source:undefined,
 		destination:undefined,
 		relativeMap:undefined,
-		constructor:function ObjectUpdater(){
+		constructor:ObjectUpdater = function ObjectUpdater(){
 			ObjectUpdater.base.call(this) ;
 			this.source = {} ;
 			this.destination = {} ;
 			this.relativeMap = {} ;
-			return this ;
 		},
 		setTarget:function(target, easing){
 			ObjectUpdater.factory.setTarget.apply(this, [target, easing]) ;
+			
 			var ctor = target.constructor ;
 			
 			switch(true){
@@ -1309,7 +890,7 @@ var BetweenJS = (function(){
 					this.units = {} ;
 				break ;
 				
-				case ctor === Class :
+				// case ctor === Class :
 				case ctor === Date :
 				case ctor === Number :
 				case ctor === String :
@@ -1352,7 +933,6 @@ var BetweenJS = (function(){
 				var props = CSSPropertyMapper.check(propertyName) ;
 				var pname = props.cssprop ;
 				var pget = props.cssget ;
-				
 				var n = pget(this.target, pname, this.units[propertyName], cond) ; // here will apply special treatment upon checks in CSSPropertyMapper.check() method
 				return n ;
 			}
@@ -1409,7 +989,6 @@ var BetweenJS = (function(){
 		resolveValues:function(){
 			
 			var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap ;
-			
 			for (key in source) {
 				if (dest[key] === undefined) {
 					dest[key] = this.getObject(key) ;
@@ -1431,19 +1010,25 @@ var BetweenJS = (function(){
 		},
 		updateObject:function(factor){
 			var invert = 1.0 - factor ;
+			var ttt = this.timeouts ;
 			var t = this.target ;
 			var d = this.destination ;
 			var s = this.source ;
-			
+			var tt = this ;
 			for (var name in d) {
 				var val = s[name] * invert + d[name] * factor ;
+				
 				if(this.units === undefined){
-					this.setObject(name, val) ;
+					
+					tt.setObject(name, val) ;
+					
 				}else{
 					try{
-						this.setObject(name, val) ;
+						// BetweenJS.getTweensOf(t) ;
+						tt.setObject(name, val) ;
+						
 					}catch(e){
-						trace('setting the object throws an error...', e)
+						trace('setting the object throws an error...', name, val, e)
 					}
 				}
 			}
@@ -1466,18 +1051,17 @@ var BetweenJS = (function(){
 				to[s] = from[s] ;
 			}
 		}
-	}, AbstractUpdater) ;
-
-	var CompositeUpdater = Class('org.libspark.betweenJS.core.updaters::CompositeUpdater', {
+	}) ;
+	var CompositeUpdater = Type.define({
+		pkg:'core.updaters',
 		target:undefined,
 		a:undefined,
 		b:undefined,
 		c:undefined,
 		d:undefined,
 		updaters:undefined,
-		constructor:function(target, updaters){
+		constructor:CompositeUpdater = function CompositeUpdater(target, updaters){
 			this.target = target ;
-			
 			var l = updaters.length ;
 			if (l >= 1) {
 				this.a = updaters[0] ;
@@ -1497,7 +1081,6 @@ var BetweenJS = (function(){
 					}
 				}
 			}
-			return this ;
 		},
 		getUpdaterAt:function(index){
 			switch(index){
@@ -1570,17 +1153,16 @@ var BetweenJS = (function(){
 			return new CompositeUpdater(this.target, updaters) ;
 		}
 	}) ;
-
-	var UpdaterLadder = Class('org.libspark.betweenJS.core.updaters::UpdaterLadder', {
+	var UpdaterLadder = Type.define({
+		pkg:'core.updaters',
 		target:undefined,
 		parent:undefined,
 		child:undefined,
 		propertyName:undefined,
-		constructor:function(parent, child, propertyName){
+		constructor:UpdaterLadder = function UpdaterLadder(parent, child, propertyName){
 			this.parent = parent ;
 			this.child = child ;
 			this.propertyName = propertyName ;
-			return this ;
 		},
 		setSourceValue:function(propertyName, value, isRelative){},
 		setDestinationValue:function(propertyName, value, isRelative){},
@@ -1597,20 +1179,19 @@ var BetweenJS = (function(){
 			return new UpdaterLadder(this.parent, this.child, this.propertyName) ;
 		}
 	}) ;
-
-	var PhysicalUpdaterLadder = Class('org.libspark.betweenJS.core.updaters::PhysicalUpdaterLadder', {
+	var PhysicalUpdaterLadder = Type.define({
+		pkg:'core.updaters',
 		target:undefined,
 		parent:undefined,
 		child:undefined,
 		propertyName:undefined,
 		easing:undefined,
 		duration:0.0,
-		constructor:function(parent, child, propertyName){
+		constructor:PhysicalUpdaterLadder = function PhysicalUpdaterLadder(parent, child, propertyName){
 			this.parent = parent ;
 			this.child = child ;
 			this.propertyName = propertyName ;
 			this.duration = this.parent.duration ;
-			return this ;
 		},
 		setSourceValue:function(propertyName, value, isRelative){},
 		setDestinationValue:function(propertyName, value, isRelative){},
@@ -1625,35 +1206,23 @@ var BetweenJS = (function(){
 			return new PhysicalUpdaterLadder(this.parent, this.child, this.propertyName) ;
 		}
 	}) ;
-
-	var BezierUpdater = Class('org.libspark.betweenJS.core.updaters::BezierUpdater', {
+	var BezierUpdater = Type.define({
+		pkg:'core.updaters',
+		inherits:ObjectUpdater,
 		target:undefined,
 		source:undefined,
 		destination:undefined,
 		relativeMap:undefined,
 		controlPoint:undefined,
-		constructor:function BezierUpdater(){
+		constructor:BezierUpdater = function BezierUpdater(){
 			BezierUpdater.base.call(this) ;
 			this.controlPoint = {} ;
-			return this ;
 		},
 		addControlPoint:function(propertyName, value, isRelative){
 			var controlPoint = this.controlPoint[propertyName] ;
 			if (controlPoint === undefined) this.controlPoint[propertyName] = controlPoint = [] ;
 			controlPoint.push(value) ;
 			this.relativeMap['cp.' + propertyName + '.' + controlPoint.length] = isRelative ;
-		},
-		setSourceValue:function(propertyName, value, isRelative){
-			BezierUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
-		},
-		setDestinationValue:function(propertyName, value, isRelative){
-			BezierUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
-		},
-		getObject:function(propertyName){
-			return BezierUpdater.factory.getObject.apply(this, [propertyName]) ;
-		},
-		setObject:function(propertyName, value){
-			return BezierUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 		},
 		resolveValues:function(){
 			BezierUpdater.factory.resolveValues.call(this) ;
@@ -1705,22 +1274,17 @@ var BetweenJS = (function(){
 				this.setObject(name, val) ;
 			}
 		},
-		clone:function(source){
-			return BezierUpdater.factory.clone.apply(this, [source]) ;
-		},
 		newInstance:function(){
 			return new BezierUpdater() ;
 		},
 		copyFrom:function(source)		{
 			BezierUpdater.factory.copyFrom.apply(this, [source])
 			this.copyObject(this.controlPoint, source.controlPoint) ;
-		},
-		copyObject:function(to, from){
-			BezierUpdater.factory.copyObject.apply(this, [to, from]) ;
 		}
-	}, ObjectUpdater) ;
-
-	var PhysicalUpdater = Class('org.libspark.betweenJS.core.updaters::PhysicalUpdater', {
+	}) ;
+	var PhysicalUpdater = Type.define({
+		pkg:'core.updaters',
+		inherits:ObjectUpdater,
 		target:undefined,
 		source:undefined,
 		destination:undefined,
@@ -1730,24 +1294,11 @@ var BetweenJS = (function(){
 		time:undefined,
 		maxDuration:0.0,
 		isResolved:false,
-		constructor:function PhysicalUpdater(){
+		constructor:PhysicalUpdater = function PhysicalUpdater(){
 			PhysicalUpdater.base.call(this) ;
 			this.duration = {} ;
 			this.maxDuration = 0.0 ;
 			this.isResolved = false ;
-			return this ;
-		},
-		setSourceValue:function(propertyName, value, isRelative){
-			PhysicalUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
-		},
-		setDestinationValue:function(propertyName, value, isRelative){
-			PhysicalUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
-		},
-		getObject:function(propertyName){
-			return PhysicalUpdater.factory.getObject.apply(this, [propertyName]) ;
-		},
-		setObject:function(propertyName, value){
-			return PhysicalUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 		},
 		resolveValues:function(){
 			var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap,
@@ -1804,233 +1355,19 @@ var BetweenJS = (function(){
 				this.setObject(name, val) ;
 			}
 		},
-		clone:function(source){
-			return PhysicalUpdater.factory.clone.apply(this, [source]) ;
-		},
 		newInstance:function(){
 			return new PhysicalUpdater() ;
 		},
 		copyFrom:function(source){
 			PhysicalUpdater.factory.copyFrom.apply(this, [source]) ;
 			this.easing = source.easing ;
-		},
-		copyObject:function(to, from){
-			PhysicalUpdater.factory.copyObject.apply(this, [to, from]) ;
-		}
-	}, ObjectUpdater) ;
-
-	// CORE.TICKER
-	var TickerListener = Class('org.libspark.betweenJS.core.ticker::TickerListener', {
-		prevListener:undefined,
-		nextListener:undefined,
-		constructor:function TickerListener(){
-			TickerListener.base.call(this) ;
-			return this ;
-		},
-		tick:function(time){
-			return false ;
-		}
-	}, EventDispatcher) ;
-
-	// TICKERS
-	var EnterFrameTicker = Class('org.libspark.betweenJS.tickers::EnterFrameTicker', {
-		first:undefined,
-		numListeners:0,
-		tickerListenerPaddings:undefined,
-		time:undefined,
-		constructor:function(){
-			this.numListeners = 0 ;
-			this.tickerListenerPaddings = new Array(10) ;
-			var prevListener = undefined ;
-			
-			for (var i = 0 ; i < 10 ; ++i ) {
-				var listener = new TickerListener() ; 
-				if (prevListener !== undefined) {
-					prevListener.nextListener = listener ;
-					listener.prevListener = prevListener ;
-				}
-				prevListener = listener ;
-				this.tickerListenerPaddings[i] = listener ;
-			}
-			return this ;
-		},
-		addTickerListener:function(listener){
-			if(listener.nextListener !== undefined || listener.prevListener !== undefined) {
-				return ;
-			}
-			if (this.first !== undefined) {
-				if (this.first.prevListener !== undefined) {
-					this.first.prevListener.nextListener = listener ;
-					listener.prevListener = this.first.prevListener ;
-				}
-				listener.nextListener = this.first ;
-				this.first.prevListener = listener ;
-			}
-			this.first = listener ;
-			
-			++this.numListeners ;
-		},
-		removeTickerListener:function(listener){
-			var l = this.first ;
-			while (l !== undefined) {
-				if (l == listener) {
-					if (l.prevListener !== undefined) {
-						l.prevListener.nextListener = l.nextListener ;
-						l.nextListener = undefined ;
-					}
-					else {
-						this.first = l.nextListener;
-					}
-					if (l.nextListener !== undefined) {
-						l.nextListener.prevListener = l.prevListener ;
-						l.prevListener = undefined ;
-					}
-					--this.numListeners ;
-				}
-				l = l.nextListener ;
-			}
-		},
-		start:function(){
-			this.time = getTimer() * .001 ;
-			this.render() ;
-		},
-		render:function(){
-			var eft = this ;
-			eft.update() ;
-			// eft.interval = setTimeout(function(){eft.render()}, 1000 / 60) ;
-			eft.interval = window.requestAnimationFrame(function(){eft.render()}) ;
-		},
-		stop:function(){
-			// clearTimeout(this.interval) ;
-			window.cancelAnimationFrame(this.interval) ;
-		},
-		update:function(e){
-			var t = this.time = getTimer() * .001 ;
-			var n = 8 - (this.numListeners % 8) ;
-			var listener = this.tickerListenerPaddings[0] ; 
-			var l = this.tickerListenerPaddings[n] ;
-			var ll ;
-			
-			if ((l.nextListener = this.first) !== undefined) {
-				this.first.prevListener = l ;
-			}
-			
-			while (listener.nextListener !== undefined) {
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-				if ((listener = listener.nextListener).tick(t)) {
-					if (listener.prevListener !== undefined) {
-						listener.prevListener.nextListener = listener.nextListener ;
-					}
-					if (listener.nextListener !== undefined) {
-						listener.nextListener.prevListener = listener.prevListener ;
-					}
-					ll = listener.prevListener ;
-					listener.nextListener = undefined ;
-					listener.prevListener = undefined ;
-					listener = ll ;
-					--this.numListeners ;
-				}
-			}
-			if ((this.first = l.nextListener) !== undefined) {
-				this.first.prevListener = undefined ;
-			}
-			l.nextListener = this.tickerListenerPaddings[n + 1] ;
 		}
 	}) ;
-
 	// CORE.TWEENS
-	var AbstractTween = __global__.AbstractTween = Class('org.libspark.betweenJS.core.tweens::AbstractTween', {
-		constructor:function AbstractTween(ticker, position){
+	var AbstractTween = Type.define({
+		pkg:'core.tweens',
+		inherits:TickerListener,
+		constructor:AbstractTween = function AbstractTween(ticker, position){
 		   this.isPlaying = false ;
 		   this.time = .5 ;
 		   this.stopOnComplete = true ;
@@ -2038,8 +1375,6 @@ var BetweenJS = (function(){
 		   AbstractTween.base.call(this) ;
 		   this.ticker = ticker ;
 		   this.position = position || 0 ;
-		   
-		   return this ;
 		},
 		ticker:undefined,
 		time:.5,
@@ -2057,6 +1392,7 @@ var BetweenJS = (function(){
 		onCompleteParams:undefined,
 		play:function(){
 			if (!this.isPlaying) {
+				if(this.ticker.numListeners == 0) this.ticker.setInactive(false) ;
 				if (this.position >= this.time) {
 					this.position = 0 ;
 				}
@@ -2091,6 +1427,7 @@ var BetweenJS = (function(){
 		stop:function(){
 			if (this.isPlaying) {
 				this.ticker.removeTickerListener(this) ;
+				if(this.ticker.numListeners == 0) this.ticker.setInactive(true) ;
 				this.isPlaying = false ;
 				if ((this.willTriggerFlags & 0x02) != 0) {
 					this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
@@ -2181,7 +1518,7 @@ var BetweenJS = (function(){
 			
 			this.position = t ;
 			this.internalUpdate(t) ;
-			
+			var sss = this ;
 			if ((this.willTriggerFlags & 0x04) != 0) {
 				this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
 			}
@@ -2197,7 +1534,12 @@ var BetweenJS = (function(){
 					this.position = this.time ;
 					
 					if (this.stopOnComplete === true) {
-						this.isPlaying = false ;
+						
+						setTimeout(function(){sss.stop()}, 0) ;
+						// this.isPlaying = false ;
+						
+						// this.ticker.removeTickerListener(this) ;
+						
 						if ((this.willTriggerFlags & 0x08) != 0) {
 							this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
 						}
@@ -2298,16 +1640,15 @@ var BetweenJS = (function(){
 				this.willTriggerFlags &= ~0x08 ;
 			}
 		 }
-	}, TickerListener) ;
-
-	var AbstractActionTween = __global__.AbstractActionTween = Class('org.libspark.betweenJS.core.tweens::AbstractActionTween', {
+	}) ;
+	var AbstractActionTween = Type.define({
+		pkg:'core.tweens',
+		inherits:AbstractTween,
 		lastTime:undefined,
-		constructor:function AbstractActionTween(ticker){
+		constructor:AbstractActionTween = function AbstractActionTween(ticker){
 			AbstractActionTween.base.apply(this, [ticker, 0]) ;
 			this.time = 0.01 ;
 			this.lastTime = -1 ;
-			
-			return this ;
 		},
 		internalUpdate:function(time){
 			if (this.lastTime < 0.01 && time >= 0.01) {
@@ -2319,246 +1660,15 @@ var BetweenJS = (function(){
 		},
 		action:function(){},
 		rollback:function(){}
-	}, AbstractTween) ;
-
-	// TWEENS
-	var ObjectTween = __global__.ObjectTween = Class('org.libspark.betweenJS.tweens::ObjectTween', {
-		easing:undefined,
-		updater:undefined,
-		target:undefined,
-		constructor:function ObjectTween(ticker){
-		   ObjectTween.base.apply(this, [ticker, 0]) ;
-		   return this ;
-		},
-		internalUpdate:function(time){
-		   var factor = 0.0 ;
-		   if (time > 0.0) {
-			   if (time < this.time) {
-				   factor = this.easing.calculate(time, 0.0, 1.0, this.time) ;
-			   } else {
-				   factor = 1.0 ;
-			   }
-		   }
-		   this.updater.update(factor) ;
-		},
-		newInstance:function(){
-			return new ObjectTween(this.ticker); 
-		},
-		copyFrom:function(source){
-			ObjectTween.factory.copyFrom.apply(this, [source]) ;
-			this.updater = source.updater.clone() ;
-		}
-	}, AbstractTween) ;
-
-	var PhysicalTween = __global__.PhysicalTween = Class('org.libspark.betweenJS.tweens::PhysicalTween', {
-		updater:undefined,
-		target:undefined,
-		setted:false,
-		constructor:function PhysicalTween(ticker){
-			PhysicalTween.base.apply(this, [ticker, 0]) ;
-			this.setted = false ;
-			return this ;
-		},
-		settings:function(){
-			if(this.updater !== undefined){
-				this.target = this.updater.target ;
-			}
-		},
-		internalUpdate:function(time){
-			if(this.setted !== true){
-				this.settings() ;
-				this.setted = true ;
-			}
-			
-			this.updater.update(time);
-			this.time = this.updater.time ;
-		},
-		newInstance:function(){
-			return new PhysicalTween(this.ticker) ;
-		},
-		copyFrom:function(source){
-			PhysicalTween.factory.copyFrom.apply(this, [source]) ;
-			this.updater = source.updater.clone() ;
-		}
-	}, AbstractTween) ;
-
-	// ACTIONS
-	var FunctionAction = __global__.FunctionAction = Class('org.libspark.betweenJS.actions::FunctionAction', {
-		func:undefined,
-		params:undefined,
-		useRollback:false,
-		rollbackFunc:undefined,
-		rollbackParams:undefined,
-		constructor:function FunctionAction(ticker, func, params, useRollback, rollbackFunc, rollbackParams){
-			FunctionAction.base.apply(this, [ticker, 0]) ;
-			this.func = func ;
-			this.params = params ;
-			
-			if (useRollback !== undefined) {
-				if (rollbackFunc !== undefined) {
-					this.rollbackFunc = rollbackFunc ;
-					this.rollbackParams = rollbackParams ;
-				} else {
-					this.rollbackFunc = func ;
-					this.rollbackParams = params ;
-				}
-			}
-			return this ;
-		},
-		action:function(){
-			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
-		},
-		rollback:function(){
-			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
-		}
-	}, AbstractActionTween) ;
-
-	var TimeoutAction = __global__.TimeoutAction = Class('org.libspark.betweenJS.actions::TimeoutAction', {
-		duration:0,
-		func:undefined,
-		params:undefined,
-		constructor:function TimeoutAction(ticker, duration, func, params, useRollback, rollbackFunc, rollbackParams){
-			TimeoutAction.base.apply(this, [ticker, 0]) ;
-			this.time = duration || 0 ;
-			this.func = func ;
-			this.params = params ;
-			
-			if (useRollback !== undefined) {
-				if (rollbackFunc !== undefined) {
-					this.rollbackFunc = rollbackFunc ;
-					this.rollbackParams = rollbackParams ;
-				} else {
-					this.rollbackFunc = func ;
-					this.rollbackParams = params ;
-				}
-			}
-			
-			return this ;
-		},
-		internalUpdate:function(time){
-			if(time >= this.time){
-				this.action() ;
-			}
-		},
-		action:function(){
-			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
-		},
-		clear:function(){
-			return this.stop() ;
-		},
-		stop:function(){
-			return TimeoutAction.factory.stop.call(this) ;
-		},
-		rollback:function(){
-			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
-		}
-	}, AbstractActionTween) ;
-
-	var IntervalAction = __global__.IntervalAction = Class('org.libspark.betweenJS.actions::IntervalAction', {
-		duration:0,
-		func:undefined,
-		params:undefined,
-		constructor:function IntervalAction(ticker, timer, func, params, useRollback, rollbackFunc, rollbackParams){
-			IntervalAction.base.apply(this, [ticker, 0]) ;
-			this.time = NaN ;
-			this.timer = (timer / 1000) || 0 ;
-			this.func = func ;
-			this.count = 0 ;
-			this.params = params ;
-			
-			if (useRollback !== undefined) {
-				if (rollbackFunc !== undefined) {
-					this.rollbackFunc = rollbackFunc ;
-					this.rollbackParams = rollbackParams ;
-				} else {
-					this.rollbackFunc = func ;
-					this.rollbackParams = params ;
-				}
-			}
-			
-			return this ;
-		},
-		internalUpdate:function(time){
-			this.globaltime = time ;
-			this.timestamp = time ;
-			
-			var t = time / (this.timer) ;
-			
-			if(t > (this.count + 1)){
-				this.count++ ;
-				this.action() ;
-			}
-		},
-		action:function(){
-			if(this.func !== undefined) this.func.apply(this, concat(this.params)) ;
-		},
-		clear:function(){
-			this.time = 0 ;
-			return this ;
-		},
-		stop:function(){
-			return this.clear() ;
-		},
-		rollback:function(){
-			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
-		}
-	}, AbstractActionTween) ;
-
-	var AddChildAction = __global__.AddChildAction = Class('org.libspark.betweenJS.actions::AddChildAction', {
-		target:undefined,
-		parent:undefined,
-		constructor:function AddChildAction(ticker, target, parent){
-			AddChildAction.base.apply(this, [ticker, 0]) ;
-			this.target = target ;
-			this.parent = parent ;
-			
-			return this ;
-		},
-		action:function(){
-			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode !== this.parent) {
-				this.parent.appendChild(this.target) ;
-			}
-		},
-		rollback:function(){
-			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode === this.parent) {
-				this.parent.removeChild(this.target) ;
-			}
-		}
-	}, AbstractActionTween) ;
-
-	var RemoveFromParentAction = __global__.RemoveFromParentAction = Class('org.libspark.betweenJS.actions::RemoveFromParentAction', {
-		target:undefined,
-		constructor:function RemoveFromParentAction(ticker, target){
-			RemoveFromParentAction.base.apply(this, [ticker, 0]) ;
-			
-			this.target = target ;
-			
-			return this ;
-		},
-		action:function(){
-			if (this.target !== undefined && this.target.parentNode !== null) {
-				this.parent = this.target.parentNode ;
-				this.parent.removeChild(this.target) ;
-			}
-		},
-		rollback:function(){
-			if (this.target !== undefined && this.parent !== undefined) {
-				this.parent.appendChild(this.target) ;
-				this.parent = undefined ;
-			}
-		}
-	}, AbstractActionTween) ;
-
-	// DECORATORS
-	var TweenDecorator = __global__.TweenDecorator = Class('org.libspark.betweenJS.tweens::TweenDecorator', {
+	}) ;
+	var TweenDecorator = Type.define({
+		pkg:'core.tweens',
+		inherits:AbstractTween,
 		baseTween:undefined,
-		constructor:function TweenDecorator(baseTween, position){
-		   TweenDecorator.base.apply(this, [baseTween.ticker, position]) ;
-		   
-		   this.baseTween = baseTween ;
-		   this.time = baseTween.time ;
-		   
-		   return this ;
+		constructor:TweenDecorator = function TweenDecorator(baseTween, position){
+			TweenDecorator.base.apply(this, [baseTween.ticker, position]) ;
+			this.baseTween = baseTween ;
+			this.time = baseTween.time ;
 		},
 		play:function(){
 			if (this.isPlaying === false) {
@@ -2587,23 +1697,244 @@ var BetweenJS = (function(){
 			return this ;
 		},
 		internalUpdate:function(time){
-		   this.baseTween.update(time) ;
+			this.baseTween.update(time) ;
 		}
-	}, AbstractTween) ;
-
-	var SlicedTween = __global__.SlicedTween = Class('org.libspark.betweenJS.tweens.decorators::SlicedTween', {
+	}) ;
+	// TWEENS
+	var ObjectTween = Type.define({
+		pkg:'tweens',
+		inherits:AbstractTween,
+		easing:undefined,
+		updater:undefined,
+		target:undefined,
+		constructor:ObjectTween = function ObjectTween(ticker){
+		   ObjectTween.base.apply(this, [ticker, 0]) ;
+		},
+		internalUpdate:function(time){
+		   var factor = 0.0 ;
+		   if (time > 0.0) {
+			   if (time < this.time) {
+				   factor = this.easing.calculate(time, 0.0, 1.0, this.time) ;
+			   } else {
+				   factor = 1.0 ;
+			   }
+		   }
+		   this.updater.update(factor) ;
+		},
+		newInstance:function(){
+			return new ObjectTween(this.ticker); 
+		},
+		copyFrom:function(source){
+			ObjectTween.factory.copyFrom.apply(this, [source]) ;
+			this.updater = source.updater.clone() ;
+		}
+	}) ;
+	var PhysicalTween = Type.define({
+		pkg:'tweens',
+		inherits:AbstractTween,
+		updater:undefined,
+		target:undefined,
+		setted:false,
+		constructor:PhysicalTween = function PhysicalTween(ticker){
+			PhysicalTween.base.apply(this, [ticker, 0]) ;
+			this.setted = false ;
+		},
+		settings:function(){
+			if(this.updater !== undefined){
+				this.target = this.updater.target ;
+			}
+		},
+		internalUpdate:function(time){
+			if(this.setted !== true){
+				this.settings() ;
+				this.setted = true ;
+			}
+			
+			this.updater.update(time);
+			this.time = this.updater.time ;
+		},
+		newInstance:function(){
+			return new PhysicalTween(this.ticker) ;
+		},
+		copyFrom:function(source){
+			PhysicalTween.factory.copyFrom.apply(this, [source]) ;
+			this.updater = source.updater.clone() ;
+		}
+	}) ;
+	// ACTIONS
+	var FunctionAction = Type.define({
+		pkg:'actions',
+		inherits:AbstractActionTween,
+		func:undefined,
+		params:undefined,
+		useRollback:false,
+		rollbackFunc:undefined,
+		rollbackParams:undefined,
+		constructor:FunctionAction = function FunctionAction(ticker, func, params, useRollback, rollbackFunc, rollbackParams){
+			FunctionAction.base.apply(this, [ticker, 0]) ;
+			this.func = func ;
+			this.params = params ;
+			
+			if (useRollback !== undefined) {
+				if (rollbackFunc !== undefined) {
+					this.rollbackFunc = rollbackFunc ;
+					this.rollbackParams = rollbackParams ;
+				} else {
+					this.rollbackFunc = func ;
+					this.rollbackParams = params ;
+				}
+			}
+		},
+		action:function(){
+			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
+		},
+		rollback:function(){
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
+		}
+	}) ;
+	var TimeoutAction = Type.define({
+		pkg:'actions',
+		inherits:AbstractActionTween,
+		duration:0,
+		func:undefined,
+		params:undefined,
+		constructor:TimeoutAction = function TimeoutAction(ticker, duration, func, params, useRollback, rollbackFunc, rollbackParams){
+			TimeoutAction.base.apply(this, [ticker, 0]) ;
+			this.time = duration || 0 ;
+			this.func = func ;
+			this.params = params ;
+			
+			if (useRollback !== undefined) {
+				if (rollbackFunc !== undefined) {
+					this.rollbackFunc = rollbackFunc ;
+					this.rollbackParams = rollbackParams ;
+				} else {
+					this.rollbackFunc = func ;
+					this.rollbackParams = params ;
+				}
+			}
+		},
+		internalUpdate:function(time){
+			if(time >= this.time){
+				this.action() ;
+			}
+		},
+		action:function(){
+			if (this.func !== undefined) this.func.apply(this, concat(this.params)) ;
+		},
+		clear:function(){
+			return this.stop() ;
+		},
+		stop:function(){
+			return TimeoutAction.factory.stop.call(this) ;
+		},
+		rollback:function(){
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
+		}
+	}) ;
+	var IntervalAction = Type.define({
+		pkg:'actions',
+		inherits:AbstractActionTween,
+		duration:0,
+		func:undefined,
+		params:undefined,
+		constructor:IntervalAction = function IntervalAction(ticker, timer, func, params, useRollback, rollbackFunc, rollbackParams){
+			IntervalAction.base.apply(this, [ticker, 0]) ;
+			this.time = NaN ;
+			this.timer = (timer / 1000) || 0 ;
+			this.func = func ;
+			this.count = 0 ;
+			this.params = params ;
+			
+			if (useRollback !== undefined) {
+				if (rollbackFunc !== undefined) {
+					this.rollbackFunc = rollbackFunc ;
+					this.rollbackParams = rollbackParams ;
+				} else {
+					this.rollbackFunc = func ;
+					this.rollbackParams = params ;
+				}
+			}
+		},
+		internalUpdate:function(time){
+			this.globaltime = time ;
+			this.timestamp = time ;
+			
+			var t = time / (this.timer) ;
+			
+			if(t > (this.count + 1)){
+				this.count++ ;
+				this.action() ;
+			}
+		},
+		action:function(){
+			if(this.func !== undefined) this.func.apply(this, concat(this.params)) ;
+		},
+		clear:function(){
+			this.time = 0 ;
+			return this ;
+		},
+		stop:function(){
+			return this.clear() ;
+		},
+		rollback:function(){
+			if (this.rollbackFunc !== undefined) this.rollbackFunc.apply(this, concat(this.rollbackParams)) ;
+		}
+	}) ;
+	var AddChildAction = Type.define({
+		pkg:'actions',
+		inherits:AbstractActionTween,
+		target:undefined,
+		parent:undefined,
+		constructor:AddChildAction = function AddChildAction(ticker, target, parent){
+			AddChildAction.base.apply(this, [ticker, 0]) ;
+			this.target = target ;
+			this.parent = parent ;
+		},
+		action:function(){
+			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode !== this.parent) {
+				this.parent.appendChild(this.target) ;
+			}
+		},
+		rollback:function(){
+			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode === this.parent) {
+				this.parent.removeChild(this.target) ;
+			}
+		}
+	}) ;
+	var RemoveFromParentAction = Type.define({
+		pkg:'actions',
+		inherits:AbstractActionTween,
+		target:undefined,
+		constructor:RemoveFromParentAction = function RemoveFromParentAction(ticker, target){
+			RemoveFromParentAction.base.apply(this, [ticker, 0]) ;
+			this.target = target ;
+		},
+		action:function(){
+			if (this.target !== undefined && this.target.parentNode !== null) {
+				this.parent = this.target.parentNode ;
+				this.parent.removeChild(this.target) ;
+			}
+		},
+		rollback:function(){
+			if (this.target !== undefined && this.parent !== undefined) {
+				this.parent.appendChild(this.target) ;
+				this.parent = undefined ;
+			}
+		}
+	}) ;
+	// DECORATORS
+	var SlicedTween = Type.define({
+		pkg:'tweens.decorators',
+		inherits:TweenDecorator,
 		begin:0,
 		end:1,
-		constructor:function SlicedTween(baseTween, begin, end){
+		constructor:SlicedTween = function SlicedTween(baseTween, begin, end){
 		   SlicedTween.base.apply(this, [baseTween, 0]) ;
-		   
 		   this.end = end || 1 ;
 		   this.begin = begin || 0 ;
 		   this.time = this.end - this.begin ;
-		   
 		   if(end - begin == 0) this.instantUpdate = true ;
-		   
-		   return this ;
 		},
 		internalUpdate:function(time){
 			
@@ -2625,17 +1956,15 @@ var BetweenJS = (function(){
 		newInstance:function(){
 			return new SlicedTween(this.baseTween.clone(), this.begin, this.end) ;
 		}
-	}, TweenDecorator) ;
-
-	var ScaledTween = __global__.ScaledTween = Class('org.libspark.betweenJS.tweens.decorators::ScaledTween', {
+	}) ;
+	var ScaledTween = Type.define({
+		pkg:'tweens.decorators',
+		inherits:TweenDecorator,
 		scale:1,
-		constructor:function ScaledTween(baseTween, scale){
+		constructor:ScaledTween = function ScaledTween(baseTween, scale){
 		   ScaledTween.base.apply(this, [baseTween, 0]) ;
-		   
 		   this.scale = scale || 1 ;
 		   this.time = this.scale * baseTween.time ;
-		   
-		   return this ;
 		},
 		internalUpdate:function(time){
 		   this.baseTween.update(time / this.scale) ;
@@ -2643,13 +1972,13 @@ var BetweenJS = (function(){
 		newInstance:function(){
 			return new ScaledTween(this.baseTween.clone(), this.scale) ;
 		}
-	}, TweenDecorator) ;
-
-	var ReversedTween = __global__.ReversedTween = Class('org.libspark.betweenJS.tweens.decorators::ReversedTween', {
-		constructor:function ReversedTween(baseTween, position){
+	}) ;
+	var ReversedTween = Type.define({
+		pkg:'tweens.decorators',
+		inherits:TweenDecorator,
+		constructor:ReversedTween = function ReversedTween(baseTween, position){
 		   ReversedTween.base.apply(this, [baseTween, position]) ;
 		   this.time = baseTween.time ;
-		   return this ;
 		},
 		internalUpdate:function(time){
 		   this.baseTween.update(this.time - time) ;
@@ -2657,18 +1986,17 @@ var BetweenJS = (function(){
 		newInstance:function(){
 			return new ReversedTween(this.baseTween.clone(), 0) ;
 		}
-	}, TweenDecorator) ;
-
-	var RepeatedTween = __global__.RepeatedTween = Class('org.libspark.betweenJS.tweens.decorators::RepeatedTween', {
+	}) ;
+	var RepeatedTween = Type.define({
+		pkg:'tweens.decorators',
+		inherits:TweenDecorator,
 		basetime:undefined,
 		repeatCount:2,
-		constructor:function RepeatedTween(baseTween, repeatCount){
+		constructor:RepeatedTween = function RepeatedTween(baseTween, repeatCount){
 		   RepeatedTween.base.apply(this, [baseTween, 0]) ;
 		   this.repeatCount = repeatCount || 2 ;
 		   this.basetime = baseTween.time ;
-		   
 		   this.time = this.repeatCount * this.basetime ;
-		   return this ;
 		},
 		internalUpdate:function(time){
 		   if (time >= 0) {
@@ -2679,19 +2007,18 @@ var BetweenJS = (function(){
 		newInstance:function(){
 			return new RepeatedTween(this.baseTween.clone(), this.repeatCount) ;
 		}
-	}, TweenDecorator) ;
-
-	var DelayedTween = __global__.DelayedTween = Class('org.libspark.betweenJS.tweens.decorators::DelayedTween', {
+	}) ;
+	var DelayedTween = Type.define({
+		pkg:'tweens.decorators',
+		inherits:TweenDecorator,
 		basetime:undefined,
 		preDelay:.5,
 		postDelay:.5,
-		constructor:function DelayedTween(baseTween, preDelay, postDelay){
+		constructor:DelayedTween = function DelayedTween(baseTween, preDelay, postDelay){
 		   DelayedTween.base.apply(this, [baseTween, 0]) ;
 		   this.preDelay = preDelay || 0 ;
 		   this.postDelay = postDelay || 0 ;
 		   this.time = this.preDelay + baseTween.time + this.postDelay ;
-		   
-		   return this ;
 		},
 		internalUpdate:function(time){
 		   this.baseTween.update(time - this.preDelay) ;
@@ -2699,16 +2026,17 @@ var BetweenJS = (function(){
 		newInstance:function(){
 			return new DelayedTween(this.baseTween.clone(), this.preDelay, this.postDelay) ;
 		}
-	}, TweenDecorator) ;
-
+	}) ;
 	// GROUPS
-	var ParallelTween = __global__.ParallelTween = Class('org.libspark.betweenJS.tweens::ParallelTween', {
+	var ParallelTween = Type.define({
+		pkg:'groups',
+		inherits:AbstractTween,
 		a:undefined,
 		b:undefined,
 		c:undefined,
 		d:undefined,
 		targets:undefined,
-		constructor:function ParallelTween(targets, ticker, position){
+		constructor:ParallelTween = function ParallelTween(targets, ticker, position){
 			ParallelTween.base.apply(this, [ticker, position]) ;
 				
 			var l = targets.length ;
@@ -2738,7 +2066,6 @@ var BetweenJS = (function(){
 					}
 				}
 			}
-		   return this ;
 		},
 		contains:function(tw){
 			if (tw === undefined) return false ;
@@ -2864,16 +2191,17 @@ var BetweenJS = (function(){
 			}
 			return new ParallelTween(targets, this.ticker, 0) ;
 		}
-	}, AbstractTween) ;
-
-	var SerialTween = __global__.SerialTween = Class('org.libspark.betweenJS.tweens::SerialTween', {
+	}) ;
+	var SerialTween = Type.define({
+		pkg:'groups',
+		inherits:AbstractTween,
 		a:undefined,
 		b:undefined,
 		c:undefined,
 		d:undefined,
 		targets:undefined,
 		lastTime:0,
-		constructor:function SerialTween(targets, ticker, position){
+		constructor:SerialTween = function SerialTween(targets, ticker, position){
 			SerialTween.base.apply(this, [ticker, position]) ;
 				
 			var l = targets.length ;
@@ -2905,7 +2233,6 @@ var BetweenJS = (function(){
 					}
 				}
 			}
-			return this ;
 		},
 		contains:function(tw){
 			if (tw === undefined)
@@ -3091,528 +2418,975 @@ var BetweenJS = (function(){
 			}
 			return new SerialTween(targets, this.ticker, 0) ;
 		}
-	}, AbstractTween) ;
+	}) ;
+	// EVENTS
+	var TweenEvent = Type.define({
+		pkg:'events',
+		inherits:IEvent,
+		constructor:TweenEvent = function TweenEvent(type, data, tween){
+			TweenEvent.base.apply(this, [type, data]) ;
+			this.type = type, this.data = data ;
+			this.tween = tween ;
+		},
+		statics:{
+			PLAY:'play',
+			STOP:'stop',
+			UPDATE:'update',
+			COMPLETE:'complete'
+		}
+	}) ;
+	// CORE.EASING
+	var Physical = Type.define({
+		pkg:'core.easing::Physical',
+		statics:{
+			defaultFrameRate:30.0,
+			uniform:function(velocity, frameRate){
+				return new PhysicalUniform(velocity || 10.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+			},
+			accelerate:function(acceleration, initialVelocity, frameRate){
+				return new PhysicalAccelerate(initialVelocity || 0.0, acceleration || 1.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+			},
+			exponential:function(factor, threshold, frameRate){
+				return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+			}
+		}
+	}) ;
+	var PhysicalAccelerate = Type.define({
+		pkg:'core.easing',
+		iv:undefined,
+		a:undefined,
+		fps:undefined,
+		constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){ 
+			this.iv = iv ;
+			this.a = a ;
+			this.fps = fps ;
+		},
+		getDuration:function(b, c){
+			var iv = c < 0 ? - this.iv : this.iv ;
+			var a = c < 0 ? - this.a : this.a ;
+			
+			return ((-iv + Math.sqrt(iv * iv - 4 * (a / 2.0) * -c)) / (2 * (a / 2.0))) * (1.0 / this.fps);
+		},
+		calculate:function(t, b, c){
+			var f = c < 0 ? -1 : 1 ;
+			var n = t / (1.0 / this.fps) ;
+			return b + (f * this.iv) * n + ((f * this.a) * n) * n / 2.0 ;
+		}
+	}) ;
+	var PhysicalExponential = Type.define({
+		pkg:'core.easing',
+		f:undefined,
+		th:undefined,
+		fps:undefined,
+		constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){ 
+			this.f = f ;
+			this.th = th ;
+			this.fps = fps ;
+		},
+		getDuration:function(b, c){
+			return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (1.0 / this.fps) ;
+		},
+		calculate:function(t, b, c){
+			return -c * Math.pow(1 - this.f, (t / (1.0 / this.fps)) - 1) + (b + c) ;
+		}
+	}) ;
+	var PhysicalUniform = Type.define({
+		pkg:'core.easing',
+		v:undefined,
+		fps:undefined,
+		constructor:PhysicalUniform = function PhysicalUniform(v, fps){ 
+			this.v = v ;
+			this.fps = fps ;
+		},
+		getDuration:function(b, c){
+			return (c / (c < 0 ? -this.v : this.v)) * (1.0 / this.fps) ;
+		},
+		calculate:function(t, b, c){
+			return b + (c < 0 ? -this.v : this.v) * (t / (1.0 / this.fps)) ;
+		}
+	});
+	
+	var BetweenJS = Type.define({
+		domain:Type.appdomain,
+		constructor:BetweenJS = function BetweenJS(){
+			throw 'Not meant to be instanciated... BetweenJS::ctor' ;
+		},
+		statics:{
+			ticker:new EnterFrameTicker() , // main and unique ticker, see class EnterFrameTicker
+			updaterFactory:new UpdaterFactory(), // all in the name, generated updaters are intermede objects between tweens and their target
+			getTimer:getTimer, // points towards shortened-scope getTimer method
+			/*
+				Core (static-like init), where 
+				main Ticker instance created & launched, 
+				(also set to tick forever from start, to disable, @see BetweenJS.ticker.stop())
+			*/
+			initialize:function initialize(domain){
+				var exclude = {
+					'getTimer':undefined,
+					'toString':undefined,
+					'core':undefined,
+					'parallel':undefined,
+					'parallelTweens':undefined,
+					'serial':undefined,
+					'serialTweens':undefined,
+					'reverse':undefined,
+					'repeat':undefined,
+					'scale':undefined,
+					'slice':undefined,
+					'delay':undefined,
+					'func':undefined,
+					'interval':undefined,
+					'clearInterval':undefined,
+					'timeout':undefined,
+					'clearTimeout':undefined,
+					'getTweensOf':undefined
+				}
+				
+				for(var n in BetweenJS){
+					(function(ind){
+						if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
+							var ff = BetweenJS[ind] ;
+							 
+							BetweenJS[ind] = function(target){
+								var tar , arr ;
+								var args = [].slice.call(arguments) ;
+								
+								if('jquery' in target) { // is jquery element
+									var s = target.size() ;
+									
+									if(s > 1){
+										tar = args.shift() ;
+										arr = tar.map(function(i, el){
+											return ff.apply(null, [el].concat(args)) ;
+										}).toArray() ;
+										
+										return BetweenJS.parallelTweens(arr) ;
+									}else if(s == 1){
+										tar = args.shift() ;
+										return ff.apply(null, [tar[0]].concat(args)) ;
+										
+									}else{
+										return false ;
+									}
+									
+								}else if(('length' in target) && !isNaN(target['length'])){
+									
+									if(target.length > 1){
+										
+										tar = args.shift() ;
+										var l = tar.length , arr = [] ;
+										for(var i = 0 ; i < l ; i++)
+											arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
+										return BetweenJS.parallelTweens(arr) ;
+										
+									}else if(target.length == 1){
+										
+										var tar = args.shift() ;
+										return ff.apply(null, [tar[0]].concat(args)) ;
+										
+									}else{
+										return false ;
+									}
+								}else{
+									return ff.apply(null, args) ;
+								}
+								return true ;
+							}
+						}
+					})(n) ;
+				}
+			},
+			/*
+				tween
+				
+				Creates a regular tween object.
+				Takes in a target object, any object. Values in target such as numerals or other objects with numerals, will be able to tween.
+				Passing in a 'to' and a 'from' object will set source and destination values for the tween.
+				time is the duration of the tween.
+				set an easing for the tween in the set of provided easings, or custom one @see CustomFunctionEasing
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param from Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			tween:function tween(target, to, from, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				to
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			to:function to(target, to, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				from
+				
+				@param target Object/HtmlDomElement
+				@param from Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			from:function from(target, from, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				apply
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param from Object
+				@param time Float (default : 1.0)
+				@param applyTime Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			apply:function apply(target, to, from, time, applyTime, easing){
+				if(applyTime === undefined) applyTime = 1.0 ;
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				tween.update(applyTime) ;
+				return tween ;
+			},
+			/*
+				bezier
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param from Object
+				@param controlPoint Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			bezier:function bezier(target, to, from, controlPoint, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				bezierTo
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param controlPoint Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			bezierTo:function bezierTo(target, to, controlPoint, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				bezierFrom
+				
+				@param target Object/HtmlDomElement
+				@param from Object
+				@param controlPoint Object
+				@param time Float (default : 1.0)
+				@param easing Easing (default : Linear.easeNone)
+				
+				@return TweenLike Object
+			*/
+			bezierFrom:function bezierFrom(target, from, controlPoint, time, easing){
+				var tween = new ObjectTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
+				tween.time = time || 1.0 ;
+				tween.easing = easing || Linear.easeNone ;
+				return tween ;
+			},
+			/*
+				physical
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param from Object
+				@param easing Easing (default : Physical.exponential())
+				
+				@return TweenLike Object
+			*/
+			physical:function physical(target, to, from, easing){
+				var tween = new PhysicalTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
+				return tween ;
+			},
+			/*
+				physicalTo
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param easing Easing (default : Physical.exponential())
+				
+				@return TweenLike Object
+			*/
+			physicalTo:function physicalTo(target, to, easing){
+				var tween = new PhysicalTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
+				return tween ;
+			},
+			/*
+				physicalFrom
+				
+				@param target Object/HtmlDomElement
+				@param from Object
+				@param easing Easing (default : Physical.exponential())
+				
+				@return TweenLike Object
+			*/
+			physicalFrom:function physicalFrom(target, from, easing){
+				var tween = new PhysicalTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
+				return tween ;
+			},
+			/*
+				physicalApply
+				
+				@param target Object/HtmlDomElement
+				@param to Object
+				@param from Object
+				@param applyTime Float (default : 1.0)
+				@param easing Easing (default : Physical.exponential())
+				
+				@return TweenLike Object
+			*/
+			physicalApply:function physicalApply(target, to, from, applyTime, easing){
+				if(applyTime === undefined) applyTime = 1.0 ;
+				var tween = new PhysicalTween(BetweenJS.ticker) ;
+				tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.uniform()) ;
+				tween.update(applyTime) ;
+				return tween ;
+			},
+			/*
+				parallel
+				
+				@param [tween TweenLike, ...]
+				
+				@return TweenLike Object
+			*/
+			parallel:function parallel(tween){
+				return BetweenJS.parallelTweens([].slice.call(arguments)) ;
+			},
+			/*
+				parallelTweens
+				
+				@param tweens Array[TweenLike]
+				
+				@return TweenLike Object
+			*/
+			parallelTweens:function parallelTweens(tweens){
+				return new ParallelTween(tweens, BetweenJS.ticker, 0) ;
+			},
+			/*
+				serial
+				
+				@param [tween TweenLike, ...]
+				
+				@return TweenLike Object
+			*/
+			serial:function serial(tween){
+				return BetweenJS.serialTweens([].slice.call(arguments)) ;
+			},
+			/*
+				serialTweens
+				
+				@param tweens Array[TweenLike]
+				
+				@return TweenLike Object
+			*/
+			serialTweens:function serialTweens(tweens){
+				return new SerialTween(tweens, BetweenJS.ticker, 0) ;
+			},
+			/*
+				reverse
+				
+				@param tween TweenLike
+				@param reversePosition Float (default : 0.0)
+				
+				@return TweenLike TweenDecorator Object
+			*/
+			reverse:function reverse(tween, reversePosition){
+				if(reversePosition === undefined) reversePosition = false ;
+				var pos = reversePosition !== undefined ? tween.time - tween.position : 0.0 ;
+				if (tween instanceof ReversedTween) {
+					return new TweenDecorator(tween.baseTween, pos) ;
+				}
+				return new ReversedTween(tween, pos) ;
+			},
+			/*
+				repeat
+				
+				@param tween TweenLike
+				@param repeatCount Integer (default : 2)
+				
+				@return TweenLike TweenDecorator Object
+			*/
+			repeat:function repeat(tween, repeatCount){
+				return new RepeatedTween(tween, repeatCount) ;
+			},
+			/*
+				repeat
+				
+				@param tween TweenLike
+				@param scale Float (percent, default : 1)
+				
+				@return TweenLike TweenDecorator Object
+			*/
+			scale:function scale(tween, scale){
+				return new ScaledTween(tween, scale) ;
+			},
+			/*
+				slice
+				
+				@param tween TweenLike
+				@param begin Float (default : 0)
+				@param end Float (default : 1)
+				@param isPercent Boolean (default : false)
+				
+				@return TweenLike TweenDecorator Object
+			*/
+			slice:function slice(tween, begin, end, isPercent){
+				if(begin === undefined) begin = 0 ;
+				if(end === undefined) end = 1 ;
+				if(isPercent === undefined) isPercent = false ;
+				if(isPercent){
+					begin = tween.time * begin ;
+					end = tween.time * end ;
+				}
+				if (begin > end) {
+					return new ReversedTween(new SlicedTween(tween, end, begin), 0) ;
+				}
+				
+				return new SlicedTween(tween, begin, end) ;
+			},
+			/*
+				delay
+				
+				@param tween TweenLike
+				@param delay Float (default : 0)
+				@param postDelay Float (default : 0)
+				
+				@return TweenLike TweenDecorator Object
+			*/
+			delay:function delay(tween, delay, postDelay){
+				return new DelayedTween(tween, delay || 0, postDelay || 0) ;
+			},
+			/*
+				addChild
+				
+				@param target HtmlDomElement
+				@param parent HtmlDomElement
+				
+				@return TweenLike AbstactActionTween Object
+			*/
+			addChild:function addChild(target, parent){
+				return new AddChildAction(BetweenJS.ticker, target, parent) ;
+			},
+			/*
+				removeFromParent
+				
+				@param target HtmlDomElement
+				@param parent HtmlDomElement
+				
+				@return TweenLike AbstactActionTween Object
+			*/
+			removeFromParent:function removeFromParent(target){
+				return new RemoveFromParentAction(BetweenJS.ticker, target) ;
+			},
+			/*
+				func
+				
+				@param func Function
+				@param params Array
+				@param useRollback Boolean
+				@param rollbackFunc Function
+				@param rollbackParams Array
+				
+				@return TweenLike AbstactActionTween Object
+			*/
+			func:function func(ffunc, params, useRollback, rollbackFunc, rollbackParams){
+				return new FunctionAction(BetweenJS.ticker, ffunc, params, useRollback, rollbackFunc, rollbackParams) ;
+			},
+			/*
+				timeout
+				
+				@param duration Float
+				@param func Function
+				@param params Array
+				
+				@return TweenLike AbstactActionTween Object
+			*/
+			timeout:function timeout(duration, func, params){
+				var uid = getTimer() ;
+				var tw = new TimeoutAction(BetweenJS.ticker, duration, func, params) ;
+				tw.uid = uid ;
+				return (cacheTimeout[uid] = tw) ;
+			},
+			clearTimeout:function clearTimeout(uid){
+				var cc = cacheTimeout[uid] ;
+				delete cacheTimeout[uid] ;
+				return cc.stop() ;
+			},
+			/*
+				interval
+				
+				@param timer Integer
+				@param func Function
+				@param params Array
+				
+				@return TweenLike AbstactActionTween Object
+			*/
+			interval:function interval(timer, func, params){
+				var uid = getTimer() ;
+				var tw = new IntervalAction(BetweenJS.ticker, timer, func, params) ;
+				tw.uid = uid ;
+				return (cacheInterval[uid] = tw) ;
+			},
+			clearInterval:function clearInterval(uid){
+				var cc = cacheInterval[uid] ;
+				delete cacheInterval[uid] ;
+				return cc.stop() ;
+			},
+			getTweensOf:function getTweensOf(target){
+				
+				var t = BetweenJS.ticker ;
+				var all = t.all ;
+				trace('---------------------')
+				for(var s in all){
+					trace(s, all[s])
+				}
+			},
+			findBaseTweens:function findBaseTweens(ll, target){
+			   var arr = [] ;
+			   
+			   // trace(ll)
+			   
+			   
+			   return arr ;
+			}
+		}
+	}) ;
+	
+	Pkg.write('easings', function(path){
+		/* EASINGS */
+		/* Thanks to Robert Penner & Yossi */
+		var Ease = Type.define({
+			pkg:'::Ease',
+			constructor:Ease = function Ease(calc){
+				this.calculate = calc || function calculate(t, b, c, d){
+					return c * t / d + b ;
+				}
+			}
+		})
+		// LINEAR
+		var Linear = Type.define({
+			pkg:'::Linear',
+			constructor:Linear = function Linear(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(),
+				easeOut:new Ease(),
+				easeInOut:new Ease(),
+				easeOutIn:new Ease()
+			}
+		})
+		// CIRC
+		var Circ = Type.define({
+			pkg:'::Circ',
+			constructor:Circ = function Circ(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
+					else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
+					else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
+				})
+			}
+		})
+		// CUBIC
+		var Cubic = Type.define({
+			pkg:'::Cubic',
+			constructor:Cubic = function Cubic(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return c * (t /= d) * t * t + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					return c * ((t = t / d - 1) * t * t + 1) + b;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
+				})
+			}
+		})
+		// EXPO
+		var Expo = Type.define({
+			pkg:'::Expo',
+			constructor:Expo = function Expo(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
+				}),
+				easeOut: new Ease(function(t, b, c, d){
+					return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if (t == 0) return b ;
+					if (t == d) return b + c ;
+					if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
+					return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
+					else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
+				})
+			}
+		})
+		// QUAD
+		var Quad = Type.define({
+			pkg:'::Quad',
+			constructor:Quad = function Quad(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return c * (t /= d) * t + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					return -c * (t /= d) * (t - 2) + b ;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
+					else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
+					else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
+				})
+			}
+		})
+		// QUART
+		var Quart = Type.define({
+			pkg:'::Quart',
+			constructor:Quart = function Quart(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return c * (t /= d) * t * t * t + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
+					else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
+					else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
+				})
+			}
+		})
+		// QUINT
+		var Quint = Type.define({
+			pkg:'::Quint',
+			constructor:Quint = function Quint(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					return c * (t /= d) * t * t * t * t + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
+					else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
+					else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
+				})
+			}
+		})
+		// SINE
+		var Sine = Type.define({
+			pkg:'::Sine',
+			constructor:Sine = function Sine(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function calculate(t, b, c, d){
+					return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
+				}),
+				easeOut:new Ease(function calculate(t, b, c, d){
+					return c * Math.sin(t / d * (Math.PI / 2)) + b ;
+				}),
+				easeInOut:new Ease(function calculate(t, b, c, d){
+					return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
+				}),
+				easeOutIn:new Ease(function calculate(t, b, c, d){
+					if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
+					else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
+				})
+			}
+		})
+		// BOUNCE
+		var Bounce = Type.define({
+			pkg:'::Bounce',
+			constructor:Bounce = function Bounce(calc, s){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new Ease(function(t, b, c, d){
+					if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
+					if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
+					if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
+					else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
+				}),
+				easeOut:new Ease(function(t, b, c, d){
+					if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
+					if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+					if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+					else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+				}),
+				easeInOut:new Ease(function(t, b, c, d){
+					if (t < d / 2) {
+						if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
+						if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
+						if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
+						else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
+					} else {
+						if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
+						if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
+						if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
+						else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
+					}
+				}),
+				easeOutIn:new Ease(function(t, b, c, d){
+					if (t < d / 2) {
+						if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
+						if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+						if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+						else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+					} else {
+						if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
+						if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
+						if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
+						else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
+					}
+				})
+			}
+		})
+		// ELASTIC
+		var ElasticEaseIn = function(a, p){
+			return new Ease(function(t, b, c, d){
+				a = a || 0 , p = p || 0 ;
+				if (t == 0) return b ;
+				if ((t /= d) == 1) return b + c ;
+				if (!p) p = d * 0.3 ;
+				
+				var s ;// Number
+				if (!a || a < Math.abs(c)) {
+					a = c ;
+					s = p / 4 ;
+				} else {
+					s = p / (2 * Math.PI) * Math.asin(c / a) ;
+				}
+				return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+			})
+		}
+		var ElasticEaseOut = function(a, p){
+			a = a || 0 , p = p || 0 ;
+			return new Ease(function(t, b, c, d){
+				if (t == 0) return b ;
+				if ((t /= d) == 1) return b + c ;
+				if (!p) p = d * 0.3 ;
+				
+				var s ;
+				if (!a || a < Math.abs(c)) {
+					a = c ;
+					s = p / 4 ;
+				} else {
+					s = p / (2 * Math.PI) * Math.asin(c / a) ;
+				}
+				return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+			})
+		}
+		var ElasticEaseInOut = function(a, p){
+			a = a || 0 , p = p || 0 ;
+			return new Ease(function(t, b, c, d){
+				if (t == 0) return b ;
+				if ((t /= d / 2) == 2) return b + c ;
+				if (!p) p = d * (0.3 * 1.5) ;
+				
+				var s ;
+				if (!a || a < Math.abs(c)) {
+					a = c;
+					s = p / 4;
+				} else {
+					s = p / (2 * Math.PI) * Math.asin(c / a);
+				}
+				if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+				else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
+			})
+		}
+		var ElasticEaseOutIn = function(a, p){
+			a = a || 0 , p = p || 0 ;
+			return new Ease(function(t, b, c, d){
+				var s ;
+				c /= 2 ;
+				if (t < d / 2) {
+					if ((t *= 2) == 0) return b ;
+					if ((t /= d) == 1) return b + c ;
+					if (!p) p = d * 0.3 ;
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+				} else {
+					if ((t = t * 2 - d) == 0) return (b + c) ;
+					if ((t /= d) == 1) return (b + c) + c ;
+					if (!p) p = d * 0.3 ;
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
+				}
+			})
+		}
+		var Elastic = Type.define({
+			pkg:'::Elastic',
+			constructor:Elastic = function Elastic(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new ElasticEaseIn(),
+				easeOut:new ElasticEaseOut(),
+				easeInOut:new ElasticEaseInOut(),
+				easeOutIn:new ElasticEaseOutIn(),
+				easeInWith:function(a, p){return new ElasticEaseIn(a || 0, p || 0)},
+				easeOutWith:function(a, p){return new ElasticEaseOut(a || 0, p || 0)},
+				easeInOutWith:function(a, p){return new ElasticEaseInOut(a || 0, p || 0)},
+				easeOutInWith:function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)}
+			}
+		})
+		// BACK
+		var BackEaseIn = function(s){
+			s = s || 1.70158 ;
+			return new Ease(function(t, b, c, d){
+				return c * (t /= d) * t * ((s + 1) * t - s) + b;
+			})
+		}
+		var BackEaseOut = function(s){
+			s = s || 1.70158 ;
+			return new Ease(function(t, b, c, d){
+				return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+			})
+		}
+		var BackEaseInOut = function(s){
+			s = s || 1.70158 ;
+			return new Ease(function(t, b, c, d){
+				if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
+				else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
+			})
+		}
+		var BackEaseOutIn = function(s){
+			s = s || 1.70158 ;
+			return new Ease(function(t, b, c, d){
+				if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+				else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
+			})
+		}
+		var Back = Type.define({
+			pkg:'::Back',
+			constructor:Back = function Back(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				easeIn:new BackEaseIn(),
+				easeOut:new BackEaseOut(),
+				easeInOut:new BackEaseInOut(),
+				easeOutIn:new BackEaseOutIn(),
+				easeInWith:function(s){return new BackEaseIn(s || 1.70158)},
+				easeOutWith:function(s){return new BackEaseOut(s || 1.70158)},
+				easeInOutWith:function(s){return new BackEaseInOut(s || 1.70158)},
+				easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
+			}
+		})
+		// CUSTOM
+		var Custom = Type.define({
+			pkg:'::Custom',
+			constructor:Custom = function Custom(){
+			},
+			domain:Type.appdomain,
+			statics:{
+				func:function func(f){
+					return new Ease(f) ;
+				}
+			}
+		})
+	})
 	
 	return BetweenJS ;
-})() ;
-
-// EVENTS
-var TweenEvent = Class('org.libspark.betweenJS.events::TweenEvent', {
-   statics:{
-      PLAY:'play',
-      STOP:'stop',
-      UPDATE:'update',
-      COMPLETE:'complete'
-   },
-   constructor:function(type, data, tween){
-      this.type = type, this.data = data ;
-      this.tween = tween ;
-      return this ;
-   }
-}, IEvent) ;
-
-
-/* EASINGS 
- * Thanks to Robert Penner */
-
-// CUSTOM
-var CustomFunctionEasing = function(f){
-	if(typeof(f) !== 'function') throw new Error('function parameter is not a function...(customEasing)', f ) ;
-	return {calculate:function(t, b, c, d){
-		return f(t, b, c, d) ;
-	}} ;
-}
-var Custom = {
-	func:function(f){
-		return new CustomFunctionEasing(f) ;
-	}
-} ;
-
-// EASENONE
-var EaseNone = function(){
-	return {calculate:function(t, b, c, d){
-		return c * t / d + b ;
-	}} ;
-}
-
-// LINEAR
-var Linear = {linear:new EaseNone()} ;
-Linear.easeNone = Linear.linear ;
-Linear.easeIn = Linear.linear ;
-Linear.easeOut = Linear.linear ;
-Linear.easeInOut = Linear.linear ;
-Linear.easeOutIn = Linear.linear ;
-
-// BACK
-var BackEaseIn = function(s){
-	s = s || 1.70158 ;
-	return {calculate:function(t, b, c, d){
-		return c * (t /= d) * t * ((s + 1) * t - s) + b;
-	}} ;
-}
-var BackEaseOut = function(s){
-	s = s || 1.70158 ;
-	return {calculate:function(t, b, c, d){
-		return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-	}} ;
-}
-var BackEaseInOut = function(s){
-	s = s || 1.70158 ;
-	return {calculate:function(t, b, c, d){
-		if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
-		else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
-	}} ;
-}
-var BackEaseOutIn = function(s){
-	s = s || 1.70158 ;
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-		else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
-	}} ;
-}
-var Back = {
-	easeIn:new BackEaseIn(),
-	easeOut:new BackEaseOut(),
-	easeInOut:new BackEaseInOut(),
-	easeOutIn:new BackEaseOutIn()
-} ;
-Back.easeInWith = function(s){return new BackEaseIn(s || 1.70158)} ;
-Back.easeOutWith = function(s){return new BackEaseOut(s || 1.70158)} ;
-Back.easeInOutWith = function(s){return new BackEaseInOut(s || 1.70158)} ;
-Back.easeOutInWith = function(s){return new BackEaseOutIn(s || 1.70158)} ;
-
-// BOUNCE
-var BounceEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
-		if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
-		if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
-		else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
-	}} ;
-}
-var BounceEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
-		if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-		if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-		else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-	}} ;
-}
-var BounceEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) {
-			if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
-			if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
-			if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
-			else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
-		} else {
-			if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
-			if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
-			if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
-			else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
-		}
-	}} ;
-}
-var BounceEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) {
-			if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
-			if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-			if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-			else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-		} else {
-			if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
-			if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
-			if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
-			else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
-		}
-	}} ;
-}
-var Bounce = {
-	easeIn:new BounceEaseIn(),
-	easeOut:new BounceEaseOut(),
-	easeInOut:new BounceEaseInOut(),
-	easeOutIn:new BounceEaseOutIn()
-} ;
-
-// CIRCULAR & CIRC
-var CircularEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
-	}} ;
-}
-var CircularEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
-	}} ;
-}
-var CircularEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
-		else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
-	}} ;
-}
-var CircularEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
-		else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
-	}} ;
-}
-var Circular = {
-	easeIn:new CircularEaseIn(),
-	easeOut:new CircularEaseOut(),
-	easeInOut:new CircularEaseInOut(),
-	easeOutIn:new CircularEaseOutIn()
-} ;
-var Circ = Circular ;
-
-// CUBIC
-var CubicEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return c * (t /= d) * t * t + b ;
-	}} ;
-}
-var CubicEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return c * ((t = t / d - 1) * t * t + 1) + b;
-	}} ;
-}
-var CubicEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
-	}} ;
-}
-var CubicEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
-	}} ;
-}
-var Cubic = {
-	easeIn:new CubicEaseIn(),
-	easeOut:new CubicEaseOut(),
-	easeInOut:new CubicEaseInOut(),
-	easeOutIn:new CubicEaseOutIn()
-} ;
-
-// ELASTIC
-var ElasticEaseIn = function(a, p){
-	a = a || 0 , p = p || 0 ;
-	return {calculate:function(t, b, c, d){
-		if (t == 0) return b ;
-		if ((t /= d) == 1) return b + c ;
-		if (!p) p = d * 0.3 ;
-		
-		var s ;// Number
-		if (!a || a < Math.abs(c)) {
-			a = c ;
-			s = p / 4 ;
-		} else {
-			s = p / (2 * Math.PI) * Math.asin(c / a) ;
-		}
-		return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-	}} ;
-}
-var ElasticEaseOut = function(a, p){
-	a = a || 0 , p = p || 0 ;
-	return {calculate:function(t, b, c, d){
-		if (t == 0) return b ;
-		if ((t /= d) == 1) return b + c ;
-		if (!p) p = d * 0.3 ;
-		
-		var s ;
-		if (!a || a < Math.abs(c)) {
-			a = c ;
-			s = p / 4 ;
-		} else {
-			s = p / (2 * Math.PI) * Math.asin(c / a) ;
-		}
-		return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-	}} ;
-}
-var ElasticEaseInOut = function(a, p){
-	a = a || 0 , p = p || 0 ;
-	return {calculate:function(t, b, c, d){
-		if (t == 0) return b ;
-		if ((t /= d / 2) == 2) return b + c ;
-		if (!p) p = d * (0.3 * 1.5) ;
-		
-		var s ;
-		if (!a || a < Math.abs(c)) {
-			a = c;
-			s = p / 4;
-		} else {
-			s = p / (2 * Math.PI) * Math.asin(c / a);
-		}
-		if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-		else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
-	}} ;
-}
-var ElasticEaseOutIn = function(a, p){
-	a = a || 0 , p = p || 0 ;
-	return {calculate:function(t, b, c, d){
-		var s ;
-		c /= 2 ;
-		
-		if (t < d / 2) {
-			if ((t *= 2) == 0) return b ;
-			if ((t /= d) == 1) return b + c ;
-			if (!p) p = d * 0.3 ;
-			if (!a || a < Math.abs(c)) {
-				a = c ;
-				s = p / 4 ;
-			} else {
-				s = p / (2 * Math.PI) * Math.asin(c / a) ;
-			}
-			return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-		} else {
-			if ((t = t * 2 - d) == 0) return (b + c) ;
-			if ((t /= d) == 1) return (b + c) + c ;
-			if (!p) p = d * 0.3 ;
-			if (!a || a < Math.abs(c)) {
-				a = c ;
-				s = p / 4 ;
-			} else {
-				s = p / (2 * Math.PI) * Math.asin(c / a) ;
-			}
-			return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
-		}
-	}} ;
-}
-var Elastic = {
-	easeIn:new ElasticEaseIn(),
-	easeOut:new ElasticEaseOut(),
-	easeInOut:new ElasticEaseInOut(),
-	easeOutIn:new ElasticEaseOutIn()
-} ;
-Elastic.easeInWith = function(a, p){return new ElasticEaseIn(a || 0, p || 0)} ;
-Elastic.easeOutWith = function(a, p){return new ElasticEaseOut(a || 0, p || 0)} ;
-Elastic.easeInOutWith = function(a, p){return new ElasticEaseInOut(a || 0, p || 0)} ;
-Elastic.easeOutInWith = function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)} ;
-
-// EXPONENTIAL & EXPO
-var ExponentialEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
-	}} ;
-}
-var ExponentialEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
-	}} ;
-}
-var ExponentialEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if (t == 0) return b ;
-		if (t == d) return b + c ;
-		if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
-		return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
-	}} ;
-}
-var ExponentialEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
-		else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
-	}} ;
-}
-var Exponential = {
-	easeIn:new ExponentialEaseIn(),
-	easeOut:new ExponentialEaseOut(),
-	easeInOut:new ExponentialEaseInOut(),
-	easeOutIn:new ExponentialEaseOutIn()
-} ;
-var Expo = Exponential ;
-
-// QUADRATIC & QUAD
-var QuadraticEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return c * (t /= d) * t + b ;
-	}} ;
-}
-var QuadraticEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return -c * (t /= d) * (t - 2) + b ;
-	}} ;
-}
-var QuadraticEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
-		else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
-	}} ;
-}
-var QuadraticEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
-		else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
-	}} ;
-}
-var Quadratic = {
-	easeIn:new QuadraticEaseIn(),
-	easeOut:new QuadraticEaseOut(),
-	easeInOut:new QuadraticEaseInOut(),
-	easeOutIn:new QuadraticEaseOutIn()
-} ;
-var Quad = Quadratic ;
-
-// QUARTIC & QUART
-var QuarticEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return c * (t /= d) * t * t * t + b ;
-	}} ;
-}
-var QuarticEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
-	}} ;
-}
-var QuarticEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
-		else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
-	}} ;
-}
-var QuarticEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
-		else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
-	}} ;
-}
-var Quartic = {
-	easeIn:new QuarticEaseIn(),
-	easeOut:new QuarticEaseOut(),
-	easeInOut:new QuarticEaseInOut(),
-	easeOutIn:new QuarticEaseOutIn()
-} ;
-var Quart = Quartic ;
-
-// QUINTIC & QUINT
-var QuinticEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return c * (t /= d) * t * t * t * t + b ;
-	}} ;
-}
-var QuinticEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
-	}} ;
-}
-var QuinticEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
-		else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
-	}} ;
-}
-var QuinticEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
-		else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
-	}} ;
-}
-var Quintic = {
-	easeIn:new QuinticEaseIn(),
-	easeOut:new QuinticEaseOut(),
-	easeInOut:new QuinticEaseInOut(),
-	easeOutIn:new QuinticEaseOutIn()
-} ;
-var Quint = Quintic ;
-
-// SINE
-var SineEaseIn = function(s){
-	return {calculate:function(t, b, c, d){
-		return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
-	}} ;
-}
-var SineEaseOut = function(){
-	return {calculate:function(t, b, c, d){
-		return c * Math.sin(t / d * (Math.PI / 2)) + b ;
-	}} ;
-}
-var SineEaseInOut = function(){
-	return {calculate:function(t, b, c, d){
-		return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
-	}} ;
-}
-var SineEaseOutIn = function(){
-	return {calculate:function(t, b, c, d){
-		if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
-		else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
-	}} ;
-}
-var Sine = {
-	easeIn:new SineEaseIn(),
-	easeOut:new SineEaseOut(),
-	easeInOut:new SineEaseInOut(),
-	easeOutIn:new SineEaseOutIn()
-} ;
-
-// PHYSICAL
-var Physical = {
-	defaultFrameRate:30.0,
-	uniform:function(velocity, frameRate){
-		return new PhysicalUniform(velocity || 10.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	},
-	accelerate:function(acceleration, initialVelocity, frameRate){
-		return new PhysicalAccelerate(initialVelocity || 0.0, acceleration || 1.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	},
-	exponential:function(factor, threshold, frameRate){
-		return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-	}
-} ;
-var PhysicalAccelerate = Class('org.libspark.betweenJS.core.easing::PhysicalAccelerate', {
-    iv:undefined,
-    a:undefined,
-    fps:undefined,
-    constructor:function(iv, a, fps){ 
-       this.iv = iv ;
-       this.a = a ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c){
-        var iv = c < 0 ? - this.iv : this.iv ;
-		var a = c < 0 ? - this.a : this.a ;
-		
-		return ((-iv + Math.sqrt(iv * iv - 4 * (a / 2.0) * -c)) / (2 * (a / 2.0))) * (1.0 / this.fps);
-    },
-    calculate:function(t, b, c){
-		var f = c < 0 ? -1 : 1 ;
-		var n = t / (1.0 / this.fps) ;
-		return b + (f * this.iv) * n + ((f * this.a) * n) * n / 2.0 ;
-    }
-}) ;
-var PhysicalExponential = Class('org.libspark.betweenJS.core.easing::PhysicalExponential', {
-    f:undefined,
-    th:undefined,
-    fps:undefined,
-    constructor:function(f, th, fps){ 
-       this.f = f ;
-       this.th = th ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c){
-         return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (1.0 / this.fps) ;
-    },
-    calculate:function(t, b, c){
-         return -c * Math.pow(1 - this.f, (t / (1.0 / this.fps)) - 1) + (b + c) ;
-    }
-}) ;
-var PhysicalUniform = Class('org.libspark.betweenJS.core.easing::PhysicalUniform', {
-    v:undefined,
-    fps:undefined,
-    constructor:function(v, fps){ 
-       this.v = v ;
-       this.fps = fps ;
-       
-       return this ;
-    },
-    getDuration:function(b, c){
-         return (c / (c < 0 ? -this.v : this.v)) * (1.0 / this.fps) ;
-    },
-    calculate:function(t, b, c){
-         return b + (c < 0 ? -this.v : this.v) * (t / (1.0 / this.fps)) ;
-    }
-});
-
-BetweenJS.core() ;
+})
