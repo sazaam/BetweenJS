@@ -1,7 +1,7 @@
 /*
  * BETWEENJS Tweening Engine for Javascript
  * 
- * V 0.95
+ * V 0.9.6
  * 
  * Dependancies : 
  * 	jQuery 1.6.1+ (required for event handling)
@@ -16,6 +16,7 @@
  * 2011-2012
  * 
  */
+
 'use strict' ;
 
 module.exports = Pkg.write('org.libspark.betweenjs', function(path){
