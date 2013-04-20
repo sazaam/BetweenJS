@@ -2,6 +2,14 @@ BetweenJS
 
 Tweening Engine for JS
 
+
+Requires :
+- Type
+- jQuery if u need the full events feature instead of 'on'-type of triggers. 
+
+
+
+
 API :
 http://betweenjs.sazaam.net
 
