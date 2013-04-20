@@ -4,7 +4,7 @@ Tweening Engine for JS
 
 
 Requires :
-- Type
+- Type (https://github.com/sazaam/Type)
 - jQuery if u need the full events feature instead of 'on'-type of triggers. 
 
 
