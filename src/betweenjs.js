@@ -1,7 +1,7 @@
 /*
  * BETWEENJS Tweening Engine for Javascript
  * 
- * V 0.9.6
+ * V 0.95
  * 
  * Dependancies : 
  * 	jQuery 1.6.1+ (required for event handling)
@@ -16,7 +16,6 @@
  * 2011-2012
  * 
  */
-
 'use strict' ;
 
 module.exports = Pkg.write('org.libspark.betweenjs', function(path){
@@ -72,25 +71,24 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 			},
 			cache:{},
 			getScroll:function(target, name, unit) {
-			  return (target === window || target === document) ?
-			  (
-				this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] ||
-				(CSSPropertyMapper.isIEunder9 && document.documentElement[name]) ||
-				document.body[name]
-			  ) :
-			  target[name] ;
+				return (target === window || target === document) ?
+				(
+					this[(name.search(/top/i) != -1) ? 'pageYOffset' : 'pageXOffset'] ||
+						(CSSPropertyMapper.isIEunder9 && document.documentElement[name]) ||
+							document.body[name]
+				) : target[name] ;
 			},
 			setScroll:function(target, name, unit, val) {
-			  if(target === window || target === document){
-				try{
-					this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
-				}catch(e){
-					if(!CSSPropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
-					else document.body[name] = parseInt(val) ;
+				if(target === window || target === document){
+					try{
+						this[(name.search(/top/i) != -1) ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
+					}catch(e){
+						if(!CSSPropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
+						else document.body[name] = parseInt(val) ;
+					}
+				}else{
+					target[name] = parseInt(val) ;
 				}
-			  }else{
-				target[name] = parseInt(val) ;
-			  }
 			},
 			cssHackGet:function(el, name){
 				if (el.currentStyle) {
@@ -250,12 +248,6 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 				}
 				return m ;
 			},
-			cssScrollPositionGet:function(target, pname, unit){
-				return CSSPropertyMapper.getScroll(target, pname, unit) ;
-			},
-			cssScrollPositionSet:function(target, pname, unit, val){
-				CSSPropertyMapper.setScroll(target, pname, unit, val) ;
-			},
 			check:function(name){
 				var formats = CSSPropertyMapper.formats ;
 				var cache = CSSPropertyMapper.cache ;
@@ -266,8 +258,8 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 					case formats['positionprop'].test(name) :
 						o = {
 							cssprop:name,
-							cssget:CSSPropertyMapper.cssScrollPositionGet,
-							cssset:CSSPropertyMapper.cssScrollPositionSet
+							cssget:CSSPropertyMapper.getScroll,
+							cssset:CSSPropertyMapper.setScroll
 						} ;
 					break ;
 					case formats['separatorprop'].test(name) :
@@ -1536,10 +1528,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 					
 					if (this.stopOnComplete === true) {
 						
-						setTimeout(function(){sss.stop()}, 0) ;
-						// this.isPlaying = false ;
-						
-						// this.ticker.removeTickerListener(this) ;
+						this.isPlaying = false ;
 						
 						if ((this.willTriggerFlags & 0x08) != 0) {
 							this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
@@ -1547,6 +1536,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 						if (this.onComplete !== undefined) {
 							this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 						}
+						
 						return true ;
 					}else {
 						if ((this.willTriggerFlags & 0x08) != 0) {
@@ -1894,11 +1884,17 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		},
 		action:function(){
 			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode !== this.parent) {
+				if(!! this.parent.jquery)
+					this.parent.append(this.target) ;
+				else
 				this.parent.appendChild(this.target) ;
 			}
 		},
 		rollback:function(){
 			if (this.target !== undefined && this.parent !== undefined && this.target.parentNode === this.parent) {
+				if(!! this.parent.jquery)
+					this.target.remove()
+				else
 				this.parent.removeChild(this.target) ;
 			}
 		}
@@ -1913,14 +1909,22 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		},
 		action:function(){
 			if (this.target !== undefined && this.target.parentNode !== null) {
-				this.parent = this.target.parentNode ;
-				this.parent.removeChild(this.target) ;
+				if(!!this.target.jquery)
+					this.target.remove() ;
+				else{				
+					this.parent = this.target.parentNode ;
+					this.parent.removeChild(this.target) ;
+				}
 			}
 		},
 		rollback:function(){
 			if (this.target !== undefined && this.parent !== undefined) {
-				this.parent.appendChild(this.target) ;
-				this.parent = undefined ;
+				if(!!this.target.jquery){
+					this.parent.append(this.target) ;
+				}else{				
+					this.parent.appendChild(this.target) ;
+					this.parent = undefined ;
+				}
 			}
 		}
 	}) ;
