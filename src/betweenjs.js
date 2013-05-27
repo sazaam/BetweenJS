@@ -18,7 +18,7 @@
  */
 'use strict' ;
 
-module.exports = Pkg.write('org.libspark.betweenjs', function(path){
+(module || {}).exports = Pkg.write('org.libspark.betweenjs', function(path){
 	// GetTimer Implementation
 	var getTimer = function(){
 	   return new Date().getTime() - ___d ;
@@ -53,6 +53,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	
 	// here other classes
 	var CSSPropertyMapper = Type.define({
+		pkg:'::CSSPropertyMapper',
 		constructor:CSSPropertyMapper = function CSSPropertyMapper(){
 			throw 'Not meant to be instanciated... CSSPropertyMapper' ;
 		},
@@ -287,7 +288,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// SINGLE.UPDATER
 	var UpdaterFactory = Type.define({
-		pkg:'single.updater',
+		pkg:'single.updater::UpdaterFactory',
 		constructor:UpdaterFactory = function UpdaterFactory(){
 		   //
 		},
@@ -606,7 +607,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	});
 	// SINGLE.TICKER
 	var EnterFrameTicker = Type.define({
-		pkg:'single.ticker',
+		pkg:'single.ticker::EnterFrameTicker',
 		first:undefined,
 		numListeners:0,
 		tickerListenerPaddings:undefined,
@@ -809,7 +810,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// CORE.TICKERS
 	var TickerListener = Type.define({
-		pkg:'core.tickers',
+		pkg:'core.tickers::TickerListener',
 		inherits:EventDispatcher,
 		prevListener:undefined,
 		nextListener:undefined,
@@ -822,7 +823,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// CORE.UPDATERS
 	var AbstractUpdater = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::AbstractUpdater',
 		isResolved:false,
 		target:undefined,
 		constructor:AbstractUpdater = function AbstractUpdater(){ 
@@ -860,7 +861,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var ObjectUpdater = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::ObjectUpdater',
 		inherits:AbstractUpdater,
 		target:undefined,
 		source:undefined,
@@ -1046,7 +1047,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var CompositeUpdater = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::CompositeUpdater',
 		target:undefined,
 		a:undefined,
 		b:undefined,
@@ -1147,7 +1148,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var UpdaterLadder = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::UpdaterLadder',
 		target:undefined,
 		parent:undefined,
 		child:undefined,
@@ -1173,7 +1174,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalUpdaterLadder = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::PhysicalUpdaterLadder',
 		target:undefined,
 		parent:undefined,
 		child:undefined,
@@ -1200,7 +1201,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var BezierUpdater = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::BezierUpdater',
 		inherits:ObjectUpdater,
 		target:undefined,
 		source:undefined,
@@ -1276,7 +1277,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalUpdater = Type.define({
-		pkg:'core.updaters',
+		pkg:'core.updaters::PhysicalUpdater',
 		inherits:ObjectUpdater,
 		target:undefined,
 		source:undefined,
@@ -1358,7 +1359,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// CORE.TWEENS
 	var AbstractTween = Type.define({
-		pkg:'core.tweens',
+		pkg:'core.tweens::AbstractTween',
 		inherits:TickerListener,
 		constructor:AbstractTween = function AbstractTween(ticker, position){
 		   this.isPlaying = false ;
@@ -1633,7 +1634,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		 }
 	}) ;
 	var AbstractActionTween = Type.define({
-		pkg:'core.tweens',
+		pkg:'core.tweens::AbstractActionTween',
 		inherits:AbstractTween,
 		lastTime:undefined,
 		constructor:AbstractActionTween = function AbstractActionTween(ticker){
@@ -1653,7 +1654,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		rollback:function(){}
 	}) ;
 	var TweenDecorator = Type.define({
-		pkg:'core.tweens',
+		pkg:'core.tweens::TweenDecorator',
 		inherits:AbstractTween,
 		baseTween:undefined,
 		constructor:TweenDecorator = function TweenDecorator(baseTween, position){
@@ -1693,7 +1694,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// TWEENS
 	var ObjectTween = Type.define({
-		pkg:'tweens',
+		pkg:'tweens::ObjectTween',
 		inherits:AbstractTween,
 		easing:undefined,
 		updater:undefined,
@@ -1721,7 +1722,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalTween = Type.define({
-		pkg:'tweens',
+		pkg:'tweens::PhysicalTween',
 		inherits:AbstractTween,
 		updater:undefined,
 		target:undefined,
@@ -1754,7 +1755,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// ACTIONS
 	var FunctionAction = Type.define({
-		pkg:'actions',
+		pkg:'actions::FunctionAction',
 		inherits:AbstractActionTween,
 		func:undefined,
 		params:undefined,
@@ -1784,7 +1785,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var TimeoutAction = Type.define({
-		pkg:'actions',
+		pkg:'actions::TimeoutAction',
 		inherits:AbstractActionTween,
 		duration:0,
 		func:undefined,
@@ -1824,7 +1825,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var IntervalAction = Type.define({
-		pkg:'actions',
+		pkg:'actions::IntervalAction',
 		inherits:AbstractActionTween,
 		duration:0,
 		func:undefined,
@@ -1873,7 +1874,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var AddChildAction = Type.define({
-		pkg:'actions',
+		pkg:'actions::AddChildAction',
 		inherits:AbstractActionTween,
 		target:undefined,
 		parent:undefined,
@@ -1900,7 +1901,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var RemoveFromParentAction = Type.define({
-		pkg:'actions',
+		pkg:'actions::RemoveFromParentAction',
 		inherits:AbstractActionTween,
 		target:undefined,
 		constructor:RemoveFromParentAction = function RemoveFromParentAction(ticker, target){
@@ -1930,7 +1931,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// DECORATORS
 	var SlicedTween = Type.define({
-		pkg:'tweens.decorators',
+		pkg:'tweens.decorators::SlicedTween',
 		inherits:TweenDecorator,
 		begin:0,
 		end:1,
@@ -1963,7 +1964,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var ScaledTween = Type.define({
-		pkg:'tweens.decorators',
+		pkg:'tweens.decorators::ScaledTween',
 		inherits:TweenDecorator,
 		scale:1,
 		constructor:ScaledTween = function ScaledTween(baseTween, scale){
@@ -1979,7 +1980,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var ReversedTween = Type.define({
-		pkg:'tweens.decorators',
+		pkg:'tweens.decorators::ReversedTween',
 		inherits:TweenDecorator,
 		constructor:ReversedTween = function ReversedTween(baseTween, position){
 		   ReversedTween.base.apply(this, [baseTween, position]) ;
@@ -1993,7 +1994,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var RepeatedTween = Type.define({
-		pkg:'tweens.decorators',
+		pkg:'tweens.decorators::RepeatedTween',
 		inherits:TweenDecorator,
 		basetime:undefined,
 		repeatCount:2,
@@ -2014,7 +2015,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var DelayedTween = Type.define({
-		pkg:'tweens.decorators',
+		pkg:'tweens.decorators::DelayedTween',
 		inherits:TweenDecorator,
 		basetime:undefined,
 		preDelay:.5,
@@ -2034,7 +2035,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// GROUPS
 	var ParallelTween = Type.define({
-		pkg:'groups',
+		pkg:'groups::ParallelTween',
 		inherits:AbstractTween,
 		a:undefined,
 		b:undefined,
@@ -2198,7 +2199,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var SerialTween = Type.define({
-		pkg:'groups',
+		pkg:'groups::SerialTween',
 		inherits:AbstractTween,
 		a:undefined,
 		b:undefined,
@@ -2426,7 +2427,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	}) ;
 	// EVENTS
 	var TweenEvent = Type.define({
-		pkg:'events',
+		pkg:'events::TweenEvent',
 		inherits:IEvent,
 		constructor:TweenEvent = function TweenEvent(type, data, tween){
 			TweenEvent.base.apply(this, [type, data]) ;
@@ -2457,7 +2458,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalAccelerate = Type.define({
-		pkg:'core.easing',
+		pkg:'core.easing::PhysicalAccelerate',
 		iv:undefined,
 		a:undefined,
 		fps:undefined,
@@ -2479,7 +2480,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalExponential = Type.define({
-		pkg:'core.easing',
+		pkg:'core.easing::PhysicalExponential',
 		f:undefined,
 		th:undefined,
 		fps:undefined,
@@ -2496,7 +2497,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 		}
 	}) ;
 	var PhysicalUniform = Type.define({
-		pkg:'core.easing',
+		pkg:'core.easing::PhysicalUniform',
 		v:undefined,
 		fps:undefined,
 		constructor:PhysicalUniform = function PhysicalUniform(v, fps){ 
@@ -2513,6 +2514,7 @@ module.exports = Pkg.write('org.libspark.betweenjs', function(path){
 	
 	var BetweenJS = Type.define({
 		domain:Type.appdomain,
+		pkg:'::BetweenJS',
 		constructor:BetweenJS = function BetweenJS(){
 			throw 'Not meant to be instanciated... BetweenJS::ctor' ;
 		},
