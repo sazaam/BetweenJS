@@ -3,8 +3,8 @@
  * 
  * V 0.95
  * 
- * Dependancies : 
- * 	jQuery 1.6.1+ (required for event handling)
+ * Dependencies : 
+ * 	No dependencies
  * 
  * Highly Inspired by Yossi (up to the name)
  * yossi(at)be-interactive.org
@@ -33,12 +33,30 @@
 		var getTimer = function(){
 		   return new Date().getTime() - ___d ;
 		} , ___d = new Date().getTime() ;
+		var sl = [].slice ;
 		// will need that...
 		function concat(p){
 			return (CSSPropertyMapper.isIE && p === undefined) ? [] : p ;
 		}
 		var cacheInterval = {}, cacheTimeout = {} ;
 		var unitsreg = /(px|em|pc|pt|%)$/ ;
+		
+		
+		var complexTween = function(tw, target){
+			var args = sl.call(arguments) , arr;
+			tw = args.shift() ;
+			target = args.shift() ;
+			
+			if(target.length && !!(arr = []))
+				if(target.length == 1) return tw.apply(null, [target[0]].concat(args)) ;
+				for(var i = 0 , l = target.length ; i < l ; i++)
+					arr[arr.length] = tw.apply(null, [target[i]].concat(args))
+				return BetweenJS.parallelTweens(arr) ;
+		} ;
+		var isComplex = function(target){
+			return !!(target.length) ;
+		} ;
+		
 		// REQUESTANIMATIONFRAME implementation BY PAUL IRISH
 		(function() {
 			var lastTime = 0;
@@ -436,7 +454,7 @@
 						if (typeof(value = controlPoint[name]) == 'number') {
 							value = [value] ;
 						}
-						if (!!value.slice && value.slice === Array.prototype.slice) {
+						if (value instanceof Array) {
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
@@ -821,11 +839,10 @@
 		// CORE.TICKERS
 		var TickerListener = Type.define({
 			pkg:'core.tickers::TickerListener',
-			inherits:EventDispatcher,
 			prevListener:undefined,
 			nextListener:undefined,
 			constructor:TickerListener = function TickerListener(){
-				TickerListener.base.call(this) ;
+				
 			},
 			tick:function(time){
 				return false ;
@@ -1375,7 +1392,6 @@
 			   this.isPlaying = false ;
 			   this.time = .5 ;
 			   this.stopOnComplete = true ;
-			   this.willTriggerFlags = 0 ;
 			   AbstractTween.base.call(this) ;
 			   this.ticker = ticker ;
 			   this.position = position || 0 ;
@@ -1385,7 +1401,6 @@
 			position:0,
 			isPlaying:false,
 			stopOnComplete:true,
-			willTriggerFlags:0,
 			onPlay:undefined,
 			onPlayParams:undefined,
 			onStop:undefined,
@@ -1407,10 +1422,6 @@
 					
 					this.ticker.addTickerListener(this) ;
 					
-					if ((this.willTriggerFlags & 0x01) != 0) {
-					   this.dispatch(new TweenEvent(TweenEvent.PLAY, undefined, this)) ;
-					}
-					
 					if (this.onPlay !== undefined) {
 					   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 					}
@@ -1420,9 +1431,6 @@
 				return this ;
 			},
 			firePlay:function(){
-				if ((this.willTriggerFlags & 0x01) != 0) {
-					this.dispatch(new TweenEvent(TweenEvent.PLAY, undefined, this)) ;
-				}
 				if (this.onPlay !== undefined) {
 				   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 				}
@@ -1430,12 +1438,12 @@
 			},
 			stop:function(){
 				if (this.isPlaying) {
+					
 					this.ticker.removeTickerListener(this) ;
 					if(this.ticker.numListeners == 0) this.ticker.setInactive(true) ;
+					
 					this.isPlaying = false ;
-					if ((this.willTriggerFlags & 0x02) != 0) {
-						this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
-					}
+					
 					if (this.onStop !== undefined) {
 						this.onStop.apply(this, concat(this.onStopParams)) ;
 					}
@@ -1443,9 +1451,6 @@
 				return this ;
 			},
 			fireStop:function(){
-				if ((this.willTriggerFlags & 0x02) != 0) {
-					this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
-				}
 				if (this.onStop !== undefined) {
 					this.onStop.apply(this, concat(this.onStopParams)) ;
 				}
@@ -1478,9 +1483,7 @@
 				}
 				this.position = position ;
 				this.internalUpdate(position) ;
-				if ((this.willTriggerFlags & 0x04) != 0) {
-					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
-				}
+				
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 				}
@@ -1495,17 +1498,11 @@
 				this.position = time ;
 				this.internalUpdate(time) ;
 				
-				if ((this.willTriggerFlags & 0x04) != 0) {
-					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
-				}
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 				}
 				
 				if (isComplete) {
-					if ((this.willTriggerFlags & 0x08) != 0) {
-						this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
-					}
 					if (this.onComplete !== undefined) {
 						this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 					}
@@ -1523,9 +1520,6 @@
 				this.position = t ;
 				this.internalUpdate(t) ;
 				var sss = this ;
-				if ((this.willTriggerFlags & 0x04) != 0) {
-					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
-				}
 				
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
@@ -1541,21 +1535,17 @@
 							
 							this.isPlaying = false ;
 							
-							if ((this.willTriggerFlags & 0x08) != 0) {
-								this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
-							}
 							if (this.onComplete !== undefined) {
 								this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 							}
 							
 							return true ;
 						}else {
-							if ((this.willTriggerFlags & 0x08) != 0) {
-								this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
-							}
+							
 							if (this.onComplete !== undefined) {
 								this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 							}
+							
 							this.position = t - this.time ;
 							this.startTime = time - this.position ;
 							this.tick(time) ;
@@ -1582,7 +1572,6 @@
 				this.easing = source.easing ;
 				this.stopOnComplete = source.stopOnComplete ;
 				this.copyHandlersFrom(source);
-				this.willTriggerFlags = source.willTriggerFlags ;
 			},
 			copyHandlersFrom:function(){
 				this.onPlay = source.onPlay ;
@@ -1593,55 +1582,7 @@
 				this.onUpdateParams = source.onUpdateParams ;
 				this.onComplete = source.onComplete ;
 				this.onCompleteParams = source.onCompleteParams ; 
-			},
-			addEL:function(type, closure){
-				AbstractTween.factory.addEL.apply(this, [type, closure]) ;
-				this.updateWillTriggerFlags() ;
-				return this ;
-			},
-			bind:function(type, closure){
-				return this.addEL(type, closure) ;
-			},
-			removeEL:function(type, closure){
-				AbstractTween.factory.removeEL.apply(this, [type, closure]) ;
-				this.updateWillTriggerFlags() ;
-				return this ;
-			},
-			unbind:function(type, closure){
-				return this.removeEL(type, closure) ;
-			},
-			dispatch:function(e){
-				return AbstractTween.factory.dispatch.apply(this, [e]) ;
-			},
-			trigger:function(type){
-				return this.dispatch(type) ;
-			},
-			updateWillTriggerFlags:function(){
-				if (this.willTrigger(TweenEvent.PLAY)) {
-					this.willTriggerFlags |= 0x01 ;
-				}
-				else {
-					this.willTriggerFlags &= ~0x01 ;
-				}
-				if (this.willTrigger(TweenEvent.STOP)) {
-					this.willTriggerFlags |= 0x02 ;
-				}
-				else {
-					this.willTriggerFlags &= ~0x02 ;
-				}
-				if (this.willTrigger(TweenEvent.UPDATE)) {
-					this.willTriggerFlags |= 0x04 ;
-				}
-				else {
-					this.willTriggerFlags &= ~0x04 ;
-				}
-				if (this.willTrigger(TweenEvent.COMPLETE)) {
-					this.willTriggerFlags |= 0x08 ;
-				}
-				else {
-					this.willTriggerFlags &= ~0x08 ;
-				}
-			 }
+			}
 		}) ;
 		var AbstractActionTween = Type.define({
 			pkg:'core.tweens::AbstractActionTween',
@@ -2435,22 +2376,6 @@
 				return new SerialTween(targets, this.ticker, 0) ;
 			}
 		}) ;
-		// EVENTS
-		var TweenEvent = Type.define({
-			pkg:'events::TweenEvent',
-			inherits:IEvent,
-			constructor:TweenEvent = function TweenEvent(type, data, tween){
-				TweenEvent.base.apply(this, [type, data]) ;
-				this.type = type, this.data = data ;
-				this.tween = tween ;
-			},
-			statics:{
-				PLAY:'play',
-				STOP:'stop',
-				UPDATE:'update',
-				COMPLETE:'complete'
-			}
-		}) ;
 		// CORE.EASING
 		var Physical = Type.define({
 			pkg:'core.easing::Physical',
@@ -2533,87 +2458,6 @@
 				updaterFactory:new UpdaterFactory(), // all in the name, generated updaters are intermede objects between tweens and their target
 				getTimer:getTimer, // points towards shortened-scope getTimer method
 				/*
-					Core (static-like init), where 
-					main Ticker instance created & launched, 
-					(also set to tick forever from start, to disable, @see BetweenJS.ticker.stop())
-				*/
-				initialize:function initialize(domain){
-					var exclude = {
-						'getTimer':undefined,
-						'toString':undefined,
-						'core':undefined,
-						'parallel':undefined,
-						'parallelTweens':undefined,
-						'serial':undefined,
-						'serialTweens':undefined,
-						'reverse':undefined,
-						'repeat':undefined,
-						'scale':undefined,
-						'slice':undefined,
-						'delay':undefined,
-						'func':undefined,
-						'interval':undefined,
-						'clearInterval':undefined,
-						'timeout':undefined,
-						'clearTimeout':undefined,
-						'getTweensOf':undefined
-					}
-					
-					for(var n in BetweenJS){
-						(function(ind){
-							if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
-								var ff = BetweenJS[ind] ;
-								 
-								BetweenJS[ind] = function(target){
-									var tar , arr ;
-									var args = [].slice.call(arguments) ;
-									
-									if('jquery' in target) { // is jquery element
-										var s = target.size() ;
-										
-										if(s > 1){
-											tar = args.shift() ;
-											arr = tar.map(function(i, el){
-												return ff.apply(null, [el].concat(args)) ;
-											}).toArray() ;
-											
-											return BetweenJS.parallelTweens(arr) ;
-										}else if(s == 1){
-											tar = args.shift() ;
-											return ff.apply(null, [tar[0]].concat(args)) ;
-											
-										}else{
-											return false ;
-										}
-										
-									}else if(('length' in target) && !isNaN(target['length'])){
-										
-										if(target.length > 1){
-											
-											tar = args.shift() ;
-											var l = tar.length , arr = [] ;
-											for(var i = 0 ; i < l ; i++)
-												arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
-											return BetweenJS.parallelTweens(arr) ;
-											
-										}else if(target.length == 1){
-											
-											var tar = args.shift() ;
-											return ff.apply(null, [tar[0]].concat(args)) ;
-											
-										}else{
-											return false ;
-										}
-									}else{
-										return ff.apply(null, args) ;
-									}
-									return true ;
-								}
-							}
-						})(n) ;
-					}
-				},
-				/*
 					tween
 					
 					Creates a regular tween object.
@@ -2631,6 +2475,8 @@
 					@return TweenLike Object
 				*/
 				tween:function tween(target, to, from, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.tween, target, to, from, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
 					tween.time = time || 1.0 ;
@@ -2648,6 +2494,8 @@
 					@return TweenLike Object
 				*/
 				to:function to(target, to, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.to, target, to, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
 					tween.time = time || 1.0 ;
@@ -2665,6 +2513,8 @@
 					@return TweenLike Object
 				*/
 				from:function from(target, from, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.from, target, from, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
 					tween.time = time || 1.0 ;
@@ -2684,6 +2534,8 @@
 					@return TweenLike Object
 				*/
 				apply:function apply(target, to, from, time, applyTime, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.apply, target, to, from, time, applyTime, easing) ;
+					
 					if(applyTime === undefined) applyTime = 1.0 ;
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
@@ -2705,6 +2557,8 @@
 					@return TweenLike Object
 				*/
 				bezier:function bezier(target, to, from, controlPoint, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.bezier, target, to, from, controlPoint, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2723,6 +2577,8 @@
 					@return TweenLike Object
 				*/
 				bezierTo:function bezierTo(target, to, controlPoint, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.bezierTo, target, to, controlPoint, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2741,6 +2597,8 @@
 					@return TweenLike Object
 				*/
 				bezierFrom:function bezierFrom(target, from, controlPoint, time, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.bezierFrom, target, from, controlPoint, time, easing) ;
+					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2758,6 +2616,8 @@
 					@return TweenLike Object
 				*/
 				physical:function physical(target, to, from, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.physical, target, to, from, easing) ;
+					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
 					return tween ;
@@ -2772,6 +2632,8 @@
 					@return TweenLike Object
 				*/
 				physicalTo:function physicalTo(target, to, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.physicalTo, target, to, easing) ;
+					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
 					return tween ;
@@ -2786,6 +2648,8 @@
 					@return TweenLike Object
 				*/
 				physicalFrom:function physicalFrom(target, from, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.physicalFrom, target, from, easing) ;
+					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
 					return tween ;
@@ -2802,6 +2666,8 @@
 					@return TweenLike Object
 				*/
 				physicalApply:function physicalApply(target, to, from, applyTime, easing){
+					if(isComplex(target)) return complexTween(BetweenJS.physicalApply, target, to, from, applyTime, easing) ;
+					
 					if(applyTime === undefined) applyTime = 1.0 ;
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.uniform()) ;
@@ -2816,7 +2682,7 @@
 					@return TweenLike Object
 				*/
 				parallel:function parallel(tween){
-					return BetweenJS.parallelTweens([].slice.call(arguments)) ;
+					return BetweenJS.parallelTweens(sl.call(arguments)) ;
 				},
 				/*
 					parallelTweens
@@ -2836,7 +2702,7 @@
 					@return TweenLike Object
 				*/
 				serial:function serial(tween){
-					return BetweenJS.serialTweens([].slice.call(arguments)) ;
+					return BetweenJS.serialTweens(sl.call(arguments)) ;
 				},
 				/*
 					serialTweens
@@ -2931,6 +2797,8 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				addChild:function addChild(target, parent){
+					if(isComplex(target)) return complexTween(BetweenJS.addChild, target, parent) ;
+					
 					return new AddChildAction(BetweenJS.ticker, target, parent) ;
 				},
 				/*
@@ -2942,6 +2810,8 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				removeFromParent:function removeFromParent(target){
+					if(isComplex(target)) return complexTween(BetweenJS.removeFromParent, target) ;
+					
 					return new RemoveFromParentAction(BetweenJS.ticker, target) ;
 				},
 				/*
