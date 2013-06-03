@@ -1,33 +1,41 @@
-BetweenJS
+BetweenJS v.0.9.8
 
 Tweening Engine for JS
 
 
 Requires :
-- Type (https://github.com/sazaam/Type)
-- jQuery if u need the full events feature instead of 'on'-type of triggers. 
+!!! No Dependencies !!!
 
-
++ includes Type & Pkg, OOP Class system from StrawNode
++ AMD compatible
 
 
 API :
 http://betweenjs.sazaam.net
 
 
-Original AS3 Project
+Original AS3 Project & API
 Highly inspired from BetweenAS3 (author:yossy(at)be-interactive.org), 
 
 http://www.libspark.org/wiki/BetweenAS3/en
 
+Update Log v 0.9.8 :
+- Includes Type & Pkg
 
-Update Log v 0.96 :
+Update Log v 0.9.7 :
+- No more event handling in this framework, no need for a half-feature,
+since events are too gluton to pass through chain of tweens without you noticing it,
+when simple closures are way lighter.
+
+
+Update Log v 0.9.6 :
 - Changed Class system again, no closures, more simple and readable --> quicker
 - Fixed -Nothing happening- bug on Safari with span-like Elements.
 - Fixed critical error at loading in Evt implementation from Naja Framework.
 
 
 
-Update Log v 0.95
+Update Log v 0.9.5
 
 - Works on all kind of objects
 - All units available
