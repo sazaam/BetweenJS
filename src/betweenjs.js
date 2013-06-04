@@ -42,13 +42,13 @@
 		},
 		name_r = /function([^\(]+)/, pkg_r = /::(.+)$/, abs_r = /^\//, DEFS = {}, PKG_SEP = '::',
 		getctorname = function(cl, name){ return (cl = cl.match(name_r))? cl[1].replace(' ', ''):'' },
-		keep_r = /constructor|hashCode|hashcode|toString|model/,
+		keep_r = /constructor|hashCode|hashcode|toString|model|pkg|(app)?domain/,
 		retrieve = function retrieve(from, prop, p){ try { p = from[prop] ; return p } finally { if(prop != 'constructor') from[prop] = undefined , delete from[prop] }},
 		merge = function(from, into, nocheck){ 
 			for(var s in from) {
 				
-				if(s !== 'constructor' || nocheck === true) {
-					into[s] = from[s]; 
+				if(!keep_r.test(s) || nocheck === true) {
+					into[s] = from[s] ;
 					if(nocheck !== true) {
 						if(!!!window.opera) delete from[s] ;
 						else from[s] = undefined ;
@@ -58,10 +58,13 @@
 			return into ;
 		},
 		toArray = function toArray(arr, p, l){	p = p || [], l = arr.length ; while(l--) p.unshift(arr[l]) ; return p },
-		PKG = {} , Type, Pkg;
+		PKG = {} , Type, Pkg,
+		customs = [] ;
 		
 		Type = {
 			globals:{},
+			merge:merge,
+			internals:{},
 			appdomain:window,
 			guid:0,
 			format:function format(type){
@@ -77,48 +80,69 @@
 				for (var i = 0 , h = 0 ; i < qname.length ; i++) h = 31 * ((h << 31) - h) + qname.charCodeAt(i), h &= h ;
 				return h ;
 			},
-			define:function define(properties){
-				var model = merge(properties, {}, true) ;
+			customDefinitionChecks:function(closure){
+				customs[customs.length] = closure ;
+			},
+			customize:function(properties, def){
+				if(customs.length)
+				for(var i = 0 ; i < customs.length ; i++){
+					properties = customs[i](properties, def) ;
+				}
+				return properties ;
+			},
+			define:function define(properties, mixins){
+				
+				var args = sl.call(arguments) ;
+				properties = args.shift() ;
+				mixins = args ;
+				var model, basemodel = {} ;
 				if(Type.of(properties, 'function')) {
 					var m = properties() ;
-					model = merge(m, {}, true) ;
-					return Type.define(m) ;
+					model = merge(m, basemodel, true) ;
+					return Type.define.apply(Type, [model].concat(mixins)) ;
 				}
+				
+				if(mixins.length) properties.mixins = mixins ;
+				model = merge(properties, basemodel, true) ;
+				
 				var staticinit , isinterface = false ;
 				var domain = retrieve(properties, 'domain') ;
-				var superclass = retrieve(properties, 'inherits') ;
-				var interfaces = retrieve(properties, 'interfaces') ;
-				var statics = retrieve(properties, 'statics') ;
-				var protoinit = retrieve(properties, 'protoinit') ;
-				var def = retrieve(properties, 'constructor') ;
 				var pkg = retrieve(properties, 'pkg') || '' ;
+				var def = retrieve(properties, 'constructor') ;
+				
+				var defIsObject = def == Object ;
+				
 				if( pkg.indexOf('@')!= -1 ){
 					isinterface = true ;
 					pkg = pkg.replace('@', '') ;
 				}
-				var name = def == Object ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
-				
-				
+				var name = defIsObject ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
 				
 				if(pkg_r.test(pkg)) pkg = pkg.replace(pkg_r, function(){name = arguments[1]; return ''}) ;
 				
 				if(!!Type.hackpath) pkg = abs_r.test(pkg) ? pkg.replace(abs_r, '') : pkg !='' ? Type.hackpath +(pkg.indexOf('.') == 0 ? pkg : '.'+ pkg) : Type.hackpath ;
-				if(name == '' ) name = 'Anonymous'+(++Type.guid) ;
-				// trace(name, def == Object)
-				if(def == Object) 
-				def = Function('return function '+name+'(){\n\t \n}')() ;
-				// trace(name)
-				// trace(def)
 				
-				// set defaults
-				var writable = !!domain ;
-				domain = domain || Type.appdomain ;
+				if(name == '' ) name = 'Anonymous'+(++Type.guid) ;
+				
+				if(defIsObject) 
+					def = Function('return function '+name+'(){\n\t \n}')() ;
+				
+				properties = Type.customize(properties, def) ;
+				
+				var mixes = retrieve(properties, 'mixins') ;
+				var superclass = retrieve(properties, 'inherits') ;
+				var interfaces = retrieve(properties, 'interfaces') ;
+				var statics = retrieve(properties, 'statics') ;
+				var protoinit = retrieve(properties, 'protoinit') ;
+				
+				
 				superclass = Type.format(superclass) || Object ;
 				interfaces = Type.format(interfaces) || [] ;
 				
 				// set hashCode here
 				var qname = pkg == '' ? name : pkg + PKG_SEP + name ;
 				var hash = Type.hash(qname) ;
+				
 				// write classes w/ hash reference and if domain is specified, in domain
 				(DEFS[hash] = def).slot = {
 					appdomain:domain,
@@ -127,26 +151,41 @@
 					fullqualifiedclassname:qname,
 					hashcode:hash,
 					isinterface:isinterface,
+					model:model,
 					toString:function toString(){ return 'Type@'+qname+'Definition'}
 				} ;
 				
 				
 				def.toString = function toString(){ return '[' + ( isinterface ? "interface " : "class " ) + qname + ']' }
-				writable && (domain[name] = def) ; // Alias checks, we don't want our anonymous classes to endup in window or else
+				
+				// set defaults
+				!! domain && (domain[name] = def) ; // Alias checks, we don't want our anonymous classes to endup in window or else
 				(!!Type.hackpath) && Pkg.register(qname, def) ;
+				
 				var T = function(){
 					// set base & factory references
 					def.base = superclass ;
 					def.factory = superclass.prototype ;
 					// write overrides
 					merge(properties, this, false) ;
+					
 					this.constructor = def ;
 				}
 				
-				
 				T.prototype = superclass.prototype ;
 				def.prototype = new T() ;
-				def.model = model ;
+				
+				
+				(function plug(plugs){
+					if(!!!plugs) return ;
+					var l = plugs.length ;
+					for(var i = 0 ; i < l ; i++){
+						var mix = plugs[i] ;
+						if(Type.is(mix, Array) && mix.length) plug(mix) ; 
+						else if(!! mix.slot) merge(mix.slot.model, def.prototype, false) ; 
+						else merge(mix, def.prototype, false) ;
+					}
+				})(mixes) ;
 				
 				
 				// protoinit 
