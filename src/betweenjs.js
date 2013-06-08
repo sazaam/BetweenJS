@@ -16,7 +16,6 @@
  * 2011-2012
  * 
  */
- 
 'use strict' ;
 
 (function(name, definition){
@@ -296,7 +295,6 @@
 		window.Type = Type ;
 		window.Pkg = Pkg ;
 		
-		return Type ;
 	})()) ;
 	
 	return Pkg.write('org.libspark.betweenjs', function(path){
@@ -346,7 +344,7 @@
 				}
 			if (!window.cancelAnimationFrame)
 				window.cancelAnimationFrame = function(id) {
-					clearTimeout(id) ;
+					window.clearTimeout(id) ;
 				}
 		})() ;
 		
