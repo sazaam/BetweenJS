@@ -10,6 +10,9 @@ Requires :
 + AMD compatible
 
 
+Tested Browsers : IE7+  /  FF 15 + / CHR 15 + / SAF 4+
+
+
 API :
 http://betweenjs.sazaam.net
 
@@ -24,8 +27,10 @@ Update Log v 0.9.8 :
 
 Update Log v 0.9.7 :
 - No more event handling in this framework, no need for a half-feature,
-since events are too gluton to pass through chain of tweens without you noticing it,
+since we're trying to optimize calculations, base tweens should not be EventDispatcher
 when simple closures are way lighter.
+In a close future, a module will be done in StrawExpress, that will overload Tweens 
+to make them EventDispatchers if still needed.
 
 
 Update Log v 0.9.6 :
