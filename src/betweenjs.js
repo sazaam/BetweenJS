@@ -33,268 +33,8 @@
 	
 	('undefined' === typeof Pkg && 'undefined' === typeof Pkg && (function(){
 	
-		var sl = [].slice ;
-		var trace = window.trace = function trace(){
-			if(window.console === undefined) return arguments[arguments.length - 1] ;
-			if('apply' in console.log) console.log.apply(console, arguments) ;
-			else console.log([].concat(sl.call(arguments))) ;
-			return arguments[arguments.length - 1] ;
-		},
-		name_r = /function([^\(]+)/, pkg_r = /::(.+)$/, abs_r = /^\//, DEFS = {}, PKG_SEP = '::',
-		getctorname = function(cl, name){ return (cl = cl.match(name_r))? cl[1].replace(' ', ''):'' },
-		keep_r = /constructor|hashCode|hashcode|toString|model|pkg|(app)?domain/,
-		retrieve = function retrieve(from, prop, p){ try { p = from[prop] ; return p } finally { if(prop != 'constructor') from[prop] = undefined , delete from[prop] }},
-		merge = function(from, into, nocheck){ 
-			for(var s in from) {
-				
-				if(!keep_r.test(s) || nocheck === true) {
-					into[s] = from[s] ;
-					if(nocheck !== true) {
-						if(!!!window.opera) delete from[s] ;
-						else from[s] = undefined ;
-					}
-				} ;
-			}
-			return into ;
-		},
-		toArray = function toArray(arr, p, l){	p = p || [], l = arr.length ; while(l--) p.unshift(arr[l]) ; return p },
-		PKG = {} , Type, Pkg,
-		customs = [] ;
-		
-		Type = {
-			globals:{},
-			merge:merge,
-			internals:{},
-			appdomain:window,
-			guid:0,
-			format:function format(type){
-				if(!type) return type ; // cast away undefined & null
-				if(!!type.slot) return type ; // cast away custom classes
-				if(!!type.hashcode) return Type.getDefinitionByHash(type) ; // is a slot object
-				if(Type.of(type, 'number')) return Type.getDefinitionByHash(type) ;
-				if(Type.of(type, 'string')) return Type.getDefinitionByName(type) ;
-				if(Type.is(type, Array)) for(var i = 0, l = type.length ; i < l ; i++) type[i] = format(type[i]) ;
-				return type ;
-			},
-			hash:function hash(qname){
-				for (var i = 0 , h = 0 ; i < qname.length ; i++) h = 31 * ((h << 31) - h) + qname.charCodeAt(i), h &= h ;
-				return h ;
-			},
-			customDefinitionChecks:function(closure){
-				customs[customs.length] = closure ;
-			},
-			customize:function(properties, def){
-				if(customs.length)
-				for(var i = 0 ; i < customs.length ; i++){
-					properties = customs[i](properties, def) ;
-				}
-				return properties ;
-			},
-			define:function define(properties, mixins){
-				
-				var args = sl.call(arguments) ;
-				properties = args.shift() ;
-				mixins = args ;
-				var model, basemodel = {} ;
-				if(Type.of(properties, 'function')) {
-					var m = properties() ;
-					model = merge(m, basemodel, true) ;
-					return Type.define.apply(Type, [model].concat(mixins)) ;
-				}
-				
-				if(mixins.length) properties.mixins = mixins ;
-				model = merge(properties, basemodel, true) ;
-				
-				var staticinit , isinterface = false ;
-				var domain = retrieve(properties, 'domain') ;
-				var pkg = retrieve(properties, 'pkg') || '' ;
-				var def = retrieve(properties, 'constructor') ;
-				
-				var defIsObject = def == Object ;
-				
-				if( pkg.indexOf('@')!= -1 ){
-					isinterface = true ;
-					pkg = pkg.replace('@', '') ;
-				}
-				var name = defIsObject ? '' : (def.name || getctorname(def.toString())).replace(/Constructor$/, '') ;
-				
-				if(pkg_r.test(pkg)) pkg = pkg.replace(pkg_r, function(){name = arguments[1]; return ''}) ;
-				
-				if(!!Type.hackpath) pkg = abs_r.test(pkg) ? pkg.replace(abs_r, '') : pkg !='' ? Type.hackpath +(pkg.indexOf('.') == 0 ? pkg : '.'+ pkg) : Type.hackpath ;
-				
-				if(name == '' ) name = 'Anonymous'+(++Type.guid) ;
-				
-				if(defIsObject) 
-					def = Function('return function '+name+'(){\n\t \n}')() ;
-				
-				properties = Type.customize(properties, def) ;
-				
-				var mixes = retrieve(properties, 'mixins') ;
-				var superclass = retrieve(properties, 'inherits') ;
-				var interfaces = retrieve(properties, 'interfaces') ;
-				var statics = retrieve(properties, 'statics') ;
-				var protoinit = retrieve(properties, 'protoinit') ;
-				
-				
-				superclass = Type.format(superclass) || Object ;
-				interfaces = Type.format(interfaces) || [] ;
-				
-				// set hashCode here
-				var qname = pkg == '' ? name : pkg + PKG_SEP + name ;
-				var hash = Type.hash(qname) ;
-				
-				// write classes w/ hash reference and if domain is specified, in domain
-				(DEFS[hash] = def).slot = {
-					appdomain:domain,
-					qualifiedclassname:name,
-					pkg:pkg,
-					fullqualifiedclassname:qname,
-					hashcode:hash,
-					isinterface:isinterface,
-					model:model,
-					toString:function toString(){ return 'Type@'+qname+'Definition'}
-				} ;
-				
-				
-				def.toString = function toString(){ return '[' + ( isinterface ? "interface " : "class " ) + qname + ']' }
-				
-				// set defaults
-				!! domain && (domain[name] = def) ; // Alias checks, we don't want our anonymous classes to endup in window or else
-				(!!Type.hackpath) && Pkg.register(qname, def) ;
-				
-				var T = function(){
-					// set base & factory references
-					def.base = superclass ;
-					def.factory = superclass.prototype ;
-					// write overrides
-					merge(properties, this, false) ;
-					
-					this.constructor = def ;
-				}
-				
-				T.prototype = superclass.prototype ;
-				def.prototype = new T() ;
-				
-				
-				(function plug(plugs){
-					if(!!!plugs) return ;
-					var l = plugs.length ;
-					for(var i = 0 ; i < l ; i++){
-						var mix = plugs[i] ;
-						if(Type.is(mix, Array) && mix.length) plug(mix) ; 
-						else if(!! mix.slot) merge(mix.slot.model, def.prototype, false) ; 
-						else merge(mix, def.prototype, false) ;
-					}
-				})(mixes) ;
-				
-				
-				// protoinit 
-				if (!!protoinit) protoinit.apply(def.prototype, [def, domain]) ;
-				
-				
-				if (!!statics) {
-					staticinit = retrieve(statics, 'initialize') ;
-					merge(statics, def, false) ;
-				}
-				// static initialize
-				if(!!staticinit) staticinit.apply(def, [def, domain]) ;
-				Type.implement(def, interfaces.concat(superclass.slot ? superclass.slot.interfaces || [] : [])) ;
-				return def ;
-			},
-			implement:function implement(definition, interfaces){
-				
-				var c, method, cname, ints = definition.slot.interfaces = definition.slot.interfaces || [] ;
-				if(!!Type.is(interfaces, Array)) {
-					for(var i = 0, l = interfaces.length ; i < l ; i++) {
-						var f = interfaces[i] ;
-						
-						c = f.prototype , cname = f.slot.fullqualifiedclassname ;
-						
-						for (method in c) {
-							if(keep_r.test(method)) continue ;
-							
-							if(!definition.prototype.hasOwnProperty(method)) throw new TypeError("NotImplementedMethodException "+c.constructor.slot.pkg+'.@'+c.constructor.slot.qualifiedclassname+"::" + method + "() absent from class " + definition.slot.fullqualifiedclassname) ;
-						}
-						ints[ints.length] = cname ;
-					}
-				}else ints[ints.length] = interfaces.slot.fullqualifiedclassname ;
-				return definition ;
-			},
-			is:function is(instance, definition){ return instance instanceof definition },
-			of:function of(instance, typestr){ return (!!typestr) ? (typeof instance === typestr) : (typeof instance) },
-			definition:function definition(qobj, domain){return Type.getDefinitionByName(qobj, domain)},
-			getType:function getType(type){ return (!!type.constructor && !!type.constructor.slot) ? type.constructor.slot : type.slot || 'unregistered_type'},
-			getQualifiedClassName:function getQualifiedClassName(type){ return Type.getType(type).toString() },
-			getFullQualifiedClassName:function getFullQualifiedClassName(type){ return Type.getType(type).fullqualifiedclassname },
-			getDefinitionByName:function getDefinitionByName(qname, domain){ 
-				var absname = (Type.hackpath || '') + (qname.indexOf('::') !=-1 ? (qname.indexOf('::') == 0 ? qname : '.' + qname) : '::' + qname) ;
-				return (domain || Type.appdomain)[qname] || Type.globals[qname] || DEFS[Type.hash(qname)] || (domain || Type.appdomain)[absname] || Type.globals[absname] || DEFS[Type.hash(absname)]
-			},
-			getDefinitionByHash:function getDefinitionByHash(hashcode){ return DEFS[hashcode] },
-			getAllDefinitions:function getAllDefinitions(){ return DEFS }
-		}
-		
-		Pkg = {
-			register:function register(path, definition){
-				if(arguments.length > 2){
-					var args = sl.call(arguments) ;
-					var pp = args.shift(), ret, qq ;
-					
-					for(var i = 0, l = args.length ; i < l ; i++){
-						ret = args[i] ;
-						qq = ret.pkg || '' ;
-						ret = Pkg.register( (qq == '' || qq.indexOf('::') != -1 ? qq :'.' + qq ), args[i]) ;
-					}
-					return ret;
-				}if(!!definition.slot) // is already result of Type.define()
-					path = definition.slot.fullqualifiedclassname ;
-				else { // transform it into Type.define() result
-					definition.pkg = path ;
-					definition = Type.define(definition) ;
-					path = definition.slot.fullqualifiedclassname ;
-				}
-				return (PKG[path] = definition) ;
-			},
-			write:function write(path, obj){
-				var oldpath = Type.hackpath ;
-				Type.hackpath = !!oldpath && !abs_r.test(path) ? oldpath + '.' +path : path.replace(abs_r, '') ;
-				try{
-					// if obj is an Array
-					if(Type.is(obj, Array)) {
-						for(var i = 0 , arr = [], l = obj.length ; i < l ; i ++)
-							// if is an anonymous object, but with named References to write
-							arr[arr.length] = write(path, obj[i]) ;
-						return arr[arr.length - 1] ;
-					}
-					// if a function is passed
-					else if(Type.of(obj, 'function')){
-						if(!!obj.slot) return Pkg.register(path, obj) ;
-						var o = new (obj)(path) ;
-						if(Type.is(obj, Array)){
-							for(var i = 0 ; i < o.length ; i++){
-								var oo = o[i] ;
-								if(!!oo.slot) write(path, oo) ;
-							}
-							return o ;
-						}
-						return (!!o) ? !!o.slot ? write(path, o) : undefined : undefined ;
-					}
-					// if anonymous object is passed
-					else {
-						return Pkg.register.apply(Pkg, sl.call(arguments)) ;
-					}
-				}catch(e){ trace(e) }
-				finally {
-					Type.hackpath = oldpath ; if(!!!oldpath) delete Type.hackpath ;
-				}
-			},
-			definition:function definition(path){ return PKG[path] || Type.globals[path] },
-			getAllDefinitions:function getAllDefinitions(){ return PKG }
-		}
-		// GLOBALS
-		window.Type = Type ;
-		window.Pkg = Pkg ;
-		
+		// TYPE TO BE IMPLEMENTED HERE
+
 	})()) ;
 	
 	return Pkg.write('org.libspark.betweenjs', function(path){
@@ -302,30 +42,12 @@
 		var getTimer = function(){
 		   return new Date().getTime() - ___d ;
 		} , ___d = new Date().getTime() ;
-		var sl = [].slice ;
 		// will need that...
 		function concat(p){
 			return (CSSPropertyMapper.isIE && p === undefined) ? [] : p ;
 		}
 		var cacheInterval = {}, cacheTimeout = {} ;
 		var unitsreg = /(px|em|pc|pt|%)$/ ;
-		
-		
-		var complexTween = function(tw, target){
-			var args = sl.call(arguments) , arr;
-			tw = args.shift() ;
-			target = args.shift() ;
-			
-			if(target.length && !!(arr = []))
-				if(target.length == 1) return tw.apply(null, [target[0]].concat(args)) ;
-				for(var i = 0 , l = target.length ; i < l ; i++)
-					arr[arr.length] = tw.apply(null, [target[i]].concat(args))
-				return BetweenJS.parallelTweens(arr) ;
-		} ;
-		var isComplex = function(target){
-			return !!(target.length) ;
-		} ;
-		
 		// REQUESTANIMATIONFRAME implementation BY PAUL IRISH
 		(function() {
 			var lastTime = 0;
@@ -344,13 +66,12 @@
 				}
 			if (!window.cancelAnimationFrame)
 				window.cancelAnimationFrame = function(id) {
-					window.clearTimeout(id) ;
+					clearTimeout(id) ;
 				}
 		})() ;
 		
 		// here other classes
 		var CSSPropertyMapper = Type.define({
-			pkg:'::CSSPropertyMapper',
 			constructor:CSSPropertyMapper = function CSSPropertyMapper(){
 				throw 'Not meant to be instanciated... CSSPropertyMapper' ;
 			},
@@ -362,31 +83,27 @@
 					CSSPropertyMapper.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
 					CSSPropertyMapper.isIEunder8 = /MSIE [0-7]/.test(navigator.userAgent) ;
 				},
-				formats:{
-					'positionprop':/scroll(left|top)?/gi,
-					'separatorprop':/-/,
-					'colorextprop':/((border|background)?color|background)[^:]*$/gi
-				},
 				cache:{},
 				getScroll:function(target, name, unit) {
-					return (target === window || target === document) ?
-					(
-						this[(name.search(/top/i) != -1) ? 'pageYOffset' : 'pageXOffset'] ||
-							(CSSPropertyMapper.isIEunder9 && document.documentElement[name]) ||
-								document.body[name]
-					) : target[name] ;
+				  return (target === window || target === document) ?
+				  (
+					this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] ||
+					(CSSPropertyMapper.isIEunder9 && document.documentElement[name]) ||
+					document.body[name]
+				  ) :
+				  target[name] ;
 				},
 				setScroll:function(target, name, unit, val) {
-					if(target === window || target === document){
-						try{
-							this[(name.search(/top/i) != -1) ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
-						}catch(e){
-							if(!CSSPropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
-							else document.body[name] = parseInt(val) ;
-						}
-					}else{
-						target[name] = parseInt(val) ;
+				  if(target === window || target === document){
+					try{
+						this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
+					}catch(e){
+						if(!CSSPropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
+						else document.body[name] = parseInt(val) ;
 					}
+				  }else{
+					target[name] = parseInt(val) ;
+				  }
 				},
 				cssHackGet:function(el, name){
 					if (el.currentStyle) {
@@ -408,8 +125,6 @@
 						window.getComputedStyle (target, '')[pname].replace(unitsreg, '') :
 						target.currentStyle[pname].replace(unitsreg, '') ;
 					}
-					// trace(str, target.currentStyle[pname], unit, target)
-					// trace(target)
 					return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
 				},
 				cssSimpleSet:function(target, pname, unit, val){
@@ -417,7 +132,6 @@
 				},
 				cssColorGet:function(target, pname, unit){
 					var val, n, o ;
-					
 					if(CSSPropertyMapper.hasComputedStyle){
 						var shortreg = /(border)(width|color)/gi ;
 						(shortreg.test(pname) && (pname = pname.replace(shortreg, '$1Top$2'))) ;
@@ -442,29 +156,41 @@
 							var r = (p[0] & 0xFF), g = (p[1] & 0xFF), b = (p[2] & 0xFF) ;
 							o = {r:r,g:g,b:b} ;
 						break ;
+						//case typeof val == 'string' :
+							//if(!val in CSSPropertyMapper.presetColors) throw new Error('Color name is not a valid browser color preset >>> ' +val) ;
+						//break ;
 						default:
 							o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
 						break;
 					}
-					
-					if(BetweenJS.colormode == 'hsv'){ // only h, s, v in o
-						o = CSSPropertyMapper.RGBtoHSV(o) ;
-					}
-					
 					return o ;
 				},
 				cssColorSet:function(target, pname, unit, val){
-					
-					if (BetweenJS.colormode == 'hsv' && 'h' in val && 's' in val && 'v' in val){
+					if ('h' in val && 's' in val && 'v' in val){
 						val = CSSPropertyMapper.HSVtoRGB(val) ;
 					}
-					
 					var r = parseInt(val.r), 
 					g = parseInt(val.g), 
 					b = parseInt(val.b) ; 
 					return target['style'][pname] = 'rgb('+r+','+g+','+b+')'  ;
 				},
-				RGBtoHSV:function(o, r, g, b){ // obsolete and not debugged
+				HEXtoRGB:function(hex, returnObj){
+					var n ;
+					hex = hex.replace(/^(0x|#)/, '') ;
+					if(hex.length == 3)
+						hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
+					n = parseInt('0x'+hex) ;
+					var r = (n & 0xFF0000) >> 16 ;
+					var g = (n & 0xFF00) >> 8 ;
+					var b = (n & 0xFF) ;
+					return !!returnObj ? {r:r, g:g, b:b} : 'rgb('+r+','+g+','+b+')' ;
+				},
+				HEXtoHSV:function(hex, returnObj){
+					var res = CSSPropertyMapper.RGBtoHSV(CSSPropertyMapper.HEXtoRGB(hex, true)) ;
+					return !!returnObj ? res : 'hsv('+(res.h) +','+(res.s)+','+(res.v)+')' ;
+				},
+				RGBtoHSV:function(o, r, g, b){
+					if (typeof o == 'string') o = CSSPropertyMapper.colorStringtoObj(o) ;
 					var m = {} ;
 					r = r || o.r ,
 					g = g || o.g ,
@@ -508,7 +234,9 @@
 					return m ;
 				},
 				HSVtoRGB:function(o, h, s, v){
-					var m = {} , oh ;
+					if (typeof o == 'string') o = CSSPropertyMapper.colorStringtoObj(o) ;
+					
+					var m = {} ;
 					h = h || o.h ,
 					s = (s || o.s) * .01 ,
 					v = (v || o.v) * .01 ;
@@ -546,29 +274,92 @@
 					}
 					return m ;
 				},
+				colorStringtoObj:function(val, n, res){
+					
+					if(typeof(val) != 'string') {
+						if('h' in val && 's' in val && 'v' in val){
+							val = 'hsv('+val['h']+','+val['s']+','+val['v']+')' ;
+						}else if('r' in val && 'g' in val && 'b' in val ){
+							val = 'rgb('+val['r']+','+val['g']+','+val['b']+')' ;
+						}else return val ;
+					}
+					
+					if(/^[a-z]+$/i.test(val) && val in BetweenJS.Colors.css){
+						val = BetweenJS.Colors.css[val] ;
+					}
+					if(/^(0x|#)/.test(val)){
+						res = CSSPropertyMapper.HEXtoRGB(val.replace(/^(0x|#)/, ''), true) ;
+					}else if(/rgb/i.test(val)){
+						var str = val.replace(/(rgb\(|\)| )/gi, '') ;
+						var p = str.split(',') ;
+						var r = (p[0] & 0xFF), 
+						g = (p[1] & 0xFF), 
+						b = (p[2] & 0xFF) ;
+						res = {r:r,g:g,b:b} ;
+					}else if(/hsv/i.test(val)){
+						var str = val.replace(/(hsv\(|\)| )/gi, '') ;
+						var p = str.split(',') ;
+						var h = (p[0] & 0xFF), 
+						s = (p[1] & 0xFF),
+						v = (p[2] & 0xFF) ;
+						res = CSSPropertyMapper.HSVtoRGB({h:h, s:s, v:v}) ;
+					}
+					return res ;
+				},
+				cssScrollPositionGet:function(target, pname, unit){
+					return CSSPropertyMapper.getScroll(target, pname, unit) ;
+				},
+				cssScrollPositionSet:function(target, pname, unit, val){
+					CSSPropertyMapper.setScroll(target, pname, unit, val) ;
+				},
+				cssAlphaGet:function(target, pname, unit){
+					var val ;
+					if(CSSPropertyMapper.hasComputedStyle){
+						val = (target.style['opacity'] != '') ? target.style['opacity'] : window.getComputedStyle(target, '')['opacity'] ;
+						val = val * 100 ;
+					}
+					else
+						val = target.currentStyle['filter'] == '' ? 100 : target.currentStyle['filter'].replace(/alpha\(opacity=|\)/g, '') ;
+					
+					return val ;
+				},
+				cssAlphaSet:function(target, pname, unit, val){
+					if(CSSPropertyMapper.hasComputedStyle){
+						return target['style']['opacity'] = val / 100 ;
+					}else{
+						return target['style']['filter'] = 'alpha(opacity='+val+')' ;
+					}
+				},
 				check:function(name){
 					var formats = CSSPropertyMapper.formats ;
 					var cache = CSSPropertyMapper.cache ;
+					
+					if(/-/.test(name)) name = name.replace(/-(\w)/g, function($0, $1){return $1.toUpperCase()}) ;
+					
 					if(name in cache) {return cache[name] } ;
 					var o ;
 					
 					switch(true){
-						case formats['positionprop'].test(name) :
-							o = {
-								cssprop:name,
-								cssget:CSSPropertyMapper.getScroll,
-								cssset:CSSPropertyMapper.setScroll
-							} ;
-						break ;
-						case formats['separatorprop'].test(name) :
-							return (cache[name] = CSSPropertyMapper.check(name.replace(/-(\w)/g, function($0, $1){return $1.toUpperCase()}))) ;
-						break ;
-						case formats['colorextprop'].test(name) :
+						case /((border|background)?color|background)/gi.test(name) :
 							o = {
 								cssprop:name,
 								cssget:CSSPropertyMapper.cssColorGet,
 								cssset:CSSPropertyMapper.cssColorSet
 							} ;
+						break ;
+						case /scroll(left|top)?/gi.test(name) :
+							o = {
+								cssprop:name,
+								cssget:CSSPropertyMapper.cssScrollPositionGet,
+								cssset:CSSPropertyMapper.cssScrollPositionSet
+							} ;
+						break ;
+						case /alpha|opacity/g.test(name) :
+							o = {
+								cssprop:name,
+								cssget:CSSPropertyMapper.cssAlphaGet,
+								cssset:CSSPropertyMapper.cssAlphaSet
+							}
 						break ;
 						default :
 							o = {
@@ -585,7 +376,7 @@
 		}) ;
 		// SINGLE.UPDATER
 		var UpdaterFactory = Type.define({
-			pkg:'single.updater::UpdaterFactory',
+			pkg:'single.updater',
 			constructor:UpdaterFactory = function UpdaterFactory(){
 			   //
 			},
@@ -608,7 +399,7 @@
 				if (source !== undefined) {
 					
 					
-					source = this.checkStringObj(source) ;
+					source = CSSPropertyMapper.colorStringtoObj(source) ;
 					
 					for (name in source) {
 						if (typeof(value = source[name]) == "number") {
@@ -627,7 +418,7 @@
 				
 				if (dest !== undefined) {
 					
-					dest = this.checkStringObj(dest) ;
+					dest = CSSPropertyMapper.colorStringtoObj(dest) ;
 					for (name in dest) {
 						if (typeof(value = dest[name]) == "number") {
 							if ((isRelative = /^\$/.test(name))) {
@@ -678,7 +469,7 @@
 				
 				if (source !== undefined) {
 				
-					source = this.checkStringObj(source) ;
+					source = CSSPropertyMapper.colorStringtoObj(source) ;
 					
 					for (name in source) {
 						if (typeof(value = source[name]) == "number") {
@@ -697,7 +488,7 @@
 				}
 				if (dest !== undefined) {
 					
-					dest = this.checkStringObj(dest) ;
+					dest = CSSPropertyMapper.colorStringtoObj(dest) ;
 					
 					for (name in dest) {
 						if (typeof(value = dest[name]) == "number") {
@@ -717,13 +508,13 @@
 				
 				if (controlPoint !== undefined) {
 					
-					controlPoint = this.checkStringObj(controlPoint) ;
+					controlPoint = CSSPropertyMapper.colorStringtoObj(controlPoint) ;
+					
 					for (name in controlPoint) {
-						
 						if (typeof(value = controlPoint[name]) == 'number') {
 							value = [value] ;
 						}
-						if (value instanceof Array) {
+						if (value.constructor == Array) {
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
@@ -778,7 +569,7 @@
 				}
 				if (source !== undefined) {
 					
-					source = this.checkStringObj(source) ;
+					source = CSSPropertyMapper.colorStringtoObj(source) ;
 					
 					for (name in source) {
 						if (typeof(value = source[name]) == "number") {
@@ -797,7 +588,7 @@
 				}
 				if (dest !== undefined) {
 					
-					dest = this.checkStringObj(dest) ;
+					dest = CSSPropertyMapper.colorStringtoObj(dest) ;
 					
 					for (name in dest) {
 						if (typeof(value = dest[name]) == "number") {
@@ -848,15 +639,12 @@
 						updaterClass = ObjectUpdater ;
 					break ;
 				}
-				
 				if (updaterClass !== undefined) {
-					var upstr = updaterClass.slot.qualifiedclassname ;
-					
+					var upstr = updaterClass.slot.constructorname ;
 					var updater = map[upstr] ;
 					if (updater === undefined) {
 						updater = new (updaterClass)() ;
 						updater.setTarget(target, easing) ;
-						
 						map[upstr] = updater ;
 						if (list !== undefined) {
 							list.push(updater) ;
@@ -865,46 +653,11 @@
 					return updater ;
 				}
 				return undefined ;
-			},
-			checkStringObj:function(val, n, res){
-				
-				if(typeof(val) != 'string') {
-					if('h' in val && 's' in val && 'v' in val){
-						val = 'hsv('+val['h']+','+val['s']+','+val['v']+')' ;
-					}else if('r' in val && 'g' in val && 'b' in val ){
-						val = 'rgb('+val['r']+','+val['g']+','+val['b']+')' ;
-					}else return val ;
-				}
-				if(typeof(val) != 'string') return val ;
-				
-				if(/^(0x|#)/.test(val)){
-					var hex = val.replace(/^(0x|#)/, '') ;
-					if(hex.length == 3)
-						hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
-					n = parseInt('0x'+hex) ;
-					res = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)} ;
-				}else if(/rgb/i.test(val)){
-					var str = val.replace(/(rgb\(|\)| )/gi, '') ;
-					var p = str.split(',') ;
-					var r = (p[0] & 0xFF), 
-					g = (p[1] & 0xFF), 
-					b = (p[2] & 0xFF) ;
-					res = {r:r,g:g,b:b} ;
-				}else if(/hsv/i.test(val)){
-					var str = val.replace(/(hsv\(|\)| )/gi, '') ;
-					var p = str.split(',') ;
-					var h = p[0], 
-					s = p[1],
-					v = p[2] ;
-					res = CSSPropertyMapper.HSVtoRGB({h:h,s:s,v:v}) ;
-				}
-				if(BetweenJS.colormode == 'hsv'){return CSSPropertyMapper.RGBtoHSV(res)}
-				return res ;
 			}
 		});
 		// SINGLE.TICKER
 		var EnterFrameTicker = Type.define({
-			pkg:'single.ticker::EnterFrameTicker',
+			pkg:'single.ticker',
 			first:undefined,
 			numListeners:0,
 			tickerListenerPaddings:undefined,
@@ -1119,7 +872,7 @@
 		}) ;
 		// CORE.UPDATERS
 		var AbstractUpdater = Type.define({
-			pkg:'core.updaters::AbstractUpdater',
+			pkg:'core.updaters',
 			isResolved:false,
 			target:undefined,
 			constructor:AbstractUpdater = function AbstractUpdater(){ 
@@ -1157,7 +910,7 @@
 			}
 		}) ;
 		var ObjectUpdater = Type.define({
-			pkg:'core.updaters::ObjectUpdater',
+			pkg:'core.updaters',
 			inherits:AbstractUpdater,
 			target:undefined,
 			source:undefined,
@@ -1171,9 +924,7 @@
 			},
 			setTarget:function(target, easing){
 				ObjectUpdater.factory.setTarget.apply(this, [target, easing]) ;
-				
 				var ctor = target.constructor ;
-				
 				switch(true){
 					case ctor === undefined : // IE 7-
 					case (/HTML[a-zA-Z]*Element/.test(ctor)) :
@@ -1314,7 +1065,7 @@
 						
 					}else{
 						try{
-							// BetweenJS.getTweensOf(t) ;
+
 							tt.setObject(name, val) ;
 							
 						}catch(e){
@@ -1343,7 +1094,7 @@
 			}
 		}) ;
 		var CompositeUpdater = Type.define({
-			pkg:'core.updaters::CompositeUpdater',
+			pkg:'core.updaters',
 			target:undefined,
 			a:undefined,
 			b:undefined,
@@ -1444,7 +1195,7 @@
 			}
 		}) ;
 		var UpdaterLadder = Type.define({
-			pkg:'core.updaters::UpdaterLadder',
+			pkg:'core.updaters',
 			target:undefined,
 			parent:undefined,
 			child:undefined,
@@ -1470,7 +1221,7 @@
 			}
 		}) ;
 		var PhysicalUpdaterLadder = Type.define({
-			pkg:'core.updaters::PhysicalUpdaterLadder',
+			pkg:'core.updaters',
 			target:undefined,
 			parent:undefined,
 			child:undefined,
@@ -1497,7 +1248,7 @@
 			}
 		}) ;
 		var BezierUpdater = Type.define({
-			pkg:'core.updaters::BezierUpdater',
+			pkg:'core.updaters',
 			inherits:ObjectUpdater,
 			target:undefined,
 			source:undefined,
@@ -1513,6 +1264,18 @@
 				if (controlPoint === undefined) this.controlPoint[propertyName] = controlPoint = [] ;
 				controlPoint.push(value) ;
 				this.relativeMap['cp.' + propertyName + '.' + controlPoint.length] = isRelative ;
+			},
+			setSourceValue:function(propertyName, value, isRelative){
+				BezierUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
+			},
+			setDestinationValue:function(propertyName, value, isRelative){
+				BezierUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
+			},
+			getObject:function(propertyName){
+				return BezierUpdater.factory.getObject.apply(this, [propertyName]) ;
+			},
+			setObject:function(propertyName, value){
+				return BezierUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 			},
 			resolveValues:function(){
 				BezierUpdater.factory.resolveValues.call(this) ;
@@ -1542,7 +1305,12 @@
 						if ((l = cpVec.length) == 1) {
 							val = b + factor * (2 * invert * (cpVec[0] - b) + factor * (d[name] - b)) ;
 						} else {
-							ip = (factor * l) >> 0 ;
+							if (factor < 0.0)
+								ip = 0 ;
+							else if (factor > 1.0)
+								ip = l - 1 ;
+							else 
+								ip = (factor * l) >> 0 ;
 							it = (factor - (ip * (1 / l))) * l ;
 							if (ip == 0) {
 								p1 = b ;
@@ -1564,16 +1332,22 @@
 					this.setObject(name, val) ;
 				}
 			},
+			clone:function(source){
+				return BezierUpdater.factory.clone.apply(this, [source]) ;
+			},
 			newInstance:function(){
 				return new BezierUpdater() ;
 			},
 			copyFrom:function(source)		{
 				BezierUpdater.factory.copyFrom.apply(this, [source])
 				this.copyObject(this.controlPoint, source.controlPoint) ;
+			},
+			copyObject:function(to, from){
+				BezierUpdater.factory.copyObject.apply(this, [to, from]) ;
 			}
 		}) ;
 		var PhysicalUpdater = Type.define({
-			pkg:'core.updaters::PhysicalUpdater',
+			pkg:'core.updaters',
 			inherits:ObjectUpdater,
 			target:undefined,
 			source:undefined,
@@ -1589,6 +1363,18 @@
 				this.duration = {} ;
 				this.maxDuration = 0.0 ;
 				this.isResolved = false ;
+			},
+			setSourceValue:function(propertyName, value, isRelative){
+				PhysicalUpdater.factory.setSourceValue.apply(this, [propertyName, value, isRelative]) ;
+			},
+			setDestinationValue:function(propertyName, value, isRelative){
+				PhysicalUpdater.factory.setDestinationValue.apply(this, [propertyName, value, isRelative]) ;
+			},
+			getObject:function(propertyName){
+				return PhysicalUpdater.factory.getObject.apply(this, [propertyName]) ;
+			},
+			setObject:function(propertyName, value){
+				return PhysicalUpdater.factory.setObject.apply(this, [propertyName, value]) ;
 			},
 			resolveValues:function(){
 				var key, target = this.target, source = this.source, dest = this.destination, rMap = this.relativeMap,
@@ -1645,22 +1431,29 @@
 					this.setObject(name, val) ;
 				}
 			},
+			clone:function(source){
+				return PhysicalUpdater.factory.clone.apply(this, [source]) ;
+			},
 			newInstance:function(){
 				return new PhysicalUpdater() ;
 			},
 			copyFrom:function(source){
 				PhysicalUpdater.factory.copyFrom.apply(this, [source]) ;
 				this.easing = source.easing ;
+			},
+			copyObject:function(to, from){
+				PhysicalUpdater.factory.copyObject.apply(this, [to, from]) ;
 			}
 		}) ;
 		// CORE.TWEENS
 		var AbstractTween = Type.define({
-			pkg:'core.tweens::AbstractTween',
+			pkg:'core.tweens',
 			inherits:TickerListener,
 			constructor:AbstractTween = function AbstractTween(ticker, position){
 			   this.isPlaying = false ;
 			   this.time = .5 ;
 			   this.stopOnComplete = true ;
+			   this.willTriggerFlags = 0 ;
 			   AbstractTween.base.call(this) ;
 			   this.ticker = ticker ;
 			   this.position = position || 0 ;
@@ -1670,6 +1463,7 @@
 			position:0,
 			isPlaying:false,
 			stopOnComplete:true,
+			willTriggerFlags:0,
 			onPlay:undefined,
 			onPlayParams:undefined,
 			onStop:undefined,
@@ -1691,6 +1485,10 @@
 					
 					this.ticker.addTickerListener(this) ;
 					
+					if ((this.willTriggerFlags & 0x01) != 0) {
+					   this.dispatch(new TweenEvent(TweenEvent.PLAY, undefined, this)) ;
+					}
+					
 					if (this.onPlay !== undefined) {
 					   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 					}
@@ -1700,6 +1498,9 @@
 				return this ;
 			},
 			firePlay:function(){
+				if ((this.willTriggerFlags & 0x01) != 0) {
+					this.dispatch(new TweenEvent(TweenEvent.PLAY, undefined, this)) ;
+				}
 				if (this.onPlay !== undefined) {
 				   this.onPlay.apply(this, concat(this.onPlayParams)) ;
 				}
@@ -1707,12 +1508,12 @@
 			},
 			stop:function(){
 				if (this.isPlaying) {
-					
 					this.ticker.removeTickerListener(this) ;
 					if(this.ticker.numListeners == 0) this.ticker.setInactive(true) ;
-					
 					this.isPlaying = false ;
-					
+					if ((this.willTriggerFlags & 0x02) != 0) {
+						this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
+					}
 					if (this.onStop !== undefined) {
 						this.onStop.apply(this, concat(this.onStopParams)) ;
 					}
@@ -1720,6 +1521,9 @@
 				return this ;
 			},
 			fireStop:function(){
+				if ((this.willTriggerFlags & 0x02) != 0) {
+					this.dispatch(new TweenEvent(TweenEvent.STOP, undefined, this)) ;
+				}
 				if (this.onStop !== undefined) {
 					this.onStop.apply(this, concat(this.onStopParams)) ;
 				}
@@ -1752,7 +1556,9 @@
 				}
 				this.position = position ;
 				this.internalUpdate(position) ;
-				
+				if ((this.willTriggerFlags & 0x04) != 0) {
+					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
+				}
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 				}
@@ -1767,11 +1573,17 @@
 				this.position = time ;
 				this.internalUpdate(time) ;
 				
+				if ((this.willTriggerFlags & 0x04) != 0) {
+					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
+				}
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
 				}
 				
 				if (isComplete) {
+					if ((this.willTriggerFlags & 0x08) != 0) {
+						this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
+					}
 					if (this.onComplete !== undefined) {
 						this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 					}
@@ -1789,6 +1601,9 @@
 				this.position = t ;
 				this.internalUpdate(t) ;
 				var sss = this ;
+				if ((this.willTriggerFlags & 0x04) != 0) {
+					this.dispatch(new TweenEvent(TweenEvent.UPDATE, undefined, this)) ;
+				}
 				
 				if (this.onUpdate !== undefined) {
 					this.onUpdate.apply(this, concat(this.onUpdateParams)) ;
@@ -1802,19 +1617,25 @@
 						
 						if (this.stopOnComplete === true) {
 							
-							this.isPlaying = false ;
+							setTimeout(function(){sss.stop()}, 0) ;
+							// this.isPlaying = false ;
 							
+							// this.ticker.removeTickerListener(this) ;
+							
+							if ((this.willTriggerFlags & 0x08) != 0) {
+								this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
+							}
 							if (this.onComplete !== undefined) {
 								this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 							}
-							
 							return true ;
 						}else {
-							
+							if ((this.willTriggerFlags & 0x08) != 0) {
+								this.dispatch(new TweenEvent(TweenEvent.COMPLETE, undefined, this)) ;
+							}
 							if (this.onComplete !== undefined) {
 								this.onComplete.apply(this, concat(this.onCompleteParams)) ;
 							}
-							
 							this.position = t - this.time ;
 							this.startTime = time - this.position ;
 							this.tick(time) ;
@@ -1841,6 +1662,7 @@
 				this.easing = source.easing ;
 				this.stopOnComplete = source.stopOnComplete ;
 				this.copyHandlersFrom(source);
+				this.willTriggerFlags = source.willTriggerFlags ;
 			},
 			copyHandlersFrom:function(){
 				this.onPlay = source.onPlay ;
@@ -1851,10 +1673,58 @@
 				this.onUpdateParams = source.onUpdateParams ;
 				this.onComplete = source.onComplete ;
 				this.onCompleteParams = source.onCompleteParams ; 
-			}
+			},
+			addEL:function(type, closure){
+				AbstractTween.factory.addEL.apply(this, [type, closure]) ;
+				this.updateWillTriggerFlags() ;
+				return this ;
+			},
+			bind:function(type, closure){
+				return this.addEL(type, closure) ;
+			},
+			removeEL:function(type, closure){
+				AbstractTween.factory.removeEL.apply(this, [type, closure]) ;
+				this.updateWillTriggerFlags() ;
+				return this ;
+			},
+			unbind:function(type, closure){
+				return this.removeEL(type, closure) ;
+			},
+			dispatch:function(e){
+				return AbstractTween.factory.dispatch.apply(this, [e]) ;
+			},
+			trigger:function(type){
+				return this.dispatch(type) ;
+			},
+			updateWillTriggerFlags:function(){
+				if (this.willTrigger(TweenEvent.PLAY)) {
+					this.willTriggerFlags |= 0x01 ;
+				}
+				else {
+					this.willTriggerFlags &= ~0x01 ;
+				}
+				if (this.willTrigger(TweenEvent.STOP)) {
+					this.willTriggerFlags |= 0x02 ;
+				}
+				else {
+					this.willTriggerFlags &= ~0x02 ;
+				}
+				if (this.willTrigger(TweenEvent.UPDATE)) {
+					this.willTriggerFlags |= 0x04 ;
+				}
+				else {
+					this.willTriggerFlags &= ~0x04 ;
+				}
+				if (this.willTrigger(TweenEvent.COMPLETE)) {
+					this.willTriggerFlags |= 0x08 ;
+				}
+				else {
+					this.willTriggerFlags &= ~0x08 ;
+				}
+			 }
 		}) ;
 		var AbstractActionTween = Type.define({
-			pkg:'core.tweens::AbstractActionTween',
+			pkg:'core.tweens',
 			inherits:AbstractTween,
 			lastTime:undefined,
 			constructor:AbstractActionTween = function AbstractActionTween(ticker){
@@ -1874,7 +1744,7 @@
 			rollback:function(){}
 		}) ;
 		var TweenDecorator = Type.define({
-			pkg:'core.tweens::TweenDecorator',
+			pkg:'core.tweens',
 			inherits:AbstractTween,
 			baseTween:undefined,
 			constructor:TweenDecorator = function TweenDecorator(baseTween, position){
@@ -1914,7 +1784,7 @@
 		}) ;
 		// TWEENS
 		var ObjectTween = Type.define({
-			pkg:'tweens::ObjectTween',
+			pkg:'tweens',
 			inherits:AbstractTween,
 			easing:undefined,
 			updater:undefined,
@@ -1942,7 +1812,7 @@
 			}
 		}) ;
 		var PhysicalTween = Type.define({
-			pkg:'tweens::PhysicalTween',
+			pkg:'tweens',
 			inherits:AbstractTween,
 			updater:undefined,
 			target:undefined,
@@ -1975,7 +1845,7 @@
 		}) ;
 		// ACTIONS
 		var FunctionAction = Type.define({
-			pkg:'actions::FunctionAction',
+			pkg:'actions',
 			inherits:AbstractActionTween,
 			func:undefined,
 			params:undefined,
@@ -2005,7 +1875,7 @@
 			}
 		}) ;
 		var TimeoutAction = Type.define({
-			pkg:'actions::TimeoutAction',
+			pkg:'actions',
 			inherits:AbstractActionTween,
 			duration:0,
 			func:undefined,
@@ -2045,7 +1915,7 @@
 			}
 		}) ;
 		var IntervalAction = Type.define({
-			pkg:'actions::IntervalAction',
+			pkg:'actions',
 			inherits:AbstractActionTween,
 			duration:0,
 			func:undefined,
@@ -2094,7 +1964,7 @@
 			}
 		}) ;
 		var AddChildAction = Type.define({
-			pkg:'actions::AddChildAction',
+			pkg:'actions',
 			inherits:AbstractActionTween,
 			target:undefined,
 			parent:undefined,
@@ -2105,23 +1975,17 @@
 			},
 			action:function(){
 				if (this.target !== undefined && this.parent !== undefined && this.target.parentNode !== this.parent) {
-					if(!! this.parent.jquery)
-						this.parent.append(this.target) ;
-					else
 					this.parent.appendChild(this.target) ;
 				}
 			},
 			rollback:function(){
 				if (this.target !== undefined && this.parent !== undefined && this.target.parentNode === this.parent) {
-					if(!! this.parent.jquery)
-						this.target.remove()
-					else
 					this.parent.removeChild(this.target) ;
 				}
 			}
 		}) ;
 		var RemoveFromParentAction = Type.define({
-			pkg:'actions::RemoveFromParentAction',
+			pkg:'actions',
 			inherits:AbstractActionTween,
 			target:undefined,
 			constructor:RemoveFromParentAction = function RemoveFromParentAction(ticker, target){
@@ -2130,28 +1994,20 @@
 			},
 			action:function(){
 				if (this.target !== undefined && this.target.parentNode !== null) {
-					if(!!this.target.jquery)
-						this.target.remove() ;
-					else{				
-						this.parent = this.target.parentNode ;
-						this.parent.removeChild(this.target) ;
-					}
+					this.parent = this.target.parentNode ;
+					this.parent.removeChild(this.target) ;
 				}
 			},
 			rollback:function(){
 				if (this.target !== undefined && this.parent !== undefined) {
-					if(!!this.target.jquery){
-						this.parent.append(this.target) ;
-					}else{				
-						this.parent.appendChild(this.target) ;
-						this.parent = undefined ;
-					}
+					this.parent.appendChild(this.target) ;
+					this.parent = undefined ;
 				}
 			}
 		}) ;
 		// DECORATORS
 		var SlicedTween = Type.define({
-			pkg:'tweens.decorators::SlicedTween',
+			pkg:'tweens.decorators',
 			inherits:TweenDecorator,
 			begin:0,
 			end:1,
@@ -2184,7 +2040,7 @@
 			}
 		}) ;
 		var ScaledTween = Type.define({
-			pkg:'tweens.decorators::ScaledTween',
+			pkg:'tweens.decorators',
 			inherits:TweenDecorator,
 			scale:1,
 			constructor:ScaledTween = function ScaledTween(baseTween, scale){
@@ -2200,7 +2056,7 @@
 			}
 		}) ;
 		var ReversedTween = Type.define({
-			pkg:'tweens.decorators::ReversedTween',
+			pkg:'tweens.decorators',
 			inherits:TweenDecorator,
 			constructor:ReversedTween = function ReversedTween(baseTween, position){
 			   ReversedTween.base.apply(this, [baseTween, position]) ;
@@ -2214,7 +2070,7 @@
 			}
 		}) ;
 		var RepeatedTween = Type.define({
-			pkg:'tweens.decorators::RepeatedTween',
+			pkg:'tweens.decorators',
 			inherits:TweenDecorator,
 			basetime:undefined,
 			repeatCount:2,
@@ -2235,7 +2091,7 @@
 			}
 		}) ;
 		var DelayedTween = Type.define({
-			pkg:'tweens.decorators::DelayedTween',
+			pkg:'tweens.decorators',
 			inherits:TweenDecorator,
 			basetime:undefined,
 			preDelay:.5,
@@ -2255,7 +2111,7 @@
 		}) ;
 		// GROUPS
 		var ParallelTween = Type.define({
-			pkg:'groups::ParallelTween',
+			pkg:'groups',
 			inherits:AbstractTween,
 			a:undefined,
 			b:undefined,
@@ -2419,7 +2275,7 @@
 			}
 		}) ;
 		var SerialTween = Type.define({
-			pkg:'groups::SerialTween',
+			pkg:'groups',
 			inherits:AbstractTween,
 			a:undefined,
 			b:undefined,
@@ -2648,6 +2504,7 @@
 		// CORE.EASING
 		var Physical = Type.define({
 			pkg:'core.easing::Physical',
+			domain:Type.appdomain,
 			statics:{
 				defaultFrameRate:30.0,
 				uniform:function(velocity, frameRate){
@@ -2662,7 +2519,7 @@
 			}
 		}) ;
 		var PhysicalAccelerate = Type.define({
-			pkg:'core.easing::PhysicalAccelerate',
+			pkg:'core.easing',
 			iv:undefined,
 			a:undefined,
 			fps:undefined,
@@ -2684,7 +2541,7 @@
 			}
 		}) ;
 		var PhysicalExponential = Type.define({
-			pkg:'core.easing::PhysicalExponential',
+			pkg:'core.easing',
 			f:undefined,
 			th:undefined,
 			fps:undefined,
@@ -2701,7 +2558,7 @@
 			}
 		}) ;
 		var PhysicalUniform = Type.define({
-			pkg:'core.easing::PhysicalUniform',
+			pkg:'core.easing',
 			v:undefined,
 			fps:undefined,
 			constructor:PhysicalUniform = function PhysicalUniform(v, fps){ 
@@ -2717,8 +2574,8 @@
 		});
 		
 		var BetweenJS = Type.define({
-			domain:Type.appdomain,
 			pkg:'::BetweenJS',
+			domain:Type.appdomain,
 			constructor:BetweenJS = function BetweenJS(){
 				throw 'Not meant to be instanciated... BetweenJS::ctor' ;
 			},
@@ -2726,6 +2583,86 @@
 				ticker:new EnterFrameTicker() , // main and unique ticker, see class EnterFrameTicker
 				updaterFactory:new UpdaterFactory(), // all in the name, generated updaters are intermede objects between tweens and their target
 				getTimer:getTimer, // points towards shortened-scope getTimer method
+				/*
+					Core (static-like init), where 
+					main Ticker instance created & launched, 
+					(also set to tick forever from start, to disable, @see BetweenJS.ticker.stop())
+				*/
+				initialize:function initialize(domain){
+					var exclude = {
+						'getTimer':undefined,
+						'toString':undefined,
+						'core':undefined,
+						'parallel':undefined,
+						'parallelTweens':undefined,
+						'serial':undefined,
+						'serialTweens':undefined,
+						'reverse':undefined,
+						'repeat':undefined,
+						'scale':undefined,
+						'slice':undefined,
+						'delay':undefined,
+						'func':undefined,
+						'interval':undefined,
+						'clearInterval':undefined,
+						'timeout':undefined,
+						'clearTimeout':undefined
+					}
+					
+					for(var n in BetweenJS){
+						(function(ind){
+							if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
+								var ff = BetweenJS[ind] ;
+								 
+								BetweenJS[ind] = function(target){
+									var tar , arr ;
+									var args = [].slice.call(arguments) ;
+									
+									if('jquery' in target) { // is jquery element
+										var s = target.size() ;
+										
+										if(s > 1){
+											tar = args.shift() ;
+											arr = tar.map(function(i, el){
+												return ff.apply(null, [el].concat(args)) ;
+											}).toArray() ;
+											
+											return BetweenJS.parallelTweens(arr) ;
+										}else if(s == 1){
+											tar = args.shift() ;
+											return ff.apply(null, [tar[0]].concat(args)) ;
+											
+										}else{
+											return false ;
+										}
+										
+									}else if(('length' in target) && !isNaN(target['length'])){
+										
+										if(target.length > 1){
+											
+											tar = args.shift() ;
+											var l = tar.length , arr = [] ;
+											for(var i = 0 ; i < l ; i++)
+												arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
+											return BetweenJS.parallelTweens(arr) ;
+											
+										}else if(target.length == 1){
+											
+											var tar = args.shift() ;
+											return ff.apply(null, [tar[0]].concat(args)) ;
+											
+										}else{
+											return false ;
+										}
+									}else{
+										return ff.apply(null, args) ;
+									}
+									return true ;
+								}
+							}
+						})(n) ;
+					}
+				},
 				/*
 					tween
 					
@@ -2744,8 +2681,6 @@
 					@return TweenLike Object
 				*/
 				tween:function tween(target, to, from, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.tween, target, to, from, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
 					tween.time = time || 1.0 ;
@@ -2763,8 +2698,6 @@
 					@return TweenLike Object
 				*/
 				to:function to(target, to, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.to, target, to, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, undefined) ;
 					tween.time = time || 1.0 ;
@@ -2782,8 +2715,6 @@
 					@return TweenLike Object
 				*/
 				from:function from(target, from, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.from, target, from, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, undefined, from) ;
 					tween.time = time || 1.0 ;
@@ -2803,8 +2734,6 @@
 					@return TweenLike Object
 				*/
 				apply:function apply(target, to, from, time, applyTime, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.apply, target, to, from, time, applyTime, easing) ;
-					
 					if(applyTime === undefined) applyTime = 1.0 ;
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.create(target, to, from) ;
@@ -2826,8 +2755,6 @@
 					@return TweenLike Object
 				*/
 				bezier:function bezier(target, to, from, controlPoint, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.bezier, target, to, from, controlPoint, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, to, from, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2846,8 +2773,6 @@
 					@return TweenLike Object
 				*/
 				bezierTo:function bezierTo(target, to, controlPoint, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.bezierTo, target, to, controlPoint, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, to, undefined, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2866,8 +2791,6 @@
 					@return TweenLike Object
 				*/
 				bezierFrom:function bezierFrom(target, from, controlPoint, time, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.bezierFrom, target, from, controlPoint, time, easing) ;
-					
 					var tween = new ObjectTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createBezier(target, undefined, from, controlPoint) ;
 					tween.time = time || 1.0 ;
@@ -2885,8 +2808,6 @@
 					@return TweenLike Object
 				*/
 				physical:function physical(target, to, from, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.physical, target, to, from, easing) ;
-					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.exponential()) ;
 					return tween ;
@@ -2901,8 +2822,6 @@
 					@return TweenLike Object
 				*/
 				physicalTo:function physicalTo(target, to, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.physicalTo, target, to, easing) ;
-					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, undefined, easing || Physical.exponential()) ;
 					return tween ;
@@ -2917,8 +2836,6 @@
 					@return TweenLike Object
 				*/
 				physicalFrom:function physicalFrom(target, from, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.physicalFrom, target, from, easing) ;
-					
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, undefined, from, easing || Physical.exponential()) ;
 					return tween ;
@@ -2935,8 +2852,6 @@
 					@return TweenLike Object
 				*/
 				physicalApply:function physicalApply(target, to, from, applyTime, easing){
-					if(isComplex(target)) return complexTween(BetweenJS.physicalApply, target, to, from, applyTime, easing) ;
-					
 					if(applyTime === undefined) applyTime = 1.0 ;
 					var tween = new PhysicalTween(BetweenJS.ticker) ;
 					tween.updater = BetweenJS.updaterFactory.createPhysical(target, to, from, easing || Physical.uniform()) ;
@@ -2951,7 +2866,7 @@
 					@return TweenLike Object
 				*/
 				parallel:function parallel(tween){
-					return BetweenJS.parallelTweens(sl.call(arguments)) ;
+					return BetweenJS.parallelTweens([].slice.call(arguments)) ;
 				},
 				/*
 					parallelTweens
@@ -2971,7 +2886,7 @@
 					@return TweenLike Object
 				*/
 				serial:function serial(tween){
-					return BetweenJS.serialTweens(sl.call(arguments)) ;
+					return BetweenJS.serialTweens([].slice.call(arguments)) ;
 				},
 				/*
 					serialTweens
@@ -3066,8 +2981,6 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				addChild:function addChild(target, parent){
-					if(isComplex(target)) return complexTween(BetweenJS.addChild, target, parent) ;
-					
 					return new AddChildAction(BetweenJS.ticker, target, parent) ;
 				},
 				/*
@@ -3079,8 +2992,6 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				removeFromParent:function removeFromParent(target){
-					if(isComplex(target)) return complexTween(BetweenJS.removeFromParent, target) ;
-					
 					return new RemoveFromParentAction(BetweenJS.ticker, target) ;
 				},
 				/*
@@ -3106,13 +3017,13 @@
 					
 					@return TweenLike AbstactActionTween Object
 				*/
-				timeout:function timeout(duration, func, params){
+				timeout:function(duration, func, params){
 					var uid = getTimer() ;
 					var tw = new TimeoutAction(BetweenJS.ticker, duration, func, params) ;
 					tw.uid = uid ;
 					return (cacheTimeout[uid] = tw) ;
 				},
-				clearTimeout:function clearTimeout(uid){
+				clearTimeout:function(uid){
 					var cc = cacheTimeout[uid] ;
 					delete cacheTimeout[uid] ;
 					return cc.stop() ;
@@ -3126,33 +3037,16 @@
 					
 					@return TweenLike AbstactActionTween Object
 				*/
-				interval:function interval(timer, func, params){
+				interval:function(timer, func, params){
 					var uid = getTimer() ;
 					var tw = new IntervalAction(BetweenJS.ticker, timer, func, params) ;
 					tw.uid = uid ;
 					return (cacheInterval[uid] = tw) ;
 				},
-				clearInterval:function clearInterval(uid){
+				clearInterval:function(uid){
 					var cc = cacheInterval[uid] ;
 					delete cacheInterval[uid] ;
 					return cc.stop() ;
-				},
-				getTweensOf:function getTweensOf(target){
-					
-					var t = BetweenJS.ticker ;
-					var all = t.all ;
-					trace('---------------------')
-					for(var s in all){
-						trace(s, all[s])
-					}
-				},
-				findBaseTweens:function findBaseTweens(ll, target){
-				   var arr = [] ;
-				   
-				   // trace(ll)
-				   
-				   
-				   return arr ;
 				}
 			}
 		}) ;
@@ -3530,20 +3424,179 @@
 					easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
 				}
 			})
+			
 			// CUSTOM
 			var Custom = Type.define({
 				pkg:'::Custom',
+				domain:Type.appdomain,
 				constructor:Custom = function Custom(){
 				},
-				domain:Type.appdomain,
 				statics:{
 					func:function func(f){
 						return new Ease(f) ;
 					}
 				}
-			})
-		})
-		
+			}) ;
+
+			// COLOR
+			var Colors = Type.define({
+				pkg:'::Colors',
+				domain:BetweenJS,
+				constructor:Colors = function Colors(){
+				},
+				statics:{
+					HEXtoRGB:CSSPropertyMapper.HEXtoRGB,
+					HEXtoHSV:CSSPropertyMapper.HEXtoHSV,
+					RGBtoHSV:CSSPropertyMapper.RGBtoHSV,
+					HSVtoRGB:CSSPropertyMapper.HSVtoRGB,
+					css:{
+						"aliceblue" : "#F0F8FF",
+						"antiquewhite" : "#FAEBD7",
+						"aqua" : "#00FFFF",
+						"aquamarine" : "#7FFFD4",
+						"azure" : "#F0FFFF",
+						"beige" : "#F5F5DC",
+						"bisque" : "#FFE4C4",
+						"black" : "#000000",
+						"blanchedalmond" : "#FFEBCD",
+						"blue" : "#0000FF",
+						"blueviolet" : "#8A2BE2",
+						"brown" : "#A52A2A",
+						"burlywood" : "#DEB887",
+						"cadetblue" : "#5F9EA0",
+						"chartreuse" : "#7FFF00",
+						"chocolate" : "#D2691E",
+						"coral" : "#FF7F50",
+						"cornflowerblue" : "#6495ED",
+						"cornsilk" : "#FFF8DC",
+						"crimson" : "#DC143C",
+						"cyan" : "#00FFFF",
+						"darkblue" : "#00008B",
+						"darkcyan" : "#008B8B",
+						"darkgoldenrod" : "#B8860B",
+						"darkgray" : "#A9A9A9",
+						"darkgreen" : "#006400",
+						"darkkhaki" : "#BDB76B",
+						"darkmagenta" : "#8B008B",
+						"darkolivegreen" : "#556B2F",
+						"darkorange" : "#FF8C00",
+						"darkorchid" : "#9932CC",
+						"darkred" : "#8B0000",
+						"darksalmon" : "#E9967A",
+						"darkseagreen" : "#8FBC8F",
+						"darkslateblue" : "#483D8B",
+						"darkslategray" : "#2F4F4F",
+						"darkturquoise" : "#00CED1",
+						"darkviolet" : "#9400D3",
+						"deeppink" : "#FF1493",
+						"deepskyblue" : "#00BFFF",
+						"dimgray" : "#696969",
+						"dodgerblue" : "#1E90FF",
+						"firebrick" : "#B22222",
+						"floralwhite" : "#FFFAF0",
+						"forestgreen" : "#228B22",
+						"fuchsia" : "#FF00FF",
+						"gainsboro" : "#DCDCDC",
+						"ghostwhite" : "#F8F8FF",
+						"gold" : "#FFD700",
+						"goldenrod" : "#DAA520",
+						"gray" : "#808080",
+						"green" : "#008000",
+						"greenyellow" : "#ADFF2F",
+						"honeydew" : "#F0FFF0",
+						"hotpink" : "#FF69B4",
+						"indianred" : "#CD5C5C",
+						"indigo" : "#4B0082",
+						"ivory" : "#FFFFF0",
+						"khaki" : "#F0E68C",
+						"lavender" : "#E6E6FA",
+						"lavenderblush" : "#FFF0F5",
+						"lawngreen" : "#7CFC00",
+						"lemonchiffon" : "#FFFACD",
+						"lightblue" : "#ADD8E6",
+						"lightcoral" : "#F08080",
+						"lightcyan" : "#E0FFFF",
+						"lightgoldenrodyellow" : "#FAFAD2",
+						"lightgray" : "#D3D3D3",
+						"lightgreen" : "#90EE90",
+						"lightpink" : "#FFB6C1",
+						"lightsalmon" : "#FFA07A",
+						"lightseagreen" : "#20B2AA",
+						"lightskyblue" : "#87CEFA",
+						"lightslategray" : "#778899",
+						"lightsteelblue" : "#B0C4DE",
+						"lightyellow" : "#FFFFE0",
+						"lime" : "#00FF00",
+						"limegreen" : "#32CD32",
+						"linen" : "#FAF0E6",
+						"magenta" : "#FF00FF",
+						"maroon" : "#800000",
+						"mediumaquamarine" : "#66CDAA",
+						"mediumblue" : "#0000CD",
+						"mediumorchid" : "#BA55D3",
+						"mediumpurple" : "#9370DB",
+						"mediumseagreen" : "#3CB371",
+						"mediumslateblue" : "#7B68EE",
+						"mediumspringgreen" : "#00FA9A",
+						"mediumturquoise" : "#48D1CC",
+						"mediumvioletred" : "#C71585",
+						"midnightblue" : "#191970",
+						"mintcream" : "#F5FFFA",
+						"mistyrose" : "#FFE4E1",
+						"moccasin" : "#FFE4B5",
+						"navajowhite" : "#FFDEAD",
+						"navy" : "#000080",
+						"oldlace" : "#FDF5E6",
+						"olive" : "#808000",
+						"olivedrab" : "#6B8E23",
+						"orange" : "#FFA500",
+						"orangered" : "#FF4500",
+						"orchid" : "#DA70D6",
+						"palegoldenrod" : "#EEE8AA",
+						"palegreen" : "#98FB98",
+						"paleturquoise" : "#AFEEEE",
+						"palevioletred" : "#DB7093",
+						"papayawhip" : "#FFEFD5",
+						"peachpuff" : "#FFDAB9",
+						"peru" : "#CD853F",
+						"pink" : "#FFC0CB",
+						"plum" : "#DDA0DD",
+						"powderblue" : "#B0E0E6",
+						"purple" : "#800080",
+						"rebeccapurple" : "#663399",
+						"red" : "#FF0000",
+						"rosybrown" : "#BC8F8F",
+						"royalblue" : "#4169E1",
+						"saddlebrown" : "#8B4513",
+						"salmon" : "#FA8072",
+						"sandybrown" : "#F4A460",
+						"seagreen" : "#2E8B57",
+						"seashell" : "#FFF5EE",
+						"sienna" : "#A0522D",
+						"silver" : "#C0C0C0",
+						"skyblue" : "#87CEEB",
+						"slateblue" : "#6A5ACD",
+						"slategray" : "#708090",
+						"snow" : "#FFFAFA",
+						"springgreen" : "#00FF7F",
+						"steelblue" : "#4682B4",
+						"tan" : "#D2B48C",
+						"teal" : "#008080",
+						"thistle" : "#D8BFD8",
+						"tomato" : "#FF6347",
+						"turquoise" : "#40E0D0",
+						"violet" : "#EE82EE",
+						"wheat" : "#F5DEB3",
+						"white" : "#FFFFFF",
+						"whitesmoke" : "#F5F5F5",
+						"yellow" : "#FFFF00",
+						"yellowgreen" : "#9ACD32"
+					}
+				}
+			}) ;
+
+		}) ;
+
 	})})()
 ) ;
 
