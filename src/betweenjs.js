@@ -281,7 +281,19 @@
 							val = 'hsv('+val['h']+','+val['s']+','+val['v']+')' ;
 						}else if('r' in val && 'g' in val && 'b' in val ){
 							val = 'rgb('+val['r']+','+val['g']+','+val['b']+')' ;
-						}else return val ;
+						}else{
+							if(Type.is(val, Array)){
+								var o = {r:[],g:[], b:[]} ;
+								for(var i = 0 ; i < val.length ; i ++){
+									var colobj = CSSPropertyMapper.colorStringtoObj(val[i]) ;
+									o.r.push(colobj.r) ;
+									o.g.push(colobj.g) ;
+									o.b.push(colobj.b) ;
+								}
+								return o ;
+							}
+							return val ;
+						}
 					}
 					
 					if(/^[a-z]+$/i.test(val) && val in BetweenJS.Colors.css){
@@ -406,10 +418,10 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters).setSourceValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters).setSourceValue(name, parseFloat(value), isRelative) ;
 						}
 						else {
-							parent = this.getUpdaterFor(target, name, map, updaters) ;
+							parent = this.createUpdaterFor(target, name, map, updaters) ;
 							child = this.create(parent.getObject(name), dest !== undefined ? dest[name] : undefined, value) ;
 							updaters.push(new UpdaterLadder(parent, child, name));
 						}
@@ -424,10 +436,10 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters).setDestinationValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters).setDestinationValue(name, parseFloat(value), isRelative) ;
 						} else {
 							if (!(source !== undefined && name in source)) {
-								parent = this.getUpdaterFor(target, name, map, updaters) ;
+								parent = this.createUpdaterFor(target, name, map, updaters) ;
 								child = this.create(parent.getObject(name), value, source !== undefined ? source[name] : undefined) ;
 								updaters.push(new UpdaterLadder(parent, child, name)) ;
 							}
@@ -476,10 +488,10 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters, 'bezier').setSourceValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters, 'bezier').setSourceValue(name, parseFloat(value), isRelative) ;
 						}
 						else {
-							parent = this.getUpdaterFor(target, name, map, updaters, 'bezier') ;
+							parent = this.createUpdaterFor(target, name, map, updaters, 'bezier') ;
 							child = this.createBezier(parent.getObject(name), dest !== undefined ? dest[name] : undefined, value, controlPoint !== undefined ? controlPoint[name] : undefined) ;
 							updaters.push(new UpdaterLadder(parent, child, name));
 						}
@@ -495,11 +507,12 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters, 'bezier').setDestinationValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters, 'bezier').setDestinationValue(name, parseFloat(value), isRelative) ;
 						} else {
 							if (!(source !== undefined && name in source)) {
-								parent = this.getUpdaterFor(target, name, map, updaters, 'bezier') ;
+								parent = this.createUpdaterFor(target, name, map, updaters, 'bezier') ;
 								child = this.createBezier(parent.getObject(name), value, source !== undefined ? source[name] : undefined, controlPoint !== undefined ? controlPoint[name] : undefined) ;
+
 								updaters.push(new UpdaterLadder(parent, child, name)) ;
 							}
 						}
@@ -521,11 +534,13 @@
 							cp = value ;
 							l = cp.length ;
 							for (i = 0 ; i < l ; ++i) {
-								this.getUpdaterFor(target, name, map, updaters, 'bezier').addControlPoint(name, cp[i], isRelative) ;
+								this.createUpdaterFor(target, name, map, updaters, 'bezier').addControlPoint(name, cp[i], isRelative) ;
 							}
 						} else {
 							if (map[name] !== true) {
-								var bezierUpdater = this.getUpdaterFor(target, name, map, updaters, 'bezier') ;
+								
+								var bezierUpdater = this.createUpdaterFor(target, name, map, updaters, 'bezier') ;
+								
 								child = this.createBezier(bezierUpdater.getObject(name), dest !== undefined ? dest[name] : undefined, source !== undefined ? source[name] : undefined, value) ;
 								updaters.push(new UpdaterLadder(bezierUpdater, child, name)) ;
 								map[name] = true ;
@@ -576,10 +591,10 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters, 'physical', easing).setSourceValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters, 'physical', easing).setSourceValue(name, parseFloat(value), isRelative) ;
 						}
 						else {
-							parent = this.getUpdaterFor(target, name, map, updaters, 'physical', easing) ;
+							parent = this.createUpdaterFor(target, name, map, updaters, 'physical', easing) ;
 							child = this.createPhysical(parent.getObject(name), dest !== undefined ? dest[name] : undefined, value, easing) ;
 							updaters.push(new PhysicalUpdaterLadder(parent, child, name));
 						}
@@ -595,10 +610,10 @@
 							if ((isRelative = /^\$/.test(name))) {
 								name = name.substr(1) ;
 							}
-							this.getUpdaterFor(target, name, map, updaters, 'physical', easing).setDestinationValue(name, parseFloat(value), isRelative) ;
+							this.createUpdaterFor(target, name, map, updaters, 'physical', easing).setDestinationValue(name, parseFloat(value), isRelative) ;
 						} else {
 							if (!(source !== undefined && name in source)) {
-								parent = this.getUpdaterFor(target, name, map, updaters, 'physical', easing) ;
+								parent = this.createUpdaterFor(target, name, map, updaters, 'physical', easing) ;
 								child = this.createPhysical(parent.getObject(name), value, source !== undefined ? source[name] : undefined, easing) ;
 								updaters.push(new PhysicalUpdaterLadder(parent, child, name)) ;
 							}
@@ -626,7 +641,7 @@
 				
 				return updater ;
 			},
-			getUpdaterFor:function(target, propertyName, map, list, mode, easing){
+			createUpdaterFor:function(target, propertyName, map, list, mode, easing){
 				var updaterClass ;
 				switch(mode){
 					case 'bezier' :
@@ -640,7 +655,7 @@
 					break ;
 				}
 				if (updaterClass !== undefined) {
-					var upstr = updaterClass.slot.constructorname ;
+					var upstr = updaterClass.slot.qualifiedclassname ;
 					var updater = map[upstr] ;
 					if (updater === undefined) {
 						updater = new (updaterClass)() ;
