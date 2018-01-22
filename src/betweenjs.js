@@ -28,7 +28,7 @@
 	}
 
 })('betweenjs', (function(){
-	
+
 	('undefined' === typeof Pkg && 'undefined' === typeof Pkg && (function(){
 		// TYPE TO BE IMPLEMENTED HERE
         throw new Error('Should use Type.js Dependancy') ;
@@ -46,11 +46,11 @@
 			getTimer = function(){
 				return getNow() - liveTime ;
 			} ;
-	
+
 		var liveTime = getNow(),
 			OFF_TIME = 0,
 			TIME = NaN,
-			concat = function(p){;return 
+			concat = function(p){;return
 				(Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper').isIE && p === undefined) ? [] : p },
 			valueExists = function(o, val){return !!o ? o[val] : undefined },
 			cloneReplaceObject = function(o, ex, rewrite){
@@ -64,7 +64,7 @@
 						if(!!ex[s]){
 							p[s] = ex[s] ;
 						}else{
-							
+
 						}
 					}
 				}
@@ -73,8 +73,8 @@
 			cacheInterval = {}, cacheTimeout = {},
 			units_reg = /(px|em|pc|pt|%)$/,
 			relative_reg =/^\$/ ;
-		
-		
+
+
 		// REQUESTANIMATIONFRAME implementation BY ORNORM
 		(function () {
 			var lastTime = getTimer(),
@@ -95,20 +95,20 @@
 					callback(now + timeout);
 				}, timeout);
 			};
-			
+
 			cancelAnimationFrame = window.cancelAnimationFrame || clearTimeout;
 		})();
-		
-		
-		
-		
+
+
+
+
 		Pkg.write('core', function(path){
-			
+
 			var Traceable =  Type.define({
 				pkg:'::Traceable',
 				name:'',
 				constructor:Traceable = function Traceable(){
-					
+
 					this.registerName() ;
 				},
 				registerName:function(time){
@@ -117,18 +117,17 @@
 					var n = classname +'_UID' ;
 					if(!!!cl[n]){ cl[n] = 0}
 					this.name = classname + '_' + cl[n] ++ ;
-					
+
 					return false ;
 				}
 			}) ;
-			
-			
-			
+
 			// CORE.TICKERS
 			Pkg.write('tickers', function(path){
 				// TICKERLISTENER
 				var TickerListener = Type.define({
 					pkg:'::TickerListener',
+					inherits:Traceable,
 					prevListener:undefined,
 					nextListener:undefined,
 					constructor:TickerListener = function TickerListener(){
@@ -138,11 +137,11 @@
 						return false ;
 					}
 				}) ;
-				
+
 			}) ;
-			
+			// CORE.TICKERS
 			Pkg.write('loops', function(){
-				
+
 				var AnimationTicker = Type.define({
 					pkg:'::AnimationTicker',
 					domain:BetweenJSCore,
@@ -157,7 +156,7 @@
 							return new Animation(func) ;
 						},
 						func:function(timestamp){
-							
+
 							var loops = this.loops ;
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
@@ -170,7 +169,6 @@
 						},
 						innerFunc:function(timestamp){
 							var anim = AnimationTicker ;
-							
 							TIME = timestamp ;
 							timestamp = timestamp - OFF_TIME ;
 							anim.timestamp = timestamp * .001 ;
@@ -187,7 +185,7 @@
 						},
 						stop:function(){
 							var anim = AnimationTicker ;
-							
+
 							cancelAnimationFrame(this.ID) ;
 							this.started = false ;
 							delete this.ID ;
@@ -201,7 +199,7 @@
 						}
 					}
 				})
-				
+
 				var Animation = Type.define({
 					pkg:'::Animation',
 					domain:BetweenJSCore,
@@ -227,9 +225,9 @@
 						return undefined ;
 					}
 				})
-				
+
 			}) ;
-			
+
 			// CORE.SINGLE
 			Pkg.write('single', function(path){
 				// ENTERFRAMETICKER
@@ -243,18 +241,18 @@
 					time:undefined,
 					constructor:EnterFrameTicker = function EnterFrameTicker(){
 						var AnimationTicker = Pkg.definition('org.libspark.betweenjs.core.loops::AnimationTicker') ;
-						
+
 						EnterFrameTicker.instance = this ;
-						
+
 						AnimationTicker.start() ;
-						
+
 						var prevListener = undefined,
 							max = this.coreListenersMax = 8 ;
-						
+
 						this.tickerListenerPaddings = new Array(max) ;
 						this.numListeners = 0 ;
 						this.drawables = [] ;
-						
+
 						for (var i = 0; i < max; ++i) {
 							var listener = new (Pkg.definition('org.libspark.betweenjs.core.tickers::TickerListener'))() ;
 							if (prevListener !== undefined) {
@@ -299,12 +297,10 @@
 							}
 							l = l.nextListener ;
 						}
-						
-						
 					},
 					start:function(){
-						var AnimationTicker = Pkg.definition('org.libspark.betweenjs.core.loops::AnimationTicker') ;
-						var Animation = Pkg.definition('org.libspark.betweenjs.core.loops::Animation') ;
+						var AnimationTicker = BetweenJS.$.AnimationTicker ;
+						var Animation = BetweenJS.$.Animation ;
 						var EFT = this ;
 						
 						EFT.time = AnimationTicker.timestamp ;
@@ -316,27 +312,27 @@
 						this.started = true ;
 					},
 					stop:function(){
-						
+
 						var a = this.animation ;
 						this.animationLoop = a.stop() ;
 						this.started = false ;
 					},
 					update:function(time){
-						
+
 						var EFT = this ;
 						var total = EFT.coreListenersMax - 2 ;
 						var t = EFT.time = time ;
-						
+
 						var n = total - (EFT.numListeners % total) ;
 						var listener = EFT.tickerListenerPaddings[0] ;
 						var l = EFT.tickerListenerPaddings[n] ;
 						var ll ;
 						var drawables = EFT.drawables = [] ;
-						
+
 						if (!!(l.nextListener = EFT.first)) {
 							EFT.first.prevListener = l ;
 						}
-						
+
 						while (!!listener.nextListener) {
 							var i = 0 ;
 							while (i < total) {
@@ -363,15 +359,15 @@
 								i++ ;
 							}
 						}
-						
+
 						if (!!(this.first = l.nextListener))
 							this.first.prevListener = undefined ;
-						
+
 						l.nextListener = this.tickerListenerPaddings[n + 1] ;
 					}
 				}) ;
 			})
-			
+
 			// CORE.TWEENS
 			Pkg.write('tweens', function(path){
 				// FACTORY
@@ -382,7 +378,7 @@
 					},
 					detectTweenTypeFromOptions:function(options){
 						var method = '';
-						
+
 						this.optionDefaults(options) ;
 						switch(true){
 							case 'actions' in options :
@@ -405,9 +401,9 @@
 						return this.detectTweenTypeFromOptions(options) ;
 					},
 					createBasic:function(options){
-						
+
 						var tw = new Tween() ;
-						
+
 						return tw
 							.setHandlers(options)
 							.assignUpdater(options)
@@ -431,7 +427,7 @@
 								tw = new (BetweenJS.$.TimeoutAction)() ;
 							break ;
 						}
-						
+
 						return tw
 							.enable(t)
 							.setHandlers(options)
@@ -449,7 +445,7 @@
 								tw = new (BetweenJS.$.SerialTween)() ;
 							break ;
 						}
-						
+
 						return tw
 							.enable(t)
 							.setHandlers(options)
@@ -459,7 +455,7 @@
 						var tw ;
 						var mods = options.decorators ;
 						var t ;
-						
+
 						switch(true){
 							case !!(t = mods.slice) :
 								tw = new (BetweenJS.$.SlicedTween)() ;
@@ -477,7 +473,7 @@
 								tw = new (BetweenJS.$.DelayedTween)() ;
 							break ;
 						}
-						
+
 						return tw
 							.enable(t)
 							.setHandlers(options)
@@ -505,7 +501,7 @@
 					enable:function(options){
 						this.stopOnComplete = options['stopOnComplete'] || true ;
 						this.position = options['initposition'] || 0 ;
-						
+
 						return this ;
 					},
 					///////////
@@ -528,15 +524,14 @@
 						return this ;
 					},
 					/*
-					
+
 						TWEEN & UPDATER SETTINGS
-					
+
 					*/
 					prepare:function(options){
 						var AbstractActionTween = Pkg.definition('org.libspark.betweenjs.core.tweens.actions::AbstractActionTween') ;
 						// HERE I KNOW TIME FROM UPDATER & BULKLOADER ALREADY
 						this.setTime(this.updater.time) ;
-						
 						return this ;
 					},
 					setUpdater:function(updater){
@@ -546,7 +541,7 @@
 					setPosition:function(position){
 						if (position < 0) position = 0 ;
 						if (position > this.time) position = this.time ;
-						
+
 						this.position = position ;
 						return this ;
 					},
@@ -560,9 +555,9 @@
 						return this ;
 					},
 					/*
-					
+
 						TWEEN LAUNCH SETUP
-					
+
 					*/
 					register:function(){
 						var EFT = (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker')).instance ;
@@ -572,6 +567,7 @@
 					},
 					unregister:function(){
 						var EFT = (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker')).instance ;
+						EFT.removeTickerListener(this) ;
 						return this ;
 					},
 					setup:function(){
@@ -582,23 +578,22 @@
 						return this ;
 					},
 					teardown:function(){
-						this.unregister() ;
 						this.isPlaying = false ;
 						return this ;
 					},
 					/*
-					
+
 						TIMELINE SETTINGS
-					
+
 					*/
 					seek:function(position, isPercent){
 						position = !!isPercent ? this.time * position : position ;
 						this.setPosition(position) ;
 						this.setStartTime(position) ;
-						
+
 						return this ;
 					},
-					togglePause:function(){
+					toggle:function(){
 						return this.isPlaying ? this.stop() : this.play() ;
 					},
 					start:function(){
@@ -617,26 +612,24 @@
 					},
 					gotoAndStop:function(position, isPercent){
 						position = !!isPercent ? this.time * position : position ;
-						return this.isPlaying ? 
-							this.stop().update(position) : 
+						return this.isPlaying ?
+							this.stop().update(position) :
 							this.update(position) ;
 					},
 					play:function(){
-						
+
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
-							
+
 						}
 						return this ;
 					},
 					stop:function(){
-						
 						if (this.isPlaying) {
 							this.teardown()
 								.fire('stop') ;
 						}
-						
 						return this ;
 					},
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
@@ -644,30 +637,28 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
 					update:function(position){
-						
+
 						this.lastPosition = this.position ;
-						
-						var upwards = position > this.lastPosition ;
-						
+
 						this.setPosition(position) ;
 						this.internalUpdate(this.position) ;
-						
+
 						return this ;
 					},
 					//////// END CAUTION
 					//////// END CAUTION
 					//////// END CAUTION
 					tick:function(position){
-						
+
 						if (!this.isPlaying) return true ;
-						
-						this.update(position, false) ;
+
+						this.update(position) ;
 						this.fire('update') ;
-						
+
 						if (this.isPlaying) {
-							
+
 							if (this.position >= this.time) {
-								
+
 								if (!this.stopOnComplete) {
 									this.seek(0) ;
 								} else {
@@ -675,7 +666,7 @@
 										.fire('complete')
 											.stop() ;
 									return true ;
-									
+
 								}
 							}
 							return false ;
@@ -703,7 +694,7 @@
 						this.copyHandlersFrom(source);
 					},
 					copyHandlersFrom:function(source){
-						
+
 						var list = [
 							'start',
 							'play',
@@ -713,7 +704,7 @@
 							'complete'
 						]
 						var l = list.length ;
-						
+
 						for(var i = 0 ; i < l ; i ++){
 							var el = list[i] ;
 							var listener = 'on'+ (el.replace(/^(.)/, function($1){return $1.toUpperCase()})) ;
@@ -742,7 +733,7 @@
 						this.updater = source.updater.clone() ;
 					}
 				}) ;
-				
+
 				// ACTIONS
 				Pkg.write('actions', function(path){
 					var AbstractActionTween = Type.define({
@@ -757,7 +748,7 @@
 						},
 						enable:function(options){
 							AbstractActionTween.factory.enable.apply(this, [options]) ;
-							
+
 							return this ;
 						},
 						prepare:function(){
@@ -784,25 +775,25 @@
 						useRollback:false,
 						rollbackFunc:undefined,
 						rollbackParams:undefined,
-						constructor:FunctionAction = function FunctionAction(func, params, useRollback, rollbackClosure, rollbackParams){
+						constructor:FunctionAction = function FunctionAction(){
 							FunctionAction.base.call(this) ;
 						},
 						enable:function(options){
 							FunctionAction.factory.enable.apply(this, [options]) ;
-							
+
 							this.func = options['closure'] ;
 							this.params = options['params'] ;
-							
+
 							if (!!options['useRollback']) {
 								if (!!options['rollbackClosure']) {
 									this.rollbackFunc = options['rollbackClosure'] ;
 									this.rollbackParams = options['rollbackParams'] || this.params ;
 								} else {
 									this.rollbackFunc = this.func ;
-									this.rollbackParams = this.params ;
+									this.rollbackParams = options['rollbackParams'] || this.params ;
 								}
 							}
-							
+
 							return this ;
 						},
 						action:function(){
@@ -820,14 +811,14 @@
 						func:undefined,
 						params:undefined,
 						time:0,
-						constructor:TimeoutAction = function TimeoutAction(duration, func, params, useRollback, rollbackFunc, rollbackParams){
+						constructor:TimeoutAction = function TimeoutAction(){
 							TimeoutAction.base.call(this) ;
 						},
 						enable:function(options){
 							TimeoutAction.factory.enable.apply(this, [options]) ;
 							var d = options['duration'] ;
 							this.time = (!!d && d != 0 ? d : AbstractActionTween.safeTime) ;
-							
+
 							return this ;
 						},
 						prepare:function(){
@@ -843,15 +834,15 @@
 						inherits:AbstractActionTween,
 						target:undefined,
 						parent:undefined,
-						constructor:AddChildAction = function AddChildAction(target, parent){
+						constructor:AddChildAction = function AddChildAction(){
 							AddChildAction.base.call(this) ;
 						},
 						enable:function(options){
 							AddChildAction.factory.enable.apply(this, [options]) ;
-							
+
 							this.target = options['target'] ;
 							this.parent = options['parent'] ;
-							
+
 							return this ;
 						},
 						action:function(){
@@ -870,14 +861,14 @@
 						domain:BetweenJSCore,
 						inherits:AbstractActionTween,
 						target:undefined,
-						constructor:RemoveFromParentAction = function RemoveFromParentAction(target){
+						constructor:RemoveFromParentAction = function RemoveFromParentAction(){
 							RemoveFromParentAction.base.call(this) ;
 						},
 						enable:function(options){
 							RemoveFromParentAction.factory.enable.apply(this, [options]) ;
-							
+
 							this.target = options['target'] ;
-							
+
 							return this ;
 						},
 						action:function(){
@@ -893,7 +884,7 @@
 							}
 						}
 					}) ;
-					
+
 				}) ;
 				// DECORATORS
 				Pkg.write('decorators', function(path){
@@ -902,18 +893,18 @@
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
 						baseTween:undefined,
-						constructor:TweenDecorator = function TweenDecorator(baseTween){
+						constructor:TweenDecorator = function TweenDecorator(){
 							TweenDecorator.base.call(this) ;
 						},
 						enable:function(options){
 							TweenDecorator.factory.enable.apply(this, [options]) ;
 							this.baseTween = options['baseTween'] ;
-							
+
 							return this ;
 						},
 						prepare:function(options){
 							this.time = this.baseTween.time ;
-							
+
 							return this ;
 						},
 						play:function(){
@@ -941,20 +932,20 @@
 						inherits:TweenDecorator,
 						begin:0,
 						end:1,
-						constructor:SlicedTween = function SlicedTween(baseTween, begin, end){
+						constructor:SlicedTween = function SlicedTween(){
 							SlicedTween.base.call(this) ;
 						},
 						enable:function(options){
 							SlicedTween.factory.enable.apply(this, [options]) ;
 							this.end = options['end'] || 1 ;
 							this.begin = options['begin'] || 0 ;
-							
+
 							return this ;
 						},
 						prepare:function(){
 							this.time = this.end - this.begin ;
 							if(this.end - this.begin == 0) this.instantUpdate = true ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(time){
@@ -983,18 +974,18 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						scale:1,
-						constructor:ScaledTween = function ScaledTween(baseTween, scale){
+						constructor:ScaledTween = function ScaledTween(){
 							ScaledTween.base.call(this) ;
 						},
 						enable:function(options){
 							ScaledTween.factory.enable.apply(this, [options]) ;
 							this.scale = options['scale'] || 1 ;
-							
+
 							return this ;
 						},
 						prepare:function(){
 							this.time = this.scale * this.baseTween.time ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1008,17 +999,17 @@
 						pkg:'::ReversedTween',
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
-						constructor:ReversedTween = function ReversedTween(baseTween, position){
+						constructor:ReversedTween = function ReversedTween(){
 							ReversedTween.base.call(this) ;
 						},
 						enable:function(options){
 							ReversedTween.factory.enable.apply(this, [options]) ;
-							
+
 							return this ;
 						},
 						prepare:function(){
 							this.time = this.baseTween.time ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1033,21 +1024,21 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						repeatCount:2,
-						constructor:RepeatedTween = function RepeatedTween(baseTween, repeatCount){
+						constructor:RepeatedTween = function RepeatedTween(){
 						   RepeatedTween.base.call(this) ;
 						},
 						enable:function(options){
-							
+
 							RepeatedTween.factory.enable.apply(this, [options]) ;
-							
+
 							this.repeatCount = options['repeatCount'] || 2 ;
 							this.basetime = this.baseTween.time ;
 							this.time = this.basetime * this.repeatCount ;
-							
+
 							return this ;
 						},
 						prepare:function(){
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1067,21 +1058,21 @@
 						basetime:undefined,
 						delay:.5,
 						postDelay:.5,
-						constructor:DelayedTween = function DelayedTween(baseTween, delay, postDelay){
+						constructor:DelayedTween = function DelayedTween(){
 						   DelayedTween.base.call(this) ;
 						},
 						enable:function(options){
 							DelayedTween.factory.enable.apply(this, [options]) ;
-							
+
 							this.delay = options['delay'] || 0 ;
 							this.postDelay = options['postDelay'] || 0 ;
-							
+
 							return this ;
 						},
 						prepare:function(){
-							
+
 							this.time = this.delay + this.postDelay + this.baseTween.time ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1091,7 +1082,7 @@
 							return new DelayedTween(this.baseTween.clone(), this.delay, this.postDelay) ;
 						}
 					}) ;
-					
+
 				}) ;
 				// GROUPS
 				Pkg.write('groups', function(path){
@@ -1106,14 +1097,14 @@
 						d:undefined,
 						targets:undefined,
 						tweens:undefined,
-						constructor:ParallelTween = function ParallelTween(targets, position){
+						constructor:ParallelTween = function ParallelTween(){
 							ParallelTween.base.call(this) ;
 						},
 						enable:function(options){
-							
+
 							ParallelTween.factory.enable.apply(this, [options]) ;
 							this.tweens = options['tweens'] ;
-							
+
 							return this ;
 						},
 						prepare:function(){
@@ -1144,7 +1135,7 @@
 									}
 								}
 							}
-							
+
 							return this ;
 						},
 						contains:function(tw){
@@ -1285,14 +1276,14 @@
 						targets:undefined,
 						tweens:undefined,
 						lastPosition:0,
-						constructor:SerialTween = function SerialTween(targets, position){
+						constructor:SerialTween = function SerialTween(){
 							SerialTween.base.call(this) ;
 						},
 						enable:function(options){
-							
+
 							SerialTween.factory.enable.apply(this, [options]) ;
 							this.tweens = options['tweens'] ;
-							
+
 							return this ;
 						},
 						prepare:function(){
@@ -1300,7 +1291,7 @@
 							var l = targets.length ;
 							var t ;
 							this.time = 0 ;
-							
+
 							if (l > 0) {
 								this.a = targets[0] ;
 								this.time += this.a.time ;
@@ -1325,7 +1316,7 @@
 									}
 								}
 							}
-							
+
 							return this ;
 						},
 						contains:function(tw){
@@ -1408,7 +1399,7 @@
 							return (position > 0 && position < Number.EPSILON) ? 0 : position ;
 						},
 						internalUpdate:function(position){
-							
+
 							var d = 0, ld = 0, lt = this.lastPosition, l , i , t ;
 							var cur ;
 							if ((position - lt) >= 0) {
@@ -1513,9 +1504,9 @@
 						}
 					}) ;
 				}) ;
-			
+
 			}) ;
-			
+
 			// CORE.UPDATERS
 			Pkg.write('updaters', function(path){
 				// FACTORY
@@ -1525,30 +1516,30 @@
 					listPool:[],
 					create:function(options){
 						// SET DEFAULTS
-						
+
 						var BulkUpdater = Pkg.definition('org.libspark.betweenjs.core.updaters::BulkUpdater'),
 							map, updaters, updater, l, source, dest, cuepoints,
 							r = this.registerUpdaters(map, updaters) ;
-						
+
 						map = r.map,
 						updaters = r.updaters ;
-						
+
 						var getActiveUpdater = function(){
 							var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
 							var updater = map[upstr] ;
-							
+
 							if (!!!updater) {
-								
+
 								updater = new (Pkg.definition(upstr))() ;
 								updater.setOptions(options) ;
-								
+
 								if (!!updaters) updaters.push(updater) ;
 								map[upstr] = updater ;
 							}
-							
+
 							return updater ;
 						} ;
-						
+
 						var treat = function(mode, type){
 							var UpdaterProxy = Pkg.definition('org.libspark.betweenjs.core.updaters::UpdaterProxy') ;
 							var action, o, name, value, parent, child, updater, isRelative, cp, i, l ;
@@ -1558,13 +1549,13 @@
 								cuepoints = options['cuepoints'],
 								ease = options['ease'],
 								time = options['time'] ;
-							
+
 							action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
-							
+
 							if(!!!(o = options[mode])) return ;
-							
+
 							o = Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper').colorStringtoObj(o) ;
-							
+
 							for (var name in o) {
 								// BEZIER CASE
 								if(type == 'cuepoints'){
@@ -1581,10 +1572,10 @@
 									} else {
 										if (map[name] !== true) {
 											parent = getActiveUpdater(options, map, updaters) ;
-											
+
 											child = UpdaterFactory.create({
 												'target' : parent.getObject(name),
-												'to' : valueExists(dest, name), 
+												'to' : valueExists(dest, name),
 												'from' : valueExists(source, name),
 												'ease' : ease,
 												'time' : time
@@ -1593,18 +1584,21 @@
 											map[name] = true ;
 										}
 									}
-								
+
 								}else{// REGULAR CASE
+									
 									// WHEN PROVIDED VALUE IS NUMBER
 									if (typeof(value = o[name]) == "number") {
 										
 										name = (isRelative = relative_reg.test(name)) ? name.substr(1) : name ;
 										parent = getActiveUpdater(options, map, updaters) ;
 										parent[action](name, parseFloat(value), isRelative) ;
-										
+
 									} else {
 										// WHEN OBJECTS ARE PASSED IN
-										if (type == 'source' || (type == 'dest' && !(!!source && name in source))) {
+										var existsInSource = (!!source && name in source)
+										if (type == 'source' || (type == 'dest' && !existsInSource)) {
+											
 											parent = getActiveUpdater(options, map, updaters) ;
 											
 											child = UpdaterFactory.create({
@@ -1615,24 +1609,25 @@
 												'time' : time
 											}) ;
 											
-											updaters.push(new UpdaterProxy(parent, child, name)) ;
+											var proxy = new UpdaterProxy(parent, child, name) ;
+											updaters.push(proxy) ;
 										}
 									}
-									
+
 								}
-								
+
 							}
 						} ;
-						
+
 						source = treat('from', 'source'),
 						dest = treat('to', 'dest'),
 						cuepoints = treat('cuepoints', 'cuepoints') ;
 						
 						l = updaters.length ;
-						
+
 						switch(l){
 							case 0: break;
-							case 1: 
+							case 1:
 								updater = updaters[0] ;
 								if(updater.isPhysical){
 									updater.physicalTimeEval() ;
@@ -1640,9 +1635,10 @@
 								break;
 							default:
 								updater = new BulkUpdater(options['target'], updaters) ;
+								trace(updater)
 								break;
 						}
-						
+
 						r = this.unregisterUpdaters(map, updaters) ;
 						return updater ;
 					},
@@ -1666,7 +1662,7 @@
 						return ;
 					}
 				}
-				
+
 				// UPDATERS
 				var Updater = Type.define({
 					pkg:'::Updater',
@@ -1722,7 +1718,7 @@
 									this[name] = options[name] ;
 							}
 						}
-						
+
 						return this ;
 					},
 					setTarget:function(target){
@@ -1738,7 +1734,7 @@
 					},
 					setFactor:function(position){
 						var factor = 0.0 ;
-						
+
 						if(position > factor){
 							factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
 						}
@@ -1751,20 +1747,20 @@
 					setPosition:function(position){
 						this.position = position ;
 					},
-					update:function(position, ext){
-						
+					update:function(position){
+
 						if (this.isResolved === false) {
 							this.resolveValues() ;
 							this.isResolved = true ;
 						}
-						
+
 						this.setPosition(position) ;
 						this.setFactor(position) ;
-						
+
 						this.updateObject() ;
 					},
 					updateObject:function(){
-						
+
 						var factor = this.factor ;
 						var t = this.target,
 							e = this.ease,
@@ -1776,16 +1772,16 @@
 							invert = 1.0 - factor,
 							cpVec, a, b, l, ip, it, p1, p2,
 							name, val ;
-						
+
 						for (var name in d) {
-							
+
 							a = s[name] ;
 							b = d[name] ;
 							
 							if(!!!cp[name]){
-								
+
 								if(this.isPhysical){
-									
+
 									if (position >= dur[name]) {
 										val = b ;
 									} else if(position <= 0.0){
@@ -1793,12 +1789,12 @@
 									}else {
 										val = e.calculate(position, a, b - a) ;
 									}
-									
+
 								}else{
 									val = a * invert + b * factor ;
 								}
 							}else{
-								
+
 								if(this.isPhysical){
 									if (position >= dur[name]) {
 										factor = 1.0 ;
@@ -1811,7 +1807,7 @@
 										invert = 1.0 - factor ;
 									}
 								}
-								
+
 								if (factor != 1.0 && !!(cpVec = this.cuepoints[name])) {
 									l = cpVec.length ;
 									if (l == 1) {
@@ -1842,12 +1838,13 @@
 									val = a * invert + b * factor ;
 								}
 							}
+							
 							this.setObject(name, val) ;
 						}
 					},
 					checkUnits:function(){
 						var ctor = this.target.constructor ;
-						
+
 						switch(true){
 							case ctor === undefined : // IE 7-
 							case (/HTML[a-zA-Z]*Element/.test(ctor)) :
@@ -1913,6 +1910,7 @@
 							var props = CSSPropertyMapper.check(propertyName) ;
 							var pname = props.cssprop ;
 							var pset = props.cssset ;
+
 							pset(this.target, pname, this.units[propertyName], isNaN(value) ? value : Number(value).toFixed(2)) ;
 						}
 					},
@@ -1951,7 +1949,7 @@
 								this.units[propertyName] = 'px' ;
 							break ;
 						}
-						
+
 						return propertyName ;
 					},
 					physicalTimeEval:function(){
@@ -1978,7 +1976,7 @@
 								source[key] += this.getObject(key) ;
 							}
 						}
-						
+
 						for (key in dest) {
 							if (!!!source[key]) {
 								source[key] = this.getObject(key) ;
@@ -1986,7 +1984,7 @@
 							if (!!rMap['dest.' + key]) {
 								dest[key] += this.getObject(key) ;
 							}
-							
+
 							if(this.isPhysical){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
@@ -1995,8 +1993,8 @@
 								}
 							}
 						}
-						
-						
+
+
 						var cuepoints = this.cuepoints, cpVec, l, i ;
 						for (key in cuepoints) {
 							cpVec = cuepoints[key] ;
@@ -2006,16 +2004,16 @@
 									var ss = cpVec[i] ;
 									cpVec[i] += this.getObject(key) ;
 									var sss = cpVec[i] ;
-									
+
 									if(this.isPhysical){
 										duration = this.ease.getDuration(ss, ss < sss ? sss - ss : ss - sss  ) ;
 										maxDuration += duration ;
 									}
-									
+
 								}
 							}
 						}
-						
+
 						if(this.isPhysical){
 							this.maxDuration = maxDuration ;
 							this.time = this.maxDuration ;
@@ -2027,7 +2025,7 @@
 					copyFrom:function(source){
 						Updater.factory.copyFrom.apply(this, [source]) ;
 						var obj = source ;
-						
+
 						this.units = source.units ;
 						this.copyObject(this.source, source.source) ;
 						this.copyObject(this.destination, source.destination) ;
@@ -2042,23 +2040,21 @@
 					propertyName:undefined,
 					time:NaN,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
-						
+
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
-						
+
 					},
 					setTime:function(time){
 						var c = this.child.time ;
 						var p = this.parent.time ;
-						
+
 						this.time = c > p ? c : p ;
 					},
 					update:function(position){
-						
-						this.child.update(position, 'fromProxy') ;
+						this.child.update(position) ;
 						this.parent.setObject(this.propertyName, this.child.target) ;
-						
 					},
 					clone:function(source){
 						return new UpdaterProxy(this.parent, this.child, this.propertyName) ;
@@ -2084,14 +2080,14 @@
 						return updater ;
 					},
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
-						
+
 						this.target = target ;
 						this.length = updaters.length ;
-						
+
 						var l = updaters.length, t, tar ;
-						
+
 						var time = 0 ;
-						
+
 						if (l >= 1) {
 							this.a = this.checkUpdater(updaters[0]) ;
 							t = this.a.time ;
@@ -2120,7 +2116,7 @@
 								}
 							}
 						}
-						
+
 						this.time = time ;
 					},
 					bulkFunc:function(f){
@@ -2160,7 +2156,6 @@
 						}
 					},
 					update:function(position){
-						
 						if (!!this.a) {
 							this.a.update(position) ;
 							if (!!this.b) {
@@ -2180,7 +2175,7 @@
 								}
 							}
 						}
-						
+
 					},
 					clone:function(source){
 						var updaters = [] ;
@@ -2207,11 +2202,11 @@
 						return new BulkUpdater(this.target, updaters) ;
 					}
 				}) ;
-				
+
 			}) ;
-		
+
 		}) ;
-		
+
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
 			domain:Type.appdomain,
@@ -2249,7 +2244,7 @@
 						'timeout':undefined,
 						'clearTimeout':undefined
 					}
-					
+
 					for(var n in BetweenJS){
 						(function(ind){
 							if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
@@ -2275,9 +2270,9 @@
 											}
 										}
 									}
-									
+
 									if('jquery' in target) { // is jquery element
-										
+
 										var s = target.size() ;
 
 										if(s > 1){
@@ -2328,7 +2323,7 @@
 					Creates a regular tween object. (Parameters Object Shorthand)
 					Takes in the Options object, specifying all requirements and extras for the tween.
 					"target", ("to", "from", one of those two at least), "time" are required, the rest are optional.
-					
+
 					@param options Object
 
 					@return TweenLike Object
@@ -2635,11 +2630,11 @@
 				*/
 				reverse:function reverse(tween, reversePosition){
 					var position = !!reversePosition ? tween.time - tween.position : 0.0 ;
-					
+
 					if(tween instanceof BetweenJS.$.ReversedTween && !!tween.baseTween){
 						return tween.baseTween ;
 					}
-					
+
 					var options = {
 						decorators:{
 							reverse:{
@@ -2648,7 +2643,7 @@
 							}
 						}
 					} ;
-					
+
 					return BetweenJS.tweenFactory.createDecorator(options) ;
 				},
 				/*
@@ -2668,7 +2663,7 @@
 							}
 						}
 					} ;
-					
+
 					return BetweenJS.tweenFactory.createDecorator(options) ;
 				},
 				/*
@@ -2680,7 +2675,7 @@
 					@return TweenLike TweenDecorator Object
 				*/
 				scale:function scale(tween, scale){
-					
+
 					var options = {
 						decorators:{
 							scale:{
@@ -2689,9 +2684,9 @@
 							}
 						}
 					} ;
-					
+
 					return BetweenJS.tweenFactory.createDecorator(options) ;
-					
+
 				},
 				/*
 					slice
@@ -2707,12 +2702,12 @@
 					if(!!!isPercent) isPercent = false ;
 					if(!!!begin) begin = 0 ;
 					if(!!!end) end = isPercent ? 1 : tween.time ;
-					
+
 					if(isPercent){
 						begin = tween.time * begin ;
 						end = tween.time * end ;
 					}
-					
+
 					var options = {
 						decorators:{
 							slice:{
@@ -2723,7 +2718,7 @@
 							}
 						}
 					} ;
-					return BetweenJS.tweenFactory.createDecorator(options) ;		
+					return BetweenJS.tweenFactory.createDecorator(options) ;
 				},
 				/*
 					delay
@@ -2755,7 +2750,7 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				addChild:function addChild(target, parent){
-					
+
 					var options = {
 						actions:{
 							addChild:{
@@ -2764,7 +2759,7 @@
 							}
 						}
 					}
-					
+
 					return BetweenJS.tweenFactory.createAction(options) ;
 				},
 				/*
@@ -2776,7 +2771,7 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				removeFromParent:function removeFromParent(target){
-					
+
 					var options = {
 						actions:{
 							removeFromParent:{
@@ -2784,7 +2779,7 @@
 							}
 						}
 					}
-					
+
 					return BetweenJS.tweenFactory.createAction(options) ;
 				},
 				/*
@@ -2799,7 +2794,7 @@
 					@return TweenLike AbstactActionTween Object
 				*/
 				func:function func(closure, params, useRollback, rollbackClosure, rollbackParams){
-					
+
 					var options = {
 						actions:{
 							func:{
@@ -2811,7 +2806,7 @@
 							}
 						}
 					}
-					
+
 					return BetweenJS.tweenFactory.createAction(options) ;
 				},
 				/*
@@ -2825,7 +2820,7 @@
 				*/
 				timeout:function(duration, closure, params, useRollback, rollbackClosure, rollbackParams, force){
 					var uid = getTimer() ;
-					
+
 					var options = {
 						actions:{
 							timeout:{
@@ -2839,7 +2834,7 @@
 							}
 						}
 					}
-					
+
 					var tw = BetweenJS.tweenFactory.createAction(options) ;
 					tw.uid = uid ;
 					return (cacheTimeout[uid] = tw) ;
@@ -2852,7 +2847,7 @@
 				}
 			}
 		}) ;
-		
+
 		// EASEES
 		// CORE.EASING
 		Pkg.write('ease', function(path){
@@ -3315,12 +3310,12 @@
 					return b + (c < 0 ? -this.v : this.v) * (t / (1.0 / this.fps)) ;
 				}
 			});
-			
+
 		}) ;
-		
+
 		// CSS
 		Pkg.write('css', function(path){
-			
+
 			// CSSPROPERTYMAPPER
 			var CSSPropertyMapper = Type.define({
 				pkg:'::CSSPropertyMapper',
@@ -3330,7 +3325,7 @@
 				statics:{
 					initialize:function initialize(domain){
 						var comp = window.getComputedStyle ;
-						CSSPropertyMapper.hasComputedStyle = comp !== undefined && typeof(comp) == 'function';
+						CSSPropertyMapper.hasComputedStyle = !!comp && typeof(comp) == 'function' ;
 						CSSPropertyMapper.isIE = /MSIE/.test(navigator.userAgent) ;
 						CSSPropertyMapper.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
 						CSSPropertyMapper.isIEunder8 = /MSIE [0-7]/.test(navigator.userAgent) ;
@@ -3377,7 +3372,8 @@
 							window.getComputedStyle (target, '')[pname].replace(units_reg, '') :
 							target.currentStyle[pname].replace(units_reg, '') ;
 						}
-						return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
+						var r = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
+						return r ;
 					},
 					cssSimpleSet:function(target, pname, unit, val){
 						return target['style'][pname] = val + unit ;
@@ -3389,15 +3385,20 @@
 							(shortreg.test(pname) && (pname = pname.replace(shortreg, '$1Top$2'))) ;
 							val = (target.style[pname] !== '') ? target.style[pname] : window.getComputedStyle (target, '')[pname] ;
 						}else{
-							val = pname == 'backgroundColor' ? target.currentStyle[pname] : CSSPropertyMapper.cssHackGet(target, pname)
+							val = pname == 'backgroundColor'? target.currentStyle[pname] : CSSPropertyMapper.cssHackGet(target, pname)
 						}
 						if(val == '') val = 'transparent' ;
-
+						
+						if(val == 'transparent'){
+							CSSPropertyMapper.cssColorSet(target, pname, undefined,'transparent') ;
+						}
+						
 						switch(true){
 							case (/^#/.test(val)) :
 								var hex = val.replace(/^#/, '') ;
 								if(hex.length == 3){
-									hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
+									var h1 = hex.charAt(0), h2 = hex.charAt(1), h3 = hex.charAt(2) ;
+									hex = h1 + h1 + h2 + h2 + h3 + h3 ;
 								}
 								n = parseInt('0x'+hex) ;
 								o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
@@ -3415,15 +3416,21 @@
 								o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
 							break;
 						}
+						
 						return o ;
 					},
 					cssColorSet:function(target, pname, unit, val){
+						if(val == 'transparent'){
+							return target['style'][pname] = 'transparent'  ;
+						}
+						
 						if ('h' in val && 's' in val && 'v' in val){
 							val = CSSPropertyMapper.HSVtoRGB(val) ;
 						}
 						var r = parseInt(val.r),
 						g = parseInt(val.g),
 						b = parseInt(val.b) ;
+						
 						return target['style'][pname] = 'rgb('+r+','+g+','+b+')'  ;
 					},
 					HEXtoRGB:function(hex, returnObj){
@@ -3602,7 +3609,7 @@
 
 						if(name in cache) {return cache[name] } ;
 						var o ;
-
+						
 						switch(true){
 							case /((border|background)?color|background)/gi.test(name) :
 								o = {
@@ -3793,10 +3800,10 @@
 						"yellowgreen" : "#9ACD32"
 					}
 				}
-			}) ;		
-			
+			}) ;
+
 		}) ;
-		
+
 	})})()
 ) ;
 
