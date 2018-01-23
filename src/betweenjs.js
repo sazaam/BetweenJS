@@ -51,7 +51,7 @@
 			OFF_TIME = 0,
 			TIME = NaN,
 			concat = function(p){;return
-				(Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper').isIE && p === undefined) ? [] : p },
+				(BetweenJS.$.CSSPropertyMapper.isIE && p === undefined) ? [] : p },
 			valueExists = function(o, val){return !!o ? o[val] : undefined },
 			cloneReplaceObject = function(o, ex, rewrite){
 				if(!!!o) return ;
@@ -99,16 +99,13 @@
 			cancelAnimationFrame = window.cancelAnimationFrame || clearTimeout;
 		})();
 
-
-
-
+		// BETWEENJS CORE
 		Pkg.write('core', function(path){
-
+			
 			var Traceable =  Type.define({
-				pkg:'::Traceable',
+				pkg:'utils::Traceable',
 				name:'',
 				constructor:Traceable = function Traceable(){
-
 					this.registerName() ;
 				},
 				registerName:function(time){
@@ -122,32 +119,12 @@
 				}
 			}) ;
 
-			// CORE.TICKERS
-			Pkg.write('tickers', function(path){
-				// TICKERLISTENER
-				var TickerListener = Type.define({
-					pkg:'::TickerListener',
-					inherits:Traceable,
-					prevListener:undefined,
-					nextListener:undefined,
-					constructor:TickerListener = function TickerListener(){
-
-					},
-					tick:function(time){
-						return false ;
-					}
-				}) ;
-
-			}) ;
-			// CORE.TICKERS
+			// CORE.LOOPS
 			Pkg.write('loops', function(){
 
 				var AnimationTicker = Type.define({
 					pkg:'::AnimationTicker',
 					domain:BetweenJSCore,
-					constructor:AnimationTicker = function AnimationTicker(){
-						//
-					},
 					statics:{
 						ID:NaN,
 						timestamp:NaN,
@@ -228,8 +205,21 @@
 
 			}) ;
 
-			// CORE.SINGLE
-			Pkg.write('single', function(path){
+			// CORE.TICKERS
+			Pkg.write('tickers', function(path){
+				// TICKERLISTENER
+				var TickerListener = Type.define({
+					pkg:'::TickerListener',
+					inherits:Traceable,
+					prevListener:undefined,
+					nextListener:undefined,
+					constructor:TickerListener = function TickerListener(){
+
+					},
+					tick:function(time){
+						return false ;
+					}
+				}) ;
 				// ENTERFRAMETICKER
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
@@ -240,7 +230,7 @@
 					tickerListenerPaddings:undefined,
 					time:undefined,
 					constructor:EnterFrameTicker = function EnterFrameTicker(){
-						var AnimationTicker = Pkg.definition('org.libspark.betweenjs.core.loops::AnimationTicker') ;
+						var AnimationTicker = BetweenJS.$.AnimationTicker ;
 
 						EnterFrameTicker.instance = this ;
 
@@ -254,7 +244,7 @@
 						this.drawables = [] ;
 
 						for (var i = 0; i < max; ++i) {
-							var listener = new (Pkg.definition('org.libspark.betweenjs.core.tickers::TickerListener'))() ;
+							var listener = new TickerListener() ;
 							if (prevListener !== undefined) {
 								prevListener.nextListener = listener ;
 								listener.prevListener = prevListener ;
@@ -337,7 +327,7 @@
 							var i = 0 ;
 							while (i < total) {
 								listener = listener.nextListener ;
-								var AbstractTween = Pkg.definition('org.libspark.betweenjs.core.tweens::AbstractTween') ;
+								var AbstractTween = BetweenJS.$.AbstractTween ;
 								// if(listener instanceof AbstractTween) drawables.push(listener) ;
 								if(listener instanceof AbstractTween && !!listener.startTime) {
 									t = t - listener.startTime ;
@@ -371,7 +361,7 @@
 			// CORE.TWEENS
 			Pkg.write('tweens', function(path){
 				// FACTORY
-				var TweenFactory = {
+				var TweenFactory = BetweenJSCore.TweenFactory = {
 					optionDefaults:function(options){
 						if(!!!options['ease']) options['ease'] = Expo.easeOut ;
 						if(!!!options['time']) options['time'] = .75 ;
@@ -519,7 +509,7 @@
 						return this;
 					},
 					assignUpdater:function(options){//		SETTINGS
-						var updater = BetweenJS.updaterFactory.create(options) ;
+						var updater = BetweenJS.$.UpdaterFactory.create(options) ;
 						this.setUpdater(updater) ;
 						return this ;
 					},
@@ -529,7 +519,7 @@
 
 					*/
 					prepare:function(options){
-						var AbstractActionTween = Pkg.definition('org.libspark.betweenjs.core.tweens.actions::AbstractActionTween') ;
+						var AbstractActionTween = BetweenJS.$.AbstractActionTween ;
 						// HERE I KNOW TIME FROM UPDATER & BULKLOADER ALREADY
 						this.setTime(this.updater.time) ;
 						return this ;
@@ -546,7 +536,7 @@
 						return this ;
 					},
 					setStartTime:function(position){
-						var EFT = (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker')).instance ;
+						var EFT = BetweenJS.$.EnterFrameTicker.instance ;
 						this.startTime = EFT.time - position ;
 						return this ;
 					},
@@ -560,21 +550,23 @@
 
 					*/
 					register:function(){
-						var EFT = (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker')).instance ;
+						var EFT = BetweenJS.$.EnterFrameTicker.instance ;
 						EFT.addTickerListener(this) ;
 						if(!EFT.started) EFT.start() ;
 						return this ;
 					},
 					unregister:function(){
-						var EFT = (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker')).instance ;
-						EFT.removeTickerListener(this) ;
+						BetweenJS.$.EnterFrameTicker.instance.removeTickerListener(this) ;
 						return this ;
 					},
 					setup:function(){
 						this.isPlaying = true ;
+						var p = this.position ;
+						p = isNaN(p) ? 0 : p >= this.time ? 0 : p ;
+						
 						this
 							.register()
-							.seek(this.position >= this.time ? 0 : this.position) ;
+							.seek(p) ;
 						return this ;
 					},
 					teardown:function(){
@@ -617,7 +609,7 @@
 							this.update(position) ;
 					},
 					play:function(){
-
+						
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
@@ -637,9 +629,7 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
 					update:function(position){
-
 						this.lastPosition = this.position ;
-
 						this.setPosition(position) ;
 						this.internalUpdate(this.position) ;
 
@@ -719,9 +709,6 @@
 					pkg:'::Tween',
 					domain:BetweenJSCore,
 					inherits:AbstractTween,
-					statics:{
-						spawner:TweenFactory
-					},
 					constructor:Tween = function Tween(){
 						Tween.base.call(this) ;
 					},
@@ -985,7 +972,7 @@
 						},
 						prepare:function(){
 							this.time = this.scale * this.baseTween.time ;
-
+							
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1033,12 +1020,12 @@
 
 							this.repeatCount = options['repeatCount'] || 2 ;
 							this.basetime = this.baseTween.time ;
-							this.time = this.basetime * this.repeatCount ;
-
+							
 							return this ;
 						},
 						prepare:function(){
-
+							this.time = this.basetime * this.repeatCount ;
+							
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1510,38 +1497,27 @@
 			// CORE.UPDATERS
 			Pkg.write('updaters', function(path){
 				// FACTORY
-				var UpdaterFactory = {
+				var UpdaterFactory = BetweenJSCore.UpdaterFactory = {
 					poolIndex:0,
 					mapPool:[],
 					listPool:[],
-					create:function(options){
-						// SET DEFAULTS
+					getActiveUpdater:function(map, updaters, options){
+						var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
+						var updater = map[upstr] ;
 
-						var BulkUpdater = Pkg.definition('org.libspark.betweenjs.core.updaters::BulkUpdater'),
-							map, updaters, updater, l, source, dest, cuepoints,
-							r = this.registerUpdaters(map, updaters) ;
+						if (!!!updater) {
 
-						map = r.map,
-						updaters = r.updaters ;
+							updater = new (Pkg.definition(upstr))() ;
+							updater.setOptions(options) ;
 
-						var getActiveUpdater = function(){
-							var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
-							var updater = map[upstr] ;
+							if (!!updaters) updaters.push(updater) ;
+							map[upstr] = updater ;
+						}
 
-							if (!!!updater) {
-
-								updater = new (Pkg.definition(upstr))() ;
-								updater.setOptions(options) ;
-
-								if (!!updaters) updaters.push(updater) ;
-								map[upstr] = updater ;
-							}
-
-							return updater ;
-						} ;
-
-						var treat = function(mode, type){
-							var UpdaterProxy = Pkg.definition('org.libspark.betweenjs.core.updaters::UpdaterProxy') ;
+						return updater ;
+					},
+					treat:function(map, updaters, options, mode, type){
+						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
 							var action, o, name, value, parent, child, updater, isRelative, cp, i, l ;
 							var target = options['target'],
 								source = options['from'],
@@ -1554,11 +1530,12 @@
 
 							if(!!!(o = options[mode])) return ;
 
-							o = Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper').colorStringtoObj(o) ;
+							o = BetweenJS.$.CSSPropertyMapper.colorStringtoObj(o) ;
 
 							for (var name in o) {
 								// BEZIER CASE
 								if(type == 'cuepoints'){
+									
 									if (typeof(value = cuepoints[name]) == 'number') {
 										value = [value] ;
 									}
@@ -1567,11 +1544,11 @@
 										cp = value ;
 										l = cp.length ;
 										for (i = 0 ; i < l ; ++i) {
-											getActiveUpdater(options, map, updaters).addCuePoint(name, cp[i], isRelative) ;
+											this.getActiveUpdater(map, updaters, options).addCuePoint(name, cp[i], isRelative) ;
 										}
 									} else {
 										if (map[name] !== true) {
-											parent = getActiveUpdater(options, map, updaters) ;
+											parent = this.getActiveUpdater(map, updaters, options) ;
 
 											child = UpdaterFactory.create({
 												'target' : parent.getObject(name),
@@ -1586,20 +1563,21 @@
 									}
 
 								}else{// REGULAR CASE
-									
 									// WHEN PROVIDED VALUE IS NUMBER
 									if (typeof(value = o[name]) == "number") {
 										
 										name = (isRelative = relative_reg.test(name)) ? name.substr(1) : name ;
-										parent = getActiveUpdater(options, map, updaters) ;
+										parent = this.getActiveUpdater(map, updaters, options) ;
 										parent[action](name, parseFloat(value), isRelative) ;
-
+										
+										
 									} else {
 										// WHEN OBJECTS ARE PASSED IN
-										var existsInSource = (!!source && name in source)
+										var existsInSource = (!!source && name in source) ;
+										
 										if (type == 'source' || (type == 'dest' && !existsInSource)) {
 											
-											parent = getActiveUpdater(options, map, updaters) ;
+											parent = this.getActiveUpdater(map, updaters, options) ;
 											
 											child = UpdaterFactory.create({
 												'target' : parent.getObject(name),
@@ -1617,11 +1595,19 @@
 								}
 
 							}
-						} ;
+					},
+					create:function(options){
+						var BulkUpdater = BetweenJS.$.BulkUpdater,
+							map, updaters, updater, l, source, dest, cuepoints,
+							r = this.registerUpdaters(map, updaters) ;
 
-						source = treat('from', 'source'),
-						dest = treat('to', 'dest'),
-						cuepoints = treat('cuepoints', 'cuepoints') ;
+						map = r.map,
+						updaters = r.updaters ;
+						
+						
+						source = this.treat(map, updaters, options, 'from', 'source'),
+						dest = this.treat(map, updaters, options, 'to', 'dest'),
+						cuepoints = this.treat(map, updaters, options, 'cuepoints', 'cuepoints') ;
 						
 						l = updaters.length ;
 
@@ -1635,7 +1621,6 @@
 								break;
 							default:
 								updater = new BulkUpdater(options['target'], updaters) ;
-								trace(updater)
 								break;
 						}
 
@@ -1662,14 +1647,11 @@
 						return ;
 					}
 				}
-
+				
 				// UPDATERS
 				var Updater = Type.define({
 					pkg:'::Updater',
-					statics:{
-						ind:0,
-						spawner:UpdaterFactory
-					},
+					domain:BetweenJSCore,
 					target:undefined,
 					source:undefined,
 					destination:undefined,
@@ -1890,7 +1872,7 @@
 						if(!!!this.units){
 							return this.target[propertyName] ;
 						}else{
-							CSSPropertyMapper = Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper') ;
+							CSSPropertyMapper = BetweenJS.$.CSSPropertyMapper ;
 							propertyName = this.retrieveUnits(propertyName) ; // here check for unit in string
 							var props = CSSPropertyMapper.check(propertyName) ;
 							var pname = props.cssprop ;
@@ -1904,7 +1886,7 @@
 						if(this.units === undefined){
 							this.target[propertyName] = value ;
 						}else{
-							CSSPropertyMapper = Pkg.definition('org.libspark.betweenjs.css::CSSPropertyMapper') ;
+							CSSPropertyMapper = BetweenJS.$.CSSPropertyMapper ;
 							propertyName = this.retrieveUnits(propertyName) ;
 
 							var props = CSSPropertyMapper.check(propertyName) ;
@@ -1969,19 +1951,19 @@
 							maxDuration = 0.0 ;
 
 						for (key in source) {
-							if (!!!dest[key]) {
+							if (!key in dest) {
 								dest[key] = this.getObject(key) ;
 							}
-							if (!!rMap['source.' + key]) {
+							if (rMap['source.' + key]) {
 								source[key] += this.getObject(key) ;
 							}
 						}
 
 						for (key in dest) {
-							if (!!!source[key]) {
+							if (!key in source) {
 								source[key] = this.getObject(key) ;
 							}
-							if (!!rMap['dest.' + key]) {
+							if (rMap['dest.' + key]) {
 								dest[key] += this.getObject(key) ;
 							}
 
@@ -2035,6 +2017,7 @@
 				}) ;
 				var UpdaterProxy = Type.define({
 					pkg:'::UpdaterProxy',
+					domain:BetweenJSCore,
 					parent:undefined,
 					child:undefined,
 					propertyName:undefined,
@@ -2062,6 +2045,7 @@
 				}) ;
 				var BulkUpdater = Type.define({
 					pkg:'::BulkUpdater',
+					domain:BetweenJSCore,
 					target:undefined,
 					a:undefined,
 					b:undefined,
@@ -2204,9 +2188,149 @@
 				}) ;
 
 			}) ;
-
+			
+			
+			var Mapper = Type.define({
+				pkg:'::Mapper',
+				domain:BetweenJSCore,
+				statics:{
+					getStyle:function(target, name){
+						var val = '' ;
+						if(window.getComputedStyle){
+							val = getComputedStyle(target).getPropertyValue(name) ;
+						}else if(target.currentStyle){
+							try{
+								val = target.currentStyle[name] ;
+							}catch(e){}
+						}
+						return val ;
+					},
+					setStyle:function(target, name, val){
+						
+						target.setAttribute('style', name + ':' + val)
+					},
+					CSSCustoms:{
+						'(alpha|opacity)$':function(n, v){
+							
+							return {
+								name:n,
+								value:v
+							}
+						},
+						'(background|color)$':function(n, v){
+							
+							return {
+								name:n,
+								value:BetweenJS.$.CSSPropertyMapper.colorStringtoObj(v)
+							}
+						},
+						'(transform)$':function(n, v){
+							
+							return {
+								name:n,
+								value:v
+							}
+						}
+					},
+					detectNameUnits:function(name){
+						var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
+						var unit ;
+						var n = name.replace(nameunits_reg, function($1, $2){
+							unit = arguments[3] ;
+							return '' ;
+						}) ;
+						return {name:n, unit:unit} ;
+					},
+					detectValueUnits:function(val){
+						
+						if(typeof(val) != 'string') return {unit : ''} ;
+						
+						var valueunits_reg = /(px|em|pc|pt|%)$/i ;
+						var unit ;
+						
+						val = val.replace(valueunits_reg, function($1, $2){
+							unit = arguments[0] ;
+							return '' ;
+						}) ;
+						
+						return {unit:unit, val:parseFloat(val)} ;
+					},
+					checkForUnits:function(props, name){
+						var unit, 
+							val = props[name] ;
+						var nameunits = Mapper.detectNameUnits(name) ;
+						var valueunits = Mapper.detectValueUnits(val) ;
+						
+						unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
+						name = nameunits.name || name ;
+						val = valueunits.val || val ;
+						
+						return {unit:unit, name:name, val:val} ;
+					},
+					checkForCustoms:function(props, name){
+						
+						var value = props[name] ;
+						var customs = Mapper.CSSCustoms ;
+						
+						for(var s in customs){
+							if(new RegExp(s, 'i').test(name)){
+								var el = customs[s](name, value) ;
+								name = el.name ;
+								props[name] = el.value ;
+							}
+						}
+						
+					},
+					replaceInObj:function(props, s, n, v){
+						
+						if(s == n) {
+							if(!!v && v != props[n]) props[n] = v ;
+							return n ;
+						}
+						
+						props[n] = v || props[s] ;
+						delete props[s] ;
+						
+						return n ;
+					},
+					replaceCapitalToDash:function(name){
+						return name.replace(/[A-Z]/g, function($1){
+							return '-' + $1.toLowerCase() ;
+						}) ;
+					},
+					enable:function(props, updater){
+						
+						updater.buffer = {} ;
+						
+						for(var s in props){
+							var n, v, u ;
+							// CUSTOM REPLACEMENTS
+							var customs = Mapper.checkForCustoms(props, s) ;
+							
+							// UNITS
+							var unit = Mapper.checkForUnits(props, s) ;
+							u = unit.unit ;
+							n = unit.name ;
+							v = unit.val ;
+							s = Mapper.replaceInObj(props, s, n, v) ;
+							updater.buffer[n] = u ;
+							
+							// CAMELCASE TO DASH
+							n = Mapper.replaceCapitalToDash(s) ;
+							s = Mapper.replaceInObj(props, s, n) ;
+							
+						}
+						
+						return props ;
+					}
+				},
+				constructor:Mapper = function Mapper(){
+					//
+				}
+			}) ;
 		}) ;
-
+		
+		// BETWEENJS MAIN CLASS
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
 			domain:Type.appdomain,
@@ -2215,16 +2339,16 @@
 			},
 			statics:{
 				$:BetweenJSCore,
-				animationTicker:(Pkg.definition('org.libspark.betweenjs.core.loops::AnimationTicker')),
-				enterFrameTicker:new (Pkg.definition('org.libspark.betweenjs.core.single::EnterFrameTicker'))() , // main and unique ticker, see class EnterFrameTicker
-				updaterFactory:(Pkg.definition('org.libspark.betweenjs.core.updaters::Updater')).spawner, // all in the name, generated updaters are intermede objects between tweens and their target
-				tweenFactory:(Pkg.definition('org.libspark.betweenjs.core.tweens::Tween')).spawner, // aTween Factory
 				/*
 					Core (static-like init), where
 					main Ticker instance created & launched,
-					(also set to tick forever from start, to disable, @see BetweenJS.enterFrameTicker.stop())
+					(also set to tick forever from start, to disable, @see BetweenJS.$.EnterFrameTicker.stop())
 				*/
 				initialize:function initialize(domain){
+					
+					new (BetweenJS.$.EnterFrameTicker)() ;
+					
+					
 					var exclude = {
 						'getTimer':undefined,
 						'toString':undefined,
@@ -2329,7 +2453,7 @@
 					@return TweenLike Object
 				*/
 				create:function create(options){
-					return BetweenJS.tweenFactory.create(options) ;
+					return BetweenJS.$.TweenFactory.create(options) ;
 				},
 				/*
 					apply
@@ -2591,7 +2715,7 @@
 							}
 						}
 					} ;
-					return BetweenJS.tweenFactory.createGroup(options) ;
+					return BetweenJS.$.TweenFactory.createGroup(options) ;
 				},
 				/*
 					serial
@@ -2618,7 +2742,7 @@
 							}
 						}
 					} ;
-					return BetweenJS.tweenFactory.createGroup(options) ;
+					return BetweenJS.$.TweenFactory.createGroup(options) ;
 				},
 				/*
 					reverse
@@ -2644,7 +2768,7 @@
 						}
 					} ;
 
-					return BetweenJS.tweenFactory.createDecorator(options) ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
 				/*
 					repeat
@@ -2664,7 +2788,7 @@
 						}
 					} ;
 
-					return BetweenJS.tweenFactory.createDecorator(options) ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
 				/*
 					repeat
@@ -2685,7 +2809,7 @@
 						}
 					} ;
 
-					return BetweenJS.tweenFactory.createDecorator(options) ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 
 				},
 				/*
@@ -2718,7 +2842,7 @@
 							}
 						}
 					} ;
-					return BetweenJS.tweenFactory.createDecorator(options) ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
 				/*
 					delay
@@ -2739,7 +2863,7 @@
 							}
 						}
 					} ;
-					return BetweenJS.tweenFactory.createDecorator(options) ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
 				/*
 					addChild
@@ -2760,7 +2884,7 @@
 						}
 					}
 
-					return BetweenJS.tweenFactory.createAction(options) ;
+					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
 				/*
 					removeFromParent
@@ -2780,7 +2904,7 @@
 						}
 					}
 
-					return BetweenJS.tweenFactory.createAction(options) ;
+					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
 				/*
 					func
@@ -2807,7 +2931,7 @@
 						}
 					}
 
-					return BetweenJS.tweenFactory.createAction(options) ;
+					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
 				/*
 					timeout
@@ -2835,7 +2959,7 @@
 						}
 					}
 
-					var tw = BetweenJS.tweenFactory.createAction(options) ;
+					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 					tw.uid = uid ;
 					return (cacheTimeout[uid] = tw) ;
 				},
@@ -2848,8 +2972,7 @@
 			}
 		}) ;
 
-		// EASEES
-		// CORE.EASING
+		// EASE
 		Pkg.write('ease', function(path){
 			/* EASINGS */
 			/* Thanks to Robert Penner & Yossi */
@@ -3319,6 +3442,7 @@
 			// CSSPROPERTYMAPPER
 			var CSSPropertyMapper = Type.define({
 				pkg:'::CSSPropertyMapper',
+				domain:BetweenJSCore,
 				constructor:CSSPropertyMapper = function CSSPropertyMapper(){
 					throw 'Not meant to be instanciated... CSSPropertyMapper' ;
 				},
