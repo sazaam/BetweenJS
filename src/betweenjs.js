@@ -519,7 +519,6 @@
 
 					*/
 					prepare:function(options){
-						var AbstractActionTween = BetweenJS.$.AbstractActionTween ;
 						// HERE I KNOW TIME FROM UPDATER & BULKLOADER ALREADY
 						this.setTime(this.updater.time) ;
 						return this ;
@@ -1506,7 +1505,7 @@
 						var updater = map[upstr] ;
 
 						if (!!!updater) {
-
+							
 							updater = new (Pkg.definition(upstr))() ;
 							updater.setOptions(options) ;
 
@@ -1516,86 +1515,6 @@
 
 						return updater ;
 					},
-					treat:function(map, updaters, options, mode, type){
-						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
-							var action, o, name, value, parent, child, updater, isRelative, cp, i, l ;
-							var target = options['target'],
-								source = options['from'],
-								dest = options['to'],
-								cuepoints = options['cuepoints'],
-								ease = options['ease'],
-								time = options['time'] ;
-
-							action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
-
-							if(!!!(o = options[mode])) return ;
-
-							o = BetweenJS.$.CSSPropertyMapper.colorStringtoObj(o) ;
-
-							for (var name in o) {
-								// BEZIER CASE
-								if(type == 'cuepoints'){
-									
-									if (typeof(value = cuepoints[name]) == 'number') {
-										value = [value] ;
-									}
-									if (value.constructor == Array) {
-										name = (isRelative = relative_reg.test(name)) ? name.substr(1) : name ;
-										cp = value ;
-										l = cp.length ;
-										for (i = 0 ; i < l ; ++i) {
-											this.getActiveUpdater(map, updaters, options).addCuePoint(name, cp[i], isRelative) ;
-										}
-									} else {
-										if (map[name] !== true) {
-											parent = this.getActiveUpdater(map, updaters, options) ;
-
-											child = UpdaterFactory.create({
-												'target' : parent.getObject(name),
-												'to' : valueExists(dest, name),
-												'from' : valueExists(source, name),
-												'ease' : ease,
-												'time' : time
-											}) ;
-											updaters.push(new UpdaterProxy(parent, child, name)) ;
-											map[name] = true ;
-										}
-									}
-
-								}else{// REGULAR CASE
-									// WHEN PROVIDED VALUE IS NUMBER
-									if (typeof(value = o[name]) == "number") {
-										
-										name = (isRelative = relative_reg.test(name)) ? name.substr(1) : name ;
-										parent = this.getActiveUpdater(map, updaters, options) ;
-										parent[action](name, parseFloat(value), isRelative) ;
-										
-										
-									} else {
-										// WHEN OBJECTS ARE PASSED IN
-										var existsInSource = (!!source && name in source) ;
-										
-										if (type == 'source' || (type == 'dest' && !existsInSource)) {
-											
-											parent = this.getActiveUpdater(map, updaters, options) ;
-											
-											child = UpdaterFactory.create({
-												'target' : parent.getObject(name),
-												'to' : type == 'source' ? valueExists(dest, name) : value,
-												'from' : type == 'source' ? value : valueExists(source, name),
-												'ease' : ease,
-												'time' : time
-											}) ;
-											
-											var proxy = new UpdaterProxy(parent, child, name) ;
-											updaters.push(proxy) ;
-										}
-									}
-
-								}
-
-							}
-					},
 					create:function(options){
 						var BulkUpdater = BetweenJS.$.BulkUpdater,
 							map, updaters, updater, l, source, dest, cuepoints,
@@ -1604,13 +1523,10 @@
 						map = r.map,
 						updaters = r.updaters ;
 						
-						
-						source = this.treat(map, updaters, options, 'from', 'source'),
-						dest = this.treat(map, updaters, options, 'to', 'dest'),
-						cuepoints = this.treat(map, updaters, options, 'cuepoints', 'cuepoints') ;
+						Mapper.treat(map, updaters, options) ;
 						
 						l = updaters.length ;
-
+						
 						switch(l){
 							case 0: break;
 							case 1:
@@ -1623,7 +1539,6 @@
 								updater = new BulkUpdater(options['target'], updaters) ;
 								break;
 						}
-
 						r = this.unregisterUpdaters(map, updaters) ;
 						return updater ;
 					},
@@ -1652,6 +1567,7 @@
 				var Updater = Type.define({
 					pkg:'::Updater',
 					domain:BetweenJSCore,
+					inherits:Traceable,
 					target:undefined,
 					source:undefined,
 					destination:undefined,
@@ -1664,8 +1580,9 @@
 					position:0.0,
 					isResolved:false,
 					constructor:Updater = function Updater(){
+						Updater.base.call(this) ;
+						
 						this.reset() ;
-						this.name = 'updater_' + Updater.ind++ ;
 					},
 					reset:function(){
 						this.isResolved = false ;
@@ -1700,12 +1617,11 @@
 									this[name] = options[name] ;
 							}
 						}
-
+						
 						return this ;
 					},
 					setTarget:function(target){
 						this.target = target ;
-						this.checkUnits() ;
 					},
 					setEase:function(ease){
 						this.ease = ease ;
@@ -1720,7 +1636,8 @@
 						if(position > factor){
 							factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
 						}
-						this.factor = factor ;
+						
+						this.factor = Math.round(factor * 100) / 100 ;
 						return this ;
 					},
 					setTime:function(time){
@@ -1738,12 +1655,13 @@
 
 						this.setPosition(position) ;
 						this.setFactor(position) ;
-
+						
 						this.updateObject() ;
 					},
 					updateObject:function(){
-
+						
 						var factor = this.factor ;
+						
 						var t = this.target,
 							e = this.ease,
 							d = this.destination,
@@ -1754,14 +1672,14 @@
 							invert = 1.0 - factor,
 							cpVec, a, b, l, ip, it, p1, p2,
 							name, val ;
-
+						
 						for (var name in d) {
 
 							a = s[name] ;
 							b = d[name] ;
 							
 							if(!!!cp[name]){
-
+								
 								if(this.isPhysical){
 
 									if (position >= dur[name]) {
@@ -1771,7 +1689,6 @@
 									}else {
 										val = e.calculate(position, a, b - a) ;
 									}
-
 								}else{
 									val = a * invert + b * factor ;
 								}
@@ -1821,118 +1738,36 @@
 								}
 							}
 							
-							this.setObject(name, val) ;
+							
+							this.setInObject(name, val) ;
 						}
 					},
-					checkUnits:function(){
-						var ctor = this.target.constructor ;
-
-						switch(true){
-							case ctor === undefined : // IE 7-
-							case (/HTML[a-zA-Z]*Element/.test(ctor)) :
-								this.units = {} ;
-							break ;
-							default:
-							break ;
-						}
-						return this ;
+					setSourceValue:function(name, value){
+						var isRelative = relative_reg.test(name) ;
+						if(isRelative) name = name.substr(1) ;
+						this.source[name] = value ;
+						this.relativeMap['source.' + name] = isRelative ;
 					},
-					setSourceValue:function(propertyName, value, isRelative){
-						if(isRelative === undefined) isRelative = false ;
-
-						if(this.units === undefined){
-							this.source[propertyName] = value ;
-							this.relativeMap['source.' + propertyName] = isRelative ;
-						}else{
-							propertyName = this.retrieveUnits(propertyName) ;
-							this.source[propertyName] = value ;
-							this.relativeMap['source.' + propertyName] = isRelative ;
-						}
+					setDestinationValue:function(name, value){
+						var isRelative = relative_reg.test(name) ;
+						if(isRelative) name = name.substr(1) ;
+						this.destination[name] = value ;
+						this.relativeMap['dest.' + name] = isRelative ;
 					},
-					setDestinationValue:function(propertyName, value, isRelative){
-						if(isRelative === undefined) isRelative = false ;
-
-						if(this.units === undefined){
-							this.destination[propertyName] = value ;
-							this.relativeMap['dest.' + propertyName] = isRelative ;
-						}else{
-							propertyName = this.retrieveUnits(propertyName) ;
-							this.destination[propertyName] = value ;
-							this.relativeMap['dest.' + propertyName] = isRelative ;
-						}
-					},
-					addCuePoint:function(propertyName, value, isRelative){
-						var cuepoints = this.cuepoints[propertyName] ;
-						if (cuepoints === undefined) this.cuepoints[propertyName] = cuepoints = [] ;
+					addCuePoint:function(name, value){
+						var isRelative = relative_reg.test(name) ;
+						if(isRelative) name = name.substr(1) ;
+						
+						var cuepoints = this.cuepoints[name] ;
+						if (cuepoints === undefined) this.cuepoints[name] = cuepoints = [] ;
 						cuepoints.push(value) ;
-						this.relativeMap['cp.' + propertyName + '.' + cuepoints.length] = isRelative ;
+						this.relativeMap['cp.' + name + '.' + cuepoints.length] = isRelative ;
 					},
-					getObject:function(propertyName, cond){
-						var CSSPropertyMapper ;
-						if(!!!this.units){
-							return this.target[propertyName] ;
-						}else{
-							CSSPropertyMapper = BetweenJS.$.CSSPropertyMapper ;
-							propertyName = this.retrieveUnits(propertyName) ; // here check for unit in string
-							var props = CSSPropertyMapper.check(propertyName) ;
-							var pname = props.cssprop ;
-							var pget = props.cssget ;
-							var n = pget(this.target, pname, this.units[propertyName], cond) ; // here will apply special treatment upon checks in CSSPropertyMapper.check() method
-							return n ;
-						}
+					getInObject:function(name){
+						return Mapper.getIn(this, name) ;
 					},
-					setObject:function(propertyName, value){
-						var CSSPropertyMapper ;
-						if(this.units === undefined){
-							this.target[propertyName] = value ;
-						}else{
-							CSSPropertyMapper = BetweenJS.$.CSSPropertyMapper ;
-							propertyName = this.retrieveUnits(propertyName) ;
-
-							var props = CSSPropertyMapper.check(propertyName) ;
-							var pname = props.cssprop ;
-							var pset = props.cssset ;
-
-							pset(this.target, pname, this.units[propertyName], isNaN(value) ? value : Number(value).toFixed(2)) ;
-						}
-					},
-					retrieveUnits:function(propertyName){
-
-						if(this.units[propertyName] !== undefined) {
-							return this.units[propertyName] == '' ? propertyName : propertyName.replace(new RegExp(this.units[propertyName]+'$', 'gi'), '') ;
-						}
-
-						var regPX = /::PX$/i,
-						regEM = /::EM$/i,
-						regPCT = /::%$/,
-						regPC = /::PC$/i,
-						regNONE = /::NONE$/ ;
-
-						switch(true){
-							case (regNONE.test(propertyName)) :
-								propertyName = propertyName.replace(regNONE, '') ;
-								this.units[propertyName] = '' ;
-							break ;
-							case (regPC.test(propertyName)) :
-								propertyName = propertyName.replace(regPC, '') ;
-								this.units[propertyName] = 'pc' ;
-							break ;
-							case (regPCT.test(propertyName)) :
-								propertyName = propertyName.replace(regPCT, '') ;
-								this.units[propertyName] = '%' ;
-							break ;
-							case (regEM.test(propertyName)) :
-								propertyName = propertyName.replace(regEM, '') ;
-								this.units[propertyName] = 'em' ;
-							break ;
-							case (regPX.test(propertyName)) :
-								propertyName = propertyName.replace(regPX, '') ;
-							default :
-								this.units[propertyName] = 'px' ;
-							break ;
-						}
-
-						return propertyName ;
+					setInObject:function(name, value){
+						Mapper.setIn(this, name, value) ;
 					},
 					physicalTimeEval:function(){
 						if (this.isResolved === false) {
@@ -1949,22 +1784,26 @@
 							d = this.duration,
 							duration,
 							maxDuration = 0.0 ;
-
+						
+						
 						for (key in source) {
-							if (!key in dest) {
-								dest[key] = this.getObject(key) ;
+							
+							if (!(key in dest)) {
+								dest[key] = this.getInObject(key) ;
 							}
 							if (rMap['source.' + key]) {
-								source[key] += this.getObject(key) ;
+								source[key] += this.getInObject(key) ;
 							}
+							
 						}
-
+						
 						for (key in dest) {
-							if (!key in source) {
-								source[key] = this.getObject(key) ;
+							
+							if (!(key in source)) {
+								source[key] = this.getInObject(key) ;
 							}
 							if (rMap['dest.' + key]) {
-								dest[key] += this.getObject(key) ;
+								dest[key] += this.getInObject(key) ;
 							}
 
 							if(this.isPhysical){
@@ -1976,7 +1815,6 @@
 							}
 						}
 
-
 						var cuepoints = this.cuepoints, cpVec, l, i ;
 						for (key in cuepoints) {
 							cpVec = cuepoints[key] ;
@@ -1984,7 +1822,7 @@
 							for (i = 0 ; i < l ; ++i) {
 								if (rMap['cp.' + key + '.' + i]) {
 									var ss = cpVec[i] ;
-									cpVec[i] += this.getObject(key) ;
+									cpVec[i] += this.getInObject(key) ;
 									var sss = cpVec[i] ;
 
 									if(this.isPhysical){
@@ -2018,11 +1856,13 @@
 				var UpdaterProxy = Type.define({
 					pkg:'::UpdaterProxy',
 					domain:BetweenJSCore,
+					inherits:Traceable,
 					parent:undefined,
 					child:undefined,
 					propertyName:undefined,
 					time:NaN,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
+						UpdaterProxy.base.call(this) ;
 
 						this.parent = parent ;
 						this.child = child ;
@@ -2037,7 +1877,7 @@
 					},
 					update:function(position){
 						this.child.update(position) ;
-						this.parent.setObject(this.propertyName, this.child.target) ;
+						this.parent.setInObject(this.propertyName, this.child.target) ;
 					},
 					clone:function(source){
 						return new UpdaterProxy(this.parent, this.child, this.propertyName) ;
@@ -2046,6 +1886,7 @@
 				var BulkUpdater = Type.define({
 					pkg:'::BulkUpdater',
 					domain:BetweenJSCore,
+					inherits:Traceable,
 					target:undefined,
 					a:undefined,
 					b:undefined,
@@ -2064,7 +1905,8 @@
 						return updater ;
 					},
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
-
+						BulkUpdater.base.call(this) ;
+						
 						this.target = target ;
 						this.length = updaters.length ;
 
@@ -2114,11 +1956,11 @@
 						}
 						return ret ;
 					},
-					getObject:function(name){
-						return this.target[name] ;
+					getInObject:function(name){
+						return Mapper.getIn(this, name) ;
 					},
-					setObject:function(name, val){
-						this.target[name] = val ;
+					setInObject:function(name, val){
+						return Mapper.setIn(this, name, value) ;
 					},
 					getUpdaterAt:function(index){
 						switch(index){
@@ -2194,140 +2036,318 @@
 				pkg:'::Mapper',
 				domain:BetweenJSCore,
 				statics:{
-					getStyle:function(target, name){
-						var val = '' ;
-						if(window.getComputedStyle){
-							val = getComputedStyle(target).getPropertyValue(name) ;
-						}else if(target.currentStyle){
-							try{
-								val = target.currentStyle[name] ;
-							}catch(e){}
-						}
-						return val ;
-					},
-					setStyle:function(target, name, val){
+					treat:function(map, updaters, options){
 						
-						target.setAttribute('style', name + ':' + val)
-					},
-					CSSCustoms:{
-						'(alpha|opacity)$':function(n, v){
+						
+						(function(){
 							
-							return {
-								name:n,
-								value:v
+							
+							
+							var desc = 
+							{
+								'to':'dest',
+								'from':'source',
+								'cuepoints':'cuepoints'
+							} ;
+							
+							var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+							var active = UpdaterFactory.getActiveUpdater ;
+
+							var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
+							var action, name, value, parent, child, updater, cp, i, l ;
+
+							var updater = active(map, updaters, options) ;
+							updater.cache = {} ;
+							
+							
+							
+							for(var mode in desc){
+								
+								var type = desc[mode] ;
+								var o = options[mode] ;
+								
+								if(!!!o) continue ;
+								
+								var target = options['target'],
+									source = options['from'],
+									dest = options['to'],
+									cuepoints = options['cuepoints'],
+									ease = options['ease'],
+									time = options['time'] ;
+								
+								action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
+								
+								
+								for (var name in o) {
+									
+									var customs = BetweenJS.$.CSSMapper.CSSCustoms ;
+									
+									for(var check in customs){
+										var reg = new RegExp(check, 'i') ;
+										
+										if(reg.test(name)){
+											var r = customs[check](updater, o, name, o[name]) ;
+											delete o[name] ;
+											name = r.name ;
+											o[name] = r.value ;
+											break ;
+										}
+									}
+									
+									
+									
+									// BEZIER CASE
+									if(type == 'cuepoints'){
+										
+										if (typeof(value = cuepoints[name]) == 'number') {
+											value = [value] ;
+										}
+										if (value.constructor == Array) {
+											cp = value ;
+											l = cp.length ;
+											for (i = 0 ; i < l ; ++i) {
+												active(map, updaters, options).addCuePoint(name, cp[i]) ;
+											}
+										} else {
+											if (map[name] !== true) {
+												parent = active(map, updaters, options) ;
+												
+												var childOptions = {
+													'target' : parent.getInObject(name),
+													'to' : valueExists(options['to'], name),
+													'from' : valueExists(options['from'], name),
+													'ease' : ease,
+													'time' : time
+												}
+												
+												child = UpdaterFactory.create(childOptions) ;
+												
+												updaters.push(new UpdaterProxy(parent, child, name)) ;
+												map[name] = true ;
+											}
+										}
+										
+									}else{
+										
+										value = o[name] ;
+										
+										// REGULAR CASE
+										// WHEN PROVIDED VALUE IS NUMBER
+										if (typeof(value) == "number") {
+											
+											parent = active(map, updaters, options) ;
+											parent[action](name, parseFloat(value)) ;
+											
+										} else {
+											
+											// WHEN OBJECTS ARE PASSED IN
+											// je veux pas le resetter car il existerai deja le updater
+											var isInDest = (type == 'dest' && !(source && name in source))
+											
+											if (type == 'source' || isInDest) {
+												
+												parent = active(map, updaters, options) ;
+												
+												var childOptions = {
+													'target' : parent.getInObject(name),
+													'to' : valueExists(options['to'], name), // FROM DEST CASE
+													'from' : valueExists(options['from'], name),  // FROM DEST CASE
+													'ease' : ease,
+													'time' : time
+												}
+												
+												child = UpdaterFactory.create(childOptions) ;
+												var proxy = new UpdaterProxy(parent, child, name) ;
+												updaters.push(proxy) ;
+											}
+										}
+									}
+									
+								}
+								
+								options[mode] = o ;
 							}
-						},
-						'(background|color)$':function(n, v){
-							
-							return {
-								name:n,
-								value:BetweenJS.$.CSSPropertyMapper.colorStringtoObj(v)
-							}
-						},
-						'(transform)$':function(n, v){
-							
-							return {
-								name:n,
-								value:v
-							}
-						}
+						})() ;
+						
+						
+						return options ;
 					},
-					detectNameUnits:function(name){
-						var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
-						var unit ;
-						var n = name.replace(nameunits_reg, function($1, $2){
-							unit = arguments[3] ;
-							return '' ;
-						}) ;
-						return {name:n, unit:unit} ;
+					getIn:function(up, name){
+						return up.cache[name].getMethod.apply(up, [up.target, name]) ;
 					},
-					detectValueUnits:function(val){
-						
-						if(typeof(val) != 'string') return {unit : ''} ;
-						
-						var valueunits_reg = /(px|em|pc|pt|%)$/i ;
-						var unit ;
-						
-						val = val.replace(valueunits_reg, function($1, $2){
-							unit = arguments[0] ;
-							return '' ;
-						}) ;
-						
-						return {unit:unit, val:parseFloat(val)} ;
-					},
-					checkForUnits:function(props, name){
-						var unit, 
-							val = props[name] ;
-						var nameunits = Mapper.detectNameUnits(name) ;
-						var valueunits = Mapper.detectValueUnits(val) ;
-						
-						unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
-						name = nameunits.name || name ;
-						val = valueunits.val || val ;
-						
-						return {unit:unit, name:name, val:val} ;
-					},
-					checkForCustoms:function(props, name){
-						
-						var value = props[name] ;
-						var customs = Mapper.CSSCustoms ;
-						
-						for(var s in customs){
-							if(new RegExp(s, 'i').test(name)){
-								var el = customs[s](name, value) ;
-								name = el.name ;
-								props[name] = el.value ;
-							}
-						}
-						
-					},
-					replaceInObj:function(props, s, n, v){
-						
-						if(s == n) {
-							if(!!v && v != props[n]) props[n] = v ;
-							return n ;
-						}
-						
-						props[n] = v || props[s] ;
-						delete props[s] ;
-						
-						return n ;
-					},
-					replaceCapitalToDash:function(name){
-						return name.replace(/[A-Z]/g, function($1){
-							return '-' + $1.toLowerCase() ;
-						}) ;
-					},
-					enable:function(props, updater){
-						
-						updater.buffer = {} ;
-						
-						for(var s in props){
-							var n, v, u ;
-							// CUSTOM REPLACEMENTS
-							var customs = Mapper.checkForCustoms(props, s) ;
-							
-							// UNITS
-							var unit = Mapper.checkForUnits(props, s) ;
-							u = unit.unit ;
-							n = unit.name ;
-							v = unit.val ;
-							s = Mapper.replaceInObj(props, s, n, v) ;
-							updater.buffer[n] = u ;
-							
-							// CAMELCASE TO DASH
-							n = Mapper.replaceCapitalToDash(s) ;
-							s = Mapper.replaceInObj(props, s, n) ;
-							
-						}
-						
-						return props ;
+					setIn:function(up, name, value){
+						up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
 					}
-				},
-				constructor:Mapper = function Mapper(){
-					//
 				}
 			}) ;
+			
+		}) ;
+		
+		var CSSMapper = Type.define({
+			pkg:'::CSSMapper',
+			domain:BetweenJSCore,
+			statics:{
+				CSSCustoms:{
+					'(background|color)$':function(up, obj, name, val){
+					
+						var CSS = BetweenJS.$.CSSMapper ;
+						
+						name = name == 'background' ? name + '-color' : name ;
+						
+						val = BetweenJS.$.Color.toColorObj(val) ;
+						
+						if(!up.cache[name]){
+							up.cache[name] = {
+								getMethod:function(tg, n){
+									return CSS.colorGet(tg, n) ;
+								},
+								setMethod:function(tg, n, v){
+									return CSS.colorSet(tg, n, v) ;
+								}
+							}
+						}
+						
+						return {
+							value:val,
+							name:name
+						} ;
+					},
+					'(.*)$':function(up, obj, name, val){
+						
+						var CSS = BetweenJS.$.CSSMapper ;
+						
+						var units = CSS.checkForUnits(up, obj, name, val) ;
+						
+						name = units.name ;
+						val = units.value ;
+						name = CSS.replaceCapitalToDash(name) ;
+						
+						var unit = units.unit ;
+						
+						if(!up.cache[name]){
+							up.cache[name] = {
+								getMethod:function(tg, n){
+									return CSS.simpleGet(tg, n, unit) ;
+								},
+								setMethod:function(tg, n, v){
+									return CSS.simpleSet(tg, n, v, unit) ;
+								}
+							}
+						}
+						
+						return {
+							value:val,
+							name:name
+						} ;
+					}
+				},
+				detectNameUnits:function(name){
+					var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
+					var unit ;
+					var n = name.replace(nameunits_reg, function($1, $2){
+						unit = arguments[3] ;
+						return '' ;
+					}) ;
+					return {name:n, unit:unit} ;
+				},
+				detectValueUnits:function(value){
+					
+					if(typeof(value) != 'string') return {unit : ''} ;
+					
+					var valueunits_reg = /(px|em|pc|pt|%)$/i ;
+					var unit ;
+					
+					value = value.replace(valueunits_reg, function($1, $2){
+						unit = arguments[0] ;
+						return '' ;
+					}) ;
+					
+					return {unit:unit, value:parseFloat(value)} ;
+				},
+				checkForUnits:function(updater, props, name, val){
+					var unit, 
+						value = val ;
+					var nameunits = this.detectNameUnits(name) ;
+					var valueunits = this.detectValueUnits(value) ;
+					
+					unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
+					name = nameunits.name || name ;
+					value = valueunits.value || value ;
+					
+					return {unit:unit, name:name, value:value} ;
+				},
+				replaceCapitalToDash:function(name){
+					return name.replace(/[A-Z](?=[a-z])/g, function($1){
+						return '-' + $1.toLowerCase() ;
+					}) ;
+				},
+				isDOM:function(tg){
+					var ctor = tg.constructor ;
+					switch(true){
+						case ctor === undefined : // IE 7-
+						case (/HTML[a-zA-Z]*Element/.test(ctor)) :
+							return true ;
+						break ;
+					}
+					return false ;
+				},
+				getStyle:function(tg, name){
+					var val = '' ;
+					if(window.getComputedStyle){
+						var shortreg = /(border)(width|color)/gi ;
+						(shortreg.test(name) && (name = name.replace(shortreg, '$1Top$2'))) ;
+						val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
+					
+					}else if(tg.currentStyle){
+						try{
+							val = name == 'background-color' ? tg.currentStyle[name] : this.cssHackGet(tg, name) ;
+						}catch(e){}
+					}
+					return val ;
+				},
+				setStyle:function(tg, name, val){
+					tg['style'][name] = val ;
+				},
+				cssHackGet:function(el, name){
+					if (el.currentStyle) {
+						if (/backgroundcolor/i.test(name)) {
+						  return (function (elm) { // get a rgb based color on IE
+							var oRG = document.body.createTextRange() ;
+							oRG.moveToElementText(elm) ;
+							var iClr = oRG.queryCommandValue("BackColor") ;
+							  return "rgb(" + (iClr & 0xFF) + "," + ((iClr & 0xFF00) >> 8) + "," + ((iClr & 0xFF0000) >> 16) + ")" ;
+						  })(el) ;
+						}
+						return el.currentStyle[name] ;
+					}
+				},
+				colorGet:function(target, pname){
+					var Color = BetweenJS.$.Color ;
+					return Color.toColorObj(this.getStyle(target, pname)) ;
+				},
+				colorSet:function(target, pname, val){
+					var Color = BetweenJS.$.Color ;
+					this.setStyle(target, pname, Color.toColorString(val)) ;
+				},
+				simpleGet:function(tg, n, unit){
+					if(this.isDOM(tg))
+						return this.simpleDOMGet(tg, n, unit || 'px') ;
+					var str = String(tg[n]) ;
+					return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+ 				},
+				simpleSet:function(tg, n, v, unit){
+					if(this.isDOM(tg))
+						return this.simpleDOMSet(tg, n, v, unit || 'px') ;
+					tg[n] = unit == '' ? v : v + unit ;
+				},
+				simpleDOMGet:function(tg, n, unit){
+					var str = this.getStyle(tg, n) ;
+					return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+				},
+				simpleDOMSet:function(tg, n, v, unit){
+					this.setStyle(tg, n, v + unit) ;
+				}
+			}
 		}) ;
 		
 		// BETWEENJS MAIN CLASS
@@ -3438,348 +3458,345 @@
 
 		// CSS
 		Pkg.write('css', function(path){
-
-			// CSSPROPERTYMAPPER
-			var CSSPropertyMapper = Type.define({
-				pkg:'::CSSPropertyMapper',
+			//COLORS
+			var Color = Type.define({
+				pkg:'::Color',
 				domain:BetweenJSCore,
-				constructor:CSSPropertyMapper = function CSSPropertyMapper(){
-					throw 'Not meant to be instanciated... CSSPropertyMapper' ;
-				},
 				statics:{
-					initialize:function initialize(domain){
-						var comp = window.getComputedStyle ;
-						CSSPropertyMapper.hasComputedStyle = !!comp && typeof(comp) == 'function' ;
-						CSSPropertyMapper.isIE = /MSIE/.test(navigator.userAgent) ;
-						CSSPropertyMapper.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
-						CSSPropertyMapper.isIEunder8 = /MSIE [0-7]/.test(navigator.userAgent) ;
+					getRGBAObject:function(r, g, b, a){
+						return {r:r, g:g, b:b, a:a} ;
 					},
-					cache:{},
-					getScroll:function(target, name, unit) {
-					  return (target === window || target === document) ?
-					  (
-						this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] ||
-						(CSSPropertyMapper.isIEunder9 && document.documentElement[name]) ||
-						document.body[name]
-					  ) :
-					  target[name] ;
+					getHSBAObject:function(h, s, b, a){
+						return {h:h, s:s, b:b, a:a} ;
 					},
-					setScroll:function(target, name, unit, val) {
-					  if(target === window || target === document){
-						try{
-							this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
-						}catch(e){
-							if(!CSSPropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
-							else document.body[name] = parseInt(val) ;
-						}
-					  }else{
-						target[name] = parseInt(val) ;
-					  }
+					getHSLAObject:function(h, s, l, a){
+						return {h:h, s:s, l:l, a:a} ;
 					},
-					cssHackGet:function(el, name){
-						if (el.currentStyle) {
-							if (/backgroundcolor/i.test(name)) {
-							  return (function (elm) { // get a rgb based color on IE
-								var oRG = document.body.createTextRange() ;
-								oRG.moveToElementText(elm) ;
-								var iClr = oRG.queryCommandValue("BackColor") ;
-								  return "rgb(" + (iClr & 0xFF) + "," + ((iClr & 0xFF00) >> 8) + "," + ((iClr & 0xFF0000) >> 16) + ")" ;
-							  })(el) ;
-							}
-							return el.currentStyle[name] ;
-						}
+					getHSVAObject:function(h, s, v, a){
+						return {h:h, s:s, v:v, a:a} ;
 					},
-					cssSimpleGet:function(target, pname, unit){
-						var str = target['style'][pname] ;
-						if(str == '') {
-							str = CSSPropertyMapper.hasComputedStyle ?
-							window.getComputedStyle (target, '')[pname].replace(units_reg, '') :
-							target.currentStyle[pname].replace(units_reg, '') ;
-						}
-						var r = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), ''))
-						return r ;
+					getRGBAString:function(r, g, b, a){
+						return this.getMODEString('rgb', r, g, b, a) ;
 					},
-					cssSimpleSet:function(target, pname, unit, val){
-						return target['style'][pname] = val + unit ;
+					getHSBAString:function(h, s, b, a){
+						return this.getMODEString('hsb', h, s, b, a) ;
 					},
-					cssColorGet:function(target, pname, unit){
-						var val, n, o ;
-						if(CSSPropertyMapper.hasComputedStyle){
-							var shortreg = /(border)(width|color)/gi ;
-							(shortreg.test(pname) && (pname = pname.replace(shortreg, '$1Top$2'))) ;
-							val = (target.style[pname] !== '') ? target.style[pname] : window.getComputedStyle (target, '')[pname] ;
-						}else{
-							val = pname == 'backgroundColor'? target.currentStyle[pname] : CSSPropertyMapper.cssHackGet(target, pname)
-						}
-						if(val == '') val = 'transparent' ;
-						
-						if(val == 'transparent'){
-							CSSPropertyMapper.cssColorSet(target, pname, undefined,'transparent') ;
-						}
-						
-						switch(true){
-							case (/^#/.test(val)) :
-								var hex = val.replace(/^#/, '') ;
-								if(hex.length == 3){
-									var h1 = hex.charAt(0), h2 = hex.charAt(1), h3 = hex.charAt(2) ;
-									hex = h1 + h1 + h2 + h2 + h3 + h3 ;
-								}
-								n = parseInt('0x'+hex) ;
-								o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
-							break ;
-							case (/rgb/i.test(val)) :
-								var str = val.replace(/(rgb\(|\)| )/gi, '') ;
-								var p = str.split(',') ;
-								var r = (p[0] & 0xFF), g = (p[1] & 0xFF), b = (p[2] & 0xFF) ;
-								o = {r:r,g:g,b:b} ;
-							break ;
-							//case typeof val == 'string' :
-								//if(!val in CSSPropertyMapper.presetColors) throw new Error('Color name is not a valid browser color preset >>> ' +val) ;
-							//break ;
-							default:
-								o = {r:(n & 0xFF0000) >> 16, g:(n & 0xFF00) >> 8, b:(n & 0xFF)}
-							break;
-						}
-						
-						return o ;
+					getHSLAString:function(h, s, l, a){
+						return this.getMODEString('hsl', h, s, l, a) ;
 					},
-					cssColorSet:function(target, pname, unit, val){
-						if(val == 'transparent'){
-							return target['style'][pname] = 'transparent'  ;
-						}
-						
-						if ('h' in val && 's' in val && 'v' in val){
-							val = CSSPropertyMapper.HSVtoRGB(val) ;
-						}
-						var r = parseInt(val.r),
-						g = parseInt(val.g),
-						b = parseInt(val.b) ;
-						
-						return target['style'][pname] = 'rgb('+r+','+g+','+b+')'  ;
+					getHSVAString:function(h, s, v, a){
+						return this.getMODEString('hsv', h, s, v, a) ;
 					},
-					HEXtoRGB:function(hex, returnObj){
-						var n ;
+					getMODEString:function(mode, r, g, b, a){
+						return a === undefined ?
+								mode +'('+r+','+g+','+b+')'
+							:	mode +'a('+r+','+g+','+b+','+a+')' ;
+					},
+					HEXto:function(hex, MODE){
+						var n, res ;
 						hex = hex.replace(/^(0x|#)/, '') ;
 						if(hex.length == 3)
 							hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
-						n = parseInt('0x'+hex) ;
-						var r = (n & 0xFF0000) >> 16 ;
-						var g = (n & 0xFF00) >> 8 ;
-						var b = (n & 0xFF) ;
-						return !!returnObj ? {r:r, g:g, b:b} : 'rgb('+r+','+g+','+b+')' ;
-					},
-					HEXtoHSV:function(hex, returnObj){
-						var res = CSSPropertyMapper.RGBtoHSV(CSSPropertyMapper.HEXtoRGB(hex, true)) ;
-						return !!returnObj ? res : 'hsv('+(res.h) +','+(res.s)+','+(res.v)+')' ;
-					},
-					RGBtoHSV:function(o, r, g, b){
-						if (typeof o == 'string') o = CSSPropertyMapper.colorStringtoObj(o) ;
-						var m = {} ;
-						r = r || o.r ,
-						g = g || o.g ,
-						b = b || o.b ;
-						if( r != g || r != b ){
-							if ( g > b ) {
-								if ( r > g ) { //r>g>b
-									m.h = 60 * (g - b) / (r - b) ;
-									m.s = (r - b) / r * 100 ;
-									m.v = r / 255 * 100 ;
-								}else if( r < b ){ //g>b>r
-									m.v = g / 255 * 100 ;
-									m.s = (g - r) / g * 100 ;
-									m.h = 60 * (b - r) / (g - r) + 120 ;
-								}else { //g=>r=>b
-									m.v = g / 255 * 100 ;
-									m.s = (g - b) / g * 100 ;
-									m.h = 60 * (b - r) / (g - b) + 120 ;
-								}
-							}else{
-								if ( r > b ) { // r>b=>g
-									m.v = r / 255 * 100 ;
-									m.s = (r - g) / r * 100 ;
-									m.h = 60 * (g - b) / (r - g) ;
-									if ( m.h < 0 ) m.h += 360 ;
-								}else if ( r < g ){ //b=>g>r
-									m.v = b / 255 * 100 ;
-									m.s = (b - r) / b * 100 ;
-									m.h = 60 * (r - g) / (b - r) + 240 ;
-								}else { //b=>r=>g
-									m.v = b / 255 * 100 ;
-									m.s = (b - g) / b  * 100 ;
-									m.h = 60 * (r - g) / (b - g) + 240 ;
-								}
-							}
-						}else {
-							m.h = m.s = 0 ;
-							m.v = r / 255 * 100 ;
+						n = parseInt('0x' + hex) ;
+						
+						var o = this.UINTto(n) ;
+						
+						switch(MODE){
+							case 'hsv':
+								o = this.RGBto(o.r, o.g, o.b, o.a, 'hsv') ;
+								res = this.getHSVAObject(o.h, o.s, o.v, o.a) ;
+							break ;
+							default:
+								res = this.getRGBAObject(o.r, o.g, o.b, o.a) ;
+							break;
 						}
-						m.h = Math.round(m.h) ;
-						return m ;
-					},
-					HSVtoRGB:function(o, h, s, v){
-						if (typeof o == 'string') o = CSSPropertyMapper.colorStringtoObj(o) ;
-
-						var m = {} ;
-						h = h || o.h ,
-						s = (s || o.s) * .01 ,
-						v = (v || o.v) * .01 ;
-						if ( s > 0 ) {
-							if(h > 360) h = h % 360 ;
-							else if(h < -360) h = h % -360 ;
-							h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
-							if ( h < 1 ) {
-								m.r = 255 * v ;
-								m.g = 255 * v * ( 1 - s * (1 - h) ) ;
-								m.b = 255 * v * ( 1 - s ) ;
-							}else if ( h < 2 ) {
-								m.r = 255 * v * ( 1 - s * (h - 1) ) ;
-								m.g = 255 * v ;
-								m.b = 255 * v * ( 1 - s ) ;
-							}else if ( h < 3 ) {
-								m.r = 255 * v * ( 1 - s ) ;
-								m.g = 255 * v ;
-								m.b = 255 * v * ( 1 - s * (3 - h) ) ;
-							}else if ( h < 4 ) {
-								m.r = 255 * v * ( 1 - s ) ;
-								m.g = 255 * v * ( 1 - s * (h - 3) ) ;
-								m.b = 255 * v ;
-							}else if ( h < 5 ) {
-								m.r = 255 * v * ( 1 - s * (5 - h) ) ;
-								m.g = 255 * v * ( 1 - s ) ;
-								m.b = 255 * v ;
-							}else{
-								m.r = 255 * v ;
-								m.g = 255 * v * ( 1 - s ) ;
-								m.b = 255 * v * ( 1 - s * (h - 5) ) ;
-							}
-						}else {
-							m.r = m.g = m.b = 255 * v ;
-						}
-						return m ;
-					},
-					colorStringtoObj:function(val, n, res){
-
-						if(typeof(val) != 'string') {
-							if('h' in val && 's' in val && 'v' in val){
-								val = 'hsv('+val['h']+','+val['s']+','+val['v']+')' ;
-							}else if('r' in val && 'g' in val && 'b' in val ){
-								val = 'rgb('+val['r']+','+val['g']+','+val['b']+')' ;
-							}else{
-								if(Type.is(val, Array)){
-									var o = {r:[],g:[], b:[]} ;
-									for(var i = 0 ; i < val.length ; i ++){
-										var colobj = CSSPropertyMapper.colorStringtoObj(val[i]) ;
-										o.r.push(colobj.r) ;
-										o.g.push(colobj.g) ;
-										o.b.push(colobj.b) ;
-									}
-									return o ;
-								}
-								return val ;
-							}
-						}
-
-						if(/^[a-z]+$/i.test(val) && val in BetweenJS.Colors.css){
-							val = BetweenJS.Colors.css[val] ;
-						}
-						if(/^(0x|#)/.test(val)){
-							res = CSSPropertyMapper.HEXtoRGB(val.replace(/^(0x|#)/, ''), true) ;
-						}else if(/rgb/i.test(val)){
-							var str = val.replace(/(rgb\(|\)| )/gi, '') ;
-							var p = str.split(',') ;
-							var r = (p[0] & 0xFF),
-							g = (p[1] & 0xFF),
-							b = (p[2] & 0xFF) ;
-							res = {r:r,g:g,b:b} ;
-						}else if(/hsv/i.test(val)){
-							var str = val.replace(/(hsv\(|\)| )/gi, '') ;
-							var p = str.split(',') ;
-							var h = (p[0] & 0xFF),
-							s = (p[1] & 0xFF),
-							v = (p[2] & 0xFF) ;
-							res = CSSPropertyMapper.HSVtoRGB({h:h, s:s, v:v}) ;
-						}
+						
 						return res ;
 					},
-					cssScrollPositionGet:function(target, pname, unit){
-						return CSSPropertyMapper.getScroll(target, pname, unit) ;
-					},
-					cssScrollPositionSet:function(target, pname, unit, val){
-						CSSPropertyMapper.setScroll(target, pname, unit, val) ;
-					},
-					cssAlphaGet:function(target, pname, unit){
-						var val ;
-						if(CSSPropertyMapper.hasComputedStyle){
-							val = (target.style['opacity'] != '') ? target.style['opacity'] : window.getComputedStyle(target, '')['opacity'] ;
-							val = val * 100 ;
-						}
-						else
-							val = target.currentStyle['filter'] == '' ? 100 : target.currentStyle['filter'].replace(/alpha\(opacity=|\)/g, '') ;
-
-						return val ;
-					},
-					cssAlphaSet:function(target, pname, unit, val){
-						if(CSSPropertyMapper.hasComputedStyle){
-							return target['style']['opacity'] = val / 100 ;
+					UINTto:function(val, MODE){
+						var v, r, g, b, a, s ;
+						v = val ;
+						var res ;
+						if(val > 0xFFFFFF){
+							if(MODE == 'hsv'){
+								res = this.RGBto(
+									(v & 0xFF000000) >>> 24,
+									(v & 0xFF0000) >> 16,
+									(v & 0xFF00) >> 8,
+									(v & 100) * .01 , 'hsv') ;
+							}else{
+								res = this.getRGBAObject(
+									(v & 0xFF000000) >>> 24,
+									(v & 0xFF0000) >> 16,
+									(v & 0xFF00) >> 8,
+									(v & 100) * .01 ) ;
+							}
 						}else{
-							return target['style']['filter'] = 'alpha(opacity='+val+')' ;
+							if(MODE == 'hsv'){
+								res = this.RGBto(
+									(v & 0xFF0000) >> 16,
+									(v & 0xFF00) >> 8,
+									(v & 0xFF),
+									1 , 'hsv') ;
+							}else{
+								res = this.getRGBAObject(
+									(v & 0xFF0000) >> 16,
+									(v & 0xFF00) >> 8,
+									(v & 0xFF),
+									1) ;
+							}
 						}
-					},
-					check:function(name){
-						var formats = CSSPropertyMapper.formats ;
-						var cache = CSSPropertyMapper.cache ;
-
-						if(/-/.test(name)) name = name.replace(/-(\w)/g, function($0, $1){return $1.toUpperCase()}) ;
-
-						if(name in cache) {return cache[name] } ;
-						var o ;
 						
-						switch(true){
-							case /((border|background)?color|background)/gi.test(name) :
-								o = {
-									cssprop:name,
-									cssget:CSSPropertyMapper.cssColorGet,
-									cssset:CSSPropertyMapper.cssColorSet
-								} ;
-							break ;
-							case /scroll(left|top)?/gi.test(name) :
-								o = {
-									cssprop:name,
-									cssget:CSSPropertyMapper.cssScrollPositionGet,
-									cssset:CSSPropertyMapper.cssScrollPositionSet
-								} ;
-							break ;
-							case /alpha|opacity/g.test(name) :
-								o = {
-									cssprop:name,
-									cssget:CSSPropertyMapper.cssAlphaGet,
-									cssset:CSSPropertyMapper.cssAlphaSet
+						return res ;
+					},
+					RGBto:function(r, g, b, a, MODE){
+						// HSV
+						var m = {} ;
+						if(MODE == 'hsv'){
+							if( r != g || r != b ){
+								if ( g > b ) {
+									if ( r > g ) { //r>g>b
+										m.h = 60 * (g - b) / (r - b) ;
+										m.s = (r - b) / r * 100 ;
+										m.v = r / 255 * 100 ;
+									}else if( r < b ){ //g>b>r
+										m.v = g / 255 * 100 ;
+										m.s = (g - r) / g * 100 ;
+										m.h = 60 * (b - r) / (g - r) + 120 ;
+									}else { //g=>r=>b
+										m.v = g / 255 * 100 ;
+										m.s = (g - b) / g * 100 ;
+										m.h = 60 * (b - r) / (g - b) + 120 ;
+									}
+								}else{
+									if ( r > b ) { // r>b=>g
+										m.v = r / 255 * 100 ;
+										m.s = (r - g) / r * 100 ;
+										m.h = 60 * (g - b) / (r - g) ;
+										if ( m.h < 0 ) m.h += 360 ;
+									}else if ( r < g ){ //b=>g>r
+										m.v = b / 255 * 100 ;
+										m.s = (b - r) / b * 100 ;
+										m.h = 60 * (r - g) / (b - r) + 240 ;
+									}else { //b=>r=>g
+										m.v = b / 255 * 100 ;
+										m.s = (b - g) / b  * 100 ;
+										m.h = 60 * (r - g) / (b - g) + 240 ;
+									}
 								}
-							break ;
+							}else {
+								m.h = m.s = 0 ;
+								m.v = r / 255 * 100 ;
+							}
+							m.h = Math.round(m.h) ;
+							m.s = Math.round(m.s) ;
+							m.v = Math.round(m.v) ;
+							m.a = a || 1 ;
+						}else if(MODE == 'rgb'){
+							m = this.getRGBAObject(r, g, b, a) ;
+						}
+						
+						return m ;
+					},
+					HSVto:function(h, s, v, a, MODE){
+						
+						var m = {} ;
+						if(MODE == 'rgb'){
+							h = h,
+							s = (s) * .01 ,
+							v = (v) * .01 ;
+							if ( s > 0 ) {
+								if(h > 360) h = h % 360 ;
+								else if(h < -360) h = h % -360 ;
+								h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
+								if ( h < 1 ) {
+									m.r = 255 * v ;
+									m.g = 255 * v * ( 1 - s * (1 - h) ) ;
+									m.b = 255 * v * ( 1 - s ) ;
+								}else if ( h < 2 ) {
+									m.r = 255 * v * ( 1 - s * (h - 1) ) ;
+									m.g = 255 * v ;
+									m.b = 255 * v * ( 1 - s ) ;
+								}else if ( h < 3 ) {
+									m.r = 255 * v * ( 1 - s ) ;
+									m.g = 255 * v ;
+									m.b = 255 * v * ( 1 - s * (3 - h) ) ;
+								}else if ( h < 4 ) {
+									m.r = 255 * v * ( 1 - s ) ;
+									m.g = 255 * v * ( 1 - s * (h - 3) ) ;
+									m.b = 255 * v ;
+								}else if ( h < 5 ) {
+									m.r = 255 * v * ( 1 - s * (5 - h) ) ;
+									m.g = 255 * v * ( 1 - s ) ;
+									m.b = 255 * v ;
+								}else{
+									m.r = 255 * v ;
+									m.g = 255 * v * ( 1 - s ) ;
+									m.b = 255 * v * ( 1 - s * (h - 5) ) ;
+								}
+							}else {
+								m.r = m.g = m.b = 255 * v ;
+							}
+							m.r = Math.round(m.r) ;
+							m.a = a || 1 ;
+							
+						}else if(MODE == 'hsv'){
+							m = this.getHSVAObject(h, s, v, a) ;
+						}
+						
+						return m ;
+					},
+					toColorString:function(val, mode){
+						var res ;
+						var MODE = mode || 'rgb' ;
+						
+						var isString = function(){
+							return typeof val == 'string' ;
+						}
+						switch(true){
+							case !isString() && 'r' in val || 'h' in val :
+								var r = val['r'],
+									g = val['g'],
+									b = val['b'],
+									h = val['h'],
+									s = val['s'],
+									v = val['v'],
+									l = val['l'],
+									a = val['a'] || 1.0 ;
+								
+								if('h' in val && 's' in val){
+									if('b' in val){ // HSB
+										val = this.getHSBAString(h, s, b, a) ;
+									}else if('v' in val){ // HSV
+										val = this.getHSVAString(h, s, v, a) ;
+									}else{ // HSL
+										val = this.getHSLAString(h, s, l, a) ;
+									}
+								}else if('r' in val){
+									val = this.getRGBAString(r, g, b, a) ;
+								}
+							// IMPORTANT !!!!!!!!!! NO BREAK HERE
+							// break ;
 							default :
-								o = {
-									cssprop:name,
-									cssget:CSSPropertyMapper.cssSimpleGet,
-									cssset:CSSPropertyMapper.cssSimpleSet
+								var o = this.toColorObj(val) ;
+								switch(MODE){
+									case 'hsv':
+										o = this.RGBto(o.r, o.g, o.b, o.a, 'hsv') ;
+										res = this.getHSVAString(o.h, o.s, o.v, o.a) ;
+									break ;
+									default:
+										res = this.getRGBAString(o.r, o.g, o.b, o.a) ;
+									break;
 								}
 							break ;
 						}
-						cache[name] = o ;
-						return o ;
-					}
-				}
-			}) ;
-			//COLORS
-			var Colors = Type.define({
-				pkg:'::Colors',
-				domain:BetweenJS,
-				constructor:Colors = function Colors(){
-				},
-				statics:{
-					HEXtoRGB:CSSPropertyMapper.HEXtoRGB,
-					HEXtoHSV:CSSPropertyMapper.HEXtoHSV,
-					RGBtoHSV:CSSPropertyMapper.RGBtoHSV,
-					HSVtoRGB:CSSPropertyMapper.HSVtoRGB,
+						
+						return res ;
+					},
+					toColorObj:function(val, mode){
+						
+						var res ;
+						var MODE = mode || 'rgb' ;
+						
+						var isString = function(){
+							return typeof val == 'string' ;
+						}
+						switch(true){
+							case isString() && /^[a-z]+$/i.test(val) && val in BetweenJS.$.Color.css :
+								val = BetweenJS.$.Color.css[val] ;
+								switch(MODE){
+									case 'hsv':
+										res = this.HEXto(val, 'hsv') ;
+									break;
+									default:
+										res = this.HEXto(val) ;
+									break;
+								}
+							break ;
+							case isString() && /^(0x|#)/.test(val) :
+								val = val.replace(/^(0x|#)/, '') ;
+								
+								switch(MODE){
+									case 'hsv':
+										res = this.HEXto(val, 'hsv') ;
+									break;
+									default:
+										res = this.HEXto(val) ;
+									break;
+								}
+							break ;
+							case isString() && /rgba?/i.test(val) :
+								
+								var str = val.replace(/(rgba?\(|\)| )/gi, '') ;
+								var p = str.split(',') ;
+								res = this.getRGBAObject(
+									(p[0] & 0xFF),
+									(p[1] & 0xFF), 
+									(p[2] & 0xFF),
+									parseFloat(p[3] || 1.0 )
+								) ;
+							break ;
+							case isString() &&/hsva?/i.test(val) :
+								var str = val.replace(/(hsva?\(|\)| )/gi, '') ;
+								var p = str.split(',') ;
+								
+								if(MODE == 'hsv'){
+									res = this.getHSVAObject(
+										(p[0] & 0xFF),
+										(p[1] & 0xFF), 
+										(p[2] & 0xFF),
+										parseFloat(p[3] || 1.0 )
+									) ;
+									break ;
+								}
+								res = this.HSVto(
+									(p[0] & 0xFF),
+									(p[1] & 0xFF), 
+									(p[2] & 0xFF),
+									parseFloat(p[3] || 1.0),
+								MODE) ;
+							break ;
+							case !isNaN(parseInt(val)) :
+								
+								switch(MODE){
+									case 'hsv':
+										res = this.UINTto(val) ;
+										res = this.RGBto(res.r, res.g, res.b, res.a, 'hsv') ;
+									break ;
+									default :
+										res = this.UINTto(val) ;
+									break ;
+								}
+								
+							break ;
+							case !isString() && 'r' in val || 'h' in val :
+								
+								var r = val['r'],
+									g = val['g'],
+									b = val['b'],
+									h = val['h'],
+									s = val['s'],
+									v = val['v'],
+									l = val['l'],
+									a = val['a'] || 1.0 ;
+									
+								if('h' in val && 's' in val){
+									if('b' in val){ // HSB
+										val = this.getHSBAObject(h, s, b, a) ;
+									}else if('v' in val){ // HSV
+										val = this.getHSVAObject(h, s, v, a) ;
+									}else{ // HSL
+										val = this.getHSLAObject(h, s, l, a) ;
+									}
+								}else if('r' in val){
+									val = this.getRGBAObject(r, g, b, a) ;
+								}
+								res = val ;
+							break ;
+						}
+						
+						return res ;
+					},
 					css:{
 						"aliceblue" : "#F0F8FF",
 						"antiquewhite" : "#FAEBD7",
