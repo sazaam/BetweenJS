@@ -16,7 +16,6 @@
  * 2011-2012
  *
  */
-'use strict' ;
 (function(name, definition){
 
 	if ('function' === typeof define){ // AMD
@@ -31,15 +30,14 @@
 
 	('undefined' === typeof Pkg && 'undefined' === typeof Pkg && (function(){
 		// TYPE TO BE IMPLEMENTED HERE
-        throw new Error('Should use Type.js Dependancy') ;
+        // throw new Error('Should use Type.js Dependancy') ;
 	})()) ;
 
 	return Pkg.write('org.libspark.betweenjs', function(path){
 		var BetweenJSCore = {} ;
-		// GetTimer Implementation
 		var getNow = function(){
 				if('performance' in window) {
-					return window.performance.now ? performance.now() : new Date.getTime() ;
+					return ('now' in window.performance) ? performance.now() : new Date().getTime() ;
 				}
 				return new Date().getTime() ;
 			},
@@ -50,6 +48,8 @@
 		var liveTime = getNow(),
 			OFF_TIME = 0,
 			TIME = NaN,
+			SIM_EPSILON = 'EPSILON' in Number ? Number.EPSILON : .005,
+			simulationTimestep = 1000 / 60,
 			concat = function(p){;return
 				(p === undefined) ? [] : p },
 			valueExists = function(o, val){return !!o ? o[val] : undefined },
@@ -75,7 +75,7 @@
 			relative_reg =/^\$/ ;
 
 
-		// REQUESTANIMATIONFRAME implementation BY ORNORM
+		// REQUESTANIMATIONFRAME
 		(function () {
 			var lastTime = getTimer(),
 				now,
@@ -102,8 +102,28 @@
 		// BETWEENJS CORE
 		Pkg.write('core', function(path){
 			
+			var Destroyable =  Type.define({
+				pkg:'utils::Destroyable',
+				constructor:Destroyable = function Destroyable(){
+					//
+				},
+				destroy:function(){
+					
+					for(var s in this){
+						var p = this[s] ;
+						if(p instanceof Destroyable) p.destroy() ;
+						else if(typeof p == 'object'){
+							if('destroy' in p && typeof p['destroy'] == 'function')
+								p['destroy']() ;
+						}
+						delete this[s] ;
+					}
+				}
+			}) ;
+			
 			var Traceable =  Type.define({
 				pkg:'utils::Traceable',
+				inherits:Destroyable,
 				name:'',
 				constructor:Traceable = function Traceable(){
 					this.registerName() ;
@@ -118,7 +138,7 @@
 					return false ;
 				}
 			}) ;
-
+			
 			// CORE.LOOPS
 			Pkg.write('loops', function(){
 
@@ -224,137 +244,143 @@
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
 					domain:BetweenJSCore,
-					first:undefined,
-					numListeners:0,
-					coreListenersMax: 0,
-					tickerListenerPaddings:undefined,
-					time:undefined,
-					constructor:EnterFrameTicker = function EnterFrameTicker(){
-						var AnimationTicker = BetweenJS.$.AnimationTicker ;
+					statics:{
+						first:undefined,
+						numListeners:0,
+						coreListenersMax: 0,
+						tickerListenerPaddings:undefined,
+						time:undefined,
+						initialize:function initialize(domain){
+							
+							var AnimationTicker = BetweenJSCore.AnimationTicker ;
 
-						EnterFrameTicker.instance = this ;
+							AnimationTicker.start() ;
 
-						AnimationTicker.start() ;
+							var prevListener = undefined,
+								max = this.coreListenersMax = 8 ;
 
-						var prevListener = undefined,
-							max = this.coreListenersMax = 8 ;
+							this.tickerListenerPaddings = new Array(max) ;
+							this.numListeners = 0 ;
+							this.drawables = [] ;
 
-						this.tickerListenerPaddings = new Array(max) ;
-						this.numListeners = 0 ;
-						this.drawables = [] ;
-
-						for (var i = 0; i < max; ++i) {
-							var listener = new TickerListener() ;
-							if (prevListener !== undefined) {
-								prevListener.nextListener = listener ;
-								listener.prevListener = prevListener ;
+							for (var i = 0; i < max; ++i) {
+								var listener = new TickerListener() ;
+								if (prevListener !== undefined) {
+									prevListener.nextListener = listener ;
+									listener.prevListener = prevListener ;
+								}
+								this.tickerListenerPaddings[i] = listener ;
+								prevListener = listener ;
 							}
-							this.tickerListenerPaddings[i] = listener ;
-							prevListener = listener ;
-						}
-					},
-					addTickerListener:function(listener){
-						if(!!listener.nextListener || !!listener.prevListener) {
-							return ;
-						}
-						if (!!this.first) {
-							if (!!this.first.prevListener) {
-								this.first.prevListener.nextListener = listener ;
-								listener.prevListener = this.first.prevListener ;
+						},
+						addTickerListener:function(listener){
+							if(!!listener.nextListener || !!listener.prevListener) {
+								return ;
 							}
-							listener.nextListener = this.first ;
-							this.first.prevListener = listener ;
-						}
-						this.first = listener ;
-						++ this.numListeners ;
-					},
-					removeTickerListener:function(listener){
-						var l = this.first ;
-						while (!!l) {
-							if (l == listener) {
-								if (!!l.prevListener) {
-									l.prevListener.nextListener = l.nextListener ;
-									l.nextListener = undefined ;
+							if (!!this.first) {
+								if (!!this.first.prevListener) {
+									this.first.prevListener.nextListener = listener ;
+									listener.prevListener = this.first.prevListener ;
 								}
-								else {
-									this.first = l.nextListener;
-								}
-								if (!!l.nextListener) {
-									l.nextListener.prevListener = l.prevListener ;
-									l.prevListener = undefined ;
-								}
-								--this.numListeners ;
+								listener.nextListener = this.first ;
+								this.first.prevListener = listener ;
 							}
-							l = l.nextListener ;
-						}
-					},
-					start:function(){
-						var AnimationTicker = BetweenJS.$.AnimationTicker ;
-						var Animation = BetweenJS.$.Animation ;
-						var EFT = this ;
-						
-						EFT.time = AnimationTicker.timestamp ;
-						var a = new Animation(function(timestamp){
-							EFT.update(AnimationTicker.timestamp) ;
-						}) ;
-						
-						this.animation = a.start() ;
-						this.started = true ;
-					},
-					stop:function(){
-
-						var a = this.animation ;
-						this.animationLoop = a.stop() ;
-						this.started = false ;
-					},
-					update:function(time){
-
-						var EFT = this ;
-						var total = EFT.coreListenersMax - 2 ;
-						var t = EFT.time = time ;
-
-						var n = total - (EFT.numListeners % total) ;
-						var listener = EFT.tickerListenerPaddings[0] ;
-						var l = EFT.tickerListenerPaddings[n] ;
-						var ll ;
-						var drawables = EFT.drawables = [] ;
-
-						if (!!(l.nextListener = EFT.first)) {
-							EFT.first.prevListener = l ;
-						}
-
-						while (!!listener.nextListener) {
-							var i = 0 ;
-							while (i < total) {
-								listener = listener.nextListener ;
-								var AbstractTween = BetweenJS.$.AbstractTween ;
-								// if(listener instanceof AbstractTween) drawables.push(listener) ;
-								if(listener instanceof AbstractTween && !!listener.startTime) {
-									t = t - listener.startTime ;
-								}
-								// THIS IS THE LISTENER REMOVAL CODE !!!!!!!!!!!!
-								if (listener.tick(t)) {
-									if (!!listener.prevListener) {
-										listener.prevListener.nextListener = listener.nextListener ;
+							this.first = listener ;
+							++ this.numListeners ;
+						},
+						removeTickerListener:function(listener){
+							var l = this.first ;
+							while (!!l) {
+								if (l == listener) {
+									if (!!l.prevListener) {
+										l.prevListener.nextListener = l.nextListener ;
+										l.nextListener = undefined ;
 									}
-									if (!!listener.nextListener) {
-										listener.nextListener.prevListener = listener.prevListener ;
+									else {
+										this.first = l.nextListener;
 									}
-									ll = listener.prevListener ;
-									listener.nextListener = undefined ;
-									listener.prevListener = undefined ;
-									listener = ll ;
+									if (!!l.nextListener) {
+										l.nextListener.prevListener = l.prevListener ;
+										l.prevListener = undefined ;
+									}
 									--this.numListeners ;
 								}
-								i++ ;
+								l = l.nextListener ;
 							}
+						},
+						start:function(){
+							var AnimationTicker = BetweenJS.$.AnimationTicker ;
+							var Animation = BetweenJS.$.Animation ;
+							var EFT = this ;
+							
+							EFT.time = AnimationTicker.timestamp ;
+							var a = new Animation(function(timestamp){
+								EFT.update(AnimationTicker.timestamp) ;
+							}) ;
+							
+							this.animation = a.start() ;
+							this.started = true ;
+						},
+						stop:function(){
+							this.animation.stop() ;
+							this.started = false ;
+						},
+						update:function(time){
+							
+							var min = 0 ;
+							var EFT = this ;
+							var total = EFT.coreListenersMax - 2 ;
+							var t = EFT.time = time ;
+
+							var n = total - (EFT.numListeners % total) ;
+							var listener = EFT.tickerListenerPaddings[0] ;
+							var l = EFT.tickerListenerPaddings[n] ;
+							var ll ;
+							var drawables = EFT.drawables = [] ;
+
+							if (!!(l.nextListener = EFT.first)) {
+								EFT.first.prevListener = l ;
+							}
+
+							while (!!listener.nextListener) {
+								var i = 0 ;
+								while (i < total) {
+									listener = listener.nextListener ;
+									var AbstractTween = BetweenJS.$.AbstractTween ;
+									// if(listener instanceof AbstractTween) drawables.push(listener) ;
+									if(listener instanceof AbstractTween && !!listener.startTime) {
+										t = t - listener.startTime ;
+										min ++ ;
+									}
+									// THIS IS THE LISTENER REMOVAL CODE !!!!!!!!!!!!
+									if (listener.tick(t)) {
+										if (!!listener.prevListener) {
+											listener.prevListener.nextListener = listener.nextListener ;
+										}
+										if (!!listener.nextListener) {
+											listener.nextListener.prevListener = listener.prevListener ;
+										}
+										ll = listener.prevListener ;
+										listener.nextListener = undefined ;
+										listener.prevListener = undefined ;
+										listener = ll ;
+										--this.numListeners ;
+									}
+									i++ ;
+								}
+							}
+							
+							if(min == 0){
+								this.stop() ;
+							}
+							
+							if (!!(this.first = l.nextListener))
+								this.first.prevListener = undefined ;
+
+							l.nextListener = this.tickerListenerPaddings[n + 1] ;
 						}
-
-						if (!!(this.first = l.nextListener))
-							this.first.prevListener = undefined ;
-
-						l.nextListener = this.tickerListenerPaddings[n + 1] ;
 					}
+					
 				}) ;
 			})
 
@@ -535,7 +561,7 @@
 						return this ;
 					},
 					setStartTime:function(position){
-						var EFT = BetweenJS.$.EnterFrameTicker.instance ;
+						var EFT = BetweenJS.$.EnterFrameTicker ;
 						this.startTime = EFT.time - position ;
 						return this ;
 					},
@@ -549,13 +575,13 @@
 
 					*/
 					register:function(){
-						var EFT = BetweenJS.$.EnterFrameTicker.instance ;
+						var EFT = BetweenJS.$.EnterFrameTicker ;
 						EFT.addTickerListener(this) ;
 						if(!EFT.started) EFT.start() ;
 						return this ;
 					},
 					unregister:function(){
-						BetweenJS.$.EnterFrameTicker.instance.removeTickerListener(this) ;
+						BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
 						return this ;
 					},
 					setup:function(){
@@ -701,6 +727,14 @@
 							this[listener] = source[listener] ;
 							this[listenerParams] = source[listenerParams] ;
 						}
+					},
+					destroy:function(){
+						
+						if(this.isPlaying){
+							this.stop() ;
+						}
+						
+						AbstractTween.factory.destroy.call(this) ;
 					}
 				}) ;
 				// SUBCLASSES
@@ -719,7 +753,7 @@
 						this.updater = source.updater.clone() ;
 					}
 				}) ;
-
+				
 				// ACTIONS
 				Pkg.write('actions', function(path){
 					var AbstractActionTween = Type.define({
@@ -727,7 +761,7 @@
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
 						statics:{
-							safeTime:Number.EPSILON * 2
+							safeTime:SIM_EPSILON * 2
 						},
 						constructor:AbstractActionTween = function AbstractActionTween(){
 							AbstractActionTween.base.call(this) ;
@@ -1382,7 +1416,7 @@
 							return ind ;
 						},
 						checkForEpsilon:function(position){
-							return (position > 0 && position < Number.EPSILON) ? 0 : position ;
+							return (position > 0 && position < SIM_EPSILON) ? 0 : position ;
 						},
 						internalUpdate:function(position){
 
@@ -1517,7 +1551,6 @@
 					},
 					treat:function(map, updaters, options){
 						
-						
 						var desc = 
 						{
 							'to':'dest',
@@ -1535,6 +1568,35 @@
 						updater.cache = {} ;
 						
 						
+						for(var mode in desc){
+							
+							var type = desc[mode] ;
+							var o = options[mode] ;
+							
+							if(!!!o) continue ;
+							
+							for (var name in o) {
+								
+								var customs = BetweenJS.$.PropertyMapper.Customs ;
+								var ll = customs.length ;
+								for(; ll > 0 ;){
+									
+									
+									var custom = customs[--ll] ;
+									for(var check in custom){
+										var reg = new RegExp(check, 'i') ;
+										
+										if(reg.test(name)){
+											var r = custom[check](updater, o, name, o[name], type) ;
+											delete o[name] ;
+											name = r.name ;
+											o[name] = r.value ;
+											break ;
+										}
+									}
+								}
+							}
+						}
 						
 						for(var mode in desc){
 							
@@ -1555,22 +1617,6 @@
 							
 							for (var name in o) {
 								
-								var customs = BetweenJS.$.PropertyMapper.Customs ;
-								
-								for(var check in customs){
-									var reg = new RegExp(check, 'i') ;
-									
-									if(reg.test(name)){
-										var r = customs[check](updater, o, name, o[name]) ;
-										delete o[name] ;
-										name = r.name ;
-										o[name] = r.value ;
-										break ;
-									}
-								}
-								
-								
-								// BEZIER CASE
 								if(type == 'cuepoints'){
 									
 									if (typeof(value = cuepoints[name]) == 'number') {
@@ -1605,8 +1651,6 @@
 									
 									value = o[name] ;
 									
-									// REGULAR CASE
-									// WHEN PROVIDED VALUE IS NUMBER
 									if (typeof(value) == "number") {
 										
 										parent = updater ;
@@ -1614,8 +1658,6 @@
 										
 									} else {
 										
-										// WHEN OBJECTS ARE PASSED IN
-										// je veux pas le resetter car il existerai deja le updater
 										var isInDest = (type == 'dest' && !(source && name in source))
 										
 										if (type == 'source' || isInDest) {
@@ -1624,8 +1666,8 @@
 											
 											var childOptions = {
 												'target' : parent.getInObject(name),
-												'to' : valueExists(options['to'], name), // FROM DEST CASE
-												'from' : valueExists(options['from'], name),  // FROM DEST CASE
+												'to' : valueExists(options['to'], name),
+												'from' : valueExists(options['from'], name),
 												'ease' : ease,
 												'time' : time
 											}
@@ -1637,10 +1679,7 @@
 									}
 								}
 							}
-							
-							options[mode] = o ;
 						}
-						
 						
 						return options ;
 					},
@@ -1980,6 +2019,9 @@
 						this.copyObject(this.destination, source.destination) ;
 						this.copyObject(this.relativeMap, source.relativeMap) ;
 						this.copyObject(this.cuepoints, source.cuepoints) ;
+					},
+					destroy:function(){
+						Updater.factory.destroy.call(this) ;
 					}
 				}) ;
 				var UpdaterProxy = Type.define({
@@ -2010,6 +2052,9 @@
 					},
 					clone:function(source){
 						return new UpdaterProxy(this.parent, this.child, this.propertyName) ;
+					},
+					destroy:function(){
+						UpdaterProxy.factory.destroy.call(this) ;
 					}
 				}) ;
 				var BulkUpdater = Type.define({
@@ -2149,6 +2194,28 @@
 						}
 
 						return new BulkUpdater(this.target, updaters) ;
+					},
+					destroy:function(){
+						if (!!this.a) {
+							this.a = this.a.destroy() ;
+							if (!!this.b) {
+								this.b = this.b.destroy() ;
+								if (!!this.c) {
+									this.c = this.c.destroy() ;
+									if (!!this.d) {
+										this.d = this.d.destroy() ;
+										if (!!this.updaters) {
+											var updaters = this.updaters ;
+											var l = updaters.length ;
+											for (var i = 0 ; i < l ; ++i) {
+												updaters[i] = updaters[i].destroy() ;
+											}
+										}
+									}
+								}
+							}
+						}
+						BulkUpdater.factory.destroy.call(this) ;
 					}
 				}) ;
 
@@ -2167,7 +2234,7 @@
 						setIn:function(up, name, value){
 							up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
 						},
-						Customs:{
+						Customs:[{
 							'(background|color)$':function(up, obj, name, val){
 							
 								var CSS = BetweenJS.$.PropertyMapper ;
@@ -2192,17 +2259,25 @@
 									name:name
 								} ;
 							},
-							'(.*)$':function(up, obj, name, val){
-								
+							'(.*)$':function(up, obj, name, val, type){
+								var unit ;
 								var CSS = BetweenJS.$.PropertyMapper ;
 								
 								var units = CSS.checkForUnits(up, obj, name, val) ;
 								
 								name = units.name ;
 								val = units.value ;
-								name = CSS.replaceCapitalToDash(name) ;
+								unit = units.unit ;
 								
-								var unit = units.unit ;
+								var relative = CSS.replaceRelative(name, up, type) ;
+								var isRelative = relative.isRelative ;
+								name = relative.name ;
+								
+								if(isRelative){									
+									up.relativeMap[type+'.' + name] = isRelative ;
+								}
+								
+								name = CSS.replaceCapitalToDash(name) ;
 								
 								if(!up.cache[name]){
 									up.cache[name] = {
@@ -2220,7 +2295,7 @@
 									name:name
 								} ;
 							}
-						},
+						}],
 						detectNameUnits:function(name){
 							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
 							var unit ;
@@ -2260,6 +2335,11 @@
 							return name.replace(/[A-Z](?=[a-z])/g, function($1){
 								return '-' + $1.toLowerCase() ;
 							}) ;
+						},
+						replaceRelative:function(name){
+							var o = {isRelative:relative_reg.test(name)} ;
+							o.name = o.isRelative ? name.substr(1) : name ;
+							return o ;
 						},
 						getStyle:function(tg, name){
 							var val = '' ;
@@ -2340,19 +2420,16 @@
 			pkg:'::BetweenJS',
 			domain:Type.appdomain,
 			constructor:BetweenJS = function BetweenJS(){
-				throw 'Not meant to be instanciated... BetweenJS::ctor' ;
+				// throw 'Not meant to be instanciated... BetweenJS::ctor' ;
 			},
 			statics:{
-				$:BetweenJSCore,
+				'$':BetweenJSCore,
 				/*
 					Core (static-like init), where
 					main Ticker instance created & launched,
 					(also set to tick forever from start, to disable, @see BetweenJS.$.EnterFrameTicker.stop())
 				*/
 				initialize:function initialize(domain){
-					
-					new (BetweenJS.$.EnterFrameTicker)() ;
-					
 					
 					var exclude = {
 						'getTimer':undefined,
@@ -2976,7 +3053,7 @@
 				}
 			}
 		}) ;
-
+		
 		// EASE
 		Pkg.write('ease', function(path){
 			/* EASINGS */
@@ -2992,8 +3069,6 @@
 			// LINEAR
 			var Linear = Type.define({
 				pkg:'::Linear',
-				constructor:Linear = function Linear(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(),
@@ -3005,8 +3080,6 @@
 			// CIRC
 			var Circ = Type.define({
 				pkg:'::Circ',
-				constructor:Circ = function Circ(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3028,8 +3101,6 @@
 			// CUBIC
 			var Cubic = Type.define({
 				pkg:'::Cubic',
-				constructor:Cubic = function Cubic(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3049,8 +3120,6 @@
 			// EXPO
 			var Expo = Type.define({
 				pkg:'::Expo',
-				constructor:Expo = function Expo(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3074,8 +3143,6 @@
 			// QUAD
 			var Quad = Type.define({
 				pkg:'::Quad',
-				constructor:Quad = function Quad(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3097,8 +3164,6 @@
 			// QUART
 			var Quart = Type.define({
 				pkg:'::Quart',
-				constructor:Quart = function Quart(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3120,8 +3185,6 @@
 			// QUINT
 			var Quint = Type.define({
 				pkg:'::Quint',
-				constructor:Quint = function Quint(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3143,8 +3206,6 @@
 			// SINE
 			var Sine = Type.define({
 				pkg:'::Sine',
-				constructor:Sine = function Sine(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function calculate(t, b, c, d){
@@ -3165,8 +3226,6 @@
 			// BOUNCE
 			var Bounce = Type.define({
 				pkg:'::Bounce',
-				constructor:Bounce = function Bounce(calc, s){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new Ease(function(t, b, c, d){
@@ -3294,8 +3353,6 @@
 			}
 			var Elastic = Type.define({
 				pkg:'::Elastic',
-				constructor:Elastic = function Elastic(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new ElasticEaseIn(),
@@ -3337,8 +3394,6 @@
 			}
 			var Back = Type.define({
 				pkg:'::Back',
-				constructor:Back = function Back(){
-				},
 				domain:Type.appdomain,
 				statics:{
 					easeIn:new BackEaseIn(),
@@ -3355,8 +3410,6 @@
 			var Custom = Type.define({
 				pkg:'::Custom',
 				domain:Type.appdomain,
-				constructor:Custom = function Custom(){
-				},
 				statics:{
 					func:function func(f){
 						return new Ease(f) ;
@@ -3366,8 +3419,8 @@
 			// PHYSICAL
 			var Physical = Type.define({
 				pkg:'physical::Physical',
-				inherits:Ease,
 				domain:Type.appdomain,
+				inherits:Ease,
 				statics:{
 					defaultFrameRate:60.0,
 					uniform:function(velocity, frameRate){
@@ -3932,4 +3985,3 @@
 
 	})})()
 ) ;
-
