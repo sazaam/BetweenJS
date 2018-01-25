@@ -51,7 +51,7 @@
 			OFF_TIME = 0,
 			TIME = NaN,
 			concat = function(p){;return
-				(BetweenJS.$.CSSPropertyMapper.isIE && p === undefined) ? [] : p },
+				(p === undefined) ? [] : p },
 			valueExists = function(o, val){return !!o ? o[val] : undefined },
 			cloneReplaceObject = function(o, ex, rewrite){
 				if(!!!o) return ;
@@ -1515,6 +1515,135 @@
 
 						return updater ;
 					},
+					treat:function(map, updaters, options){
+						
+						
+						var desc = 
+						{
+							'to':'dest',
+							'from':'source',
+							'cuepoints':'cuepoints'
+						} ;
+						
+						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+						var active = UpdaterFactory.getActiveUpdater ;
+
+						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
+						var action, name, value, parent, child, updater, cp, i, l ;
+
+						var updater = active(map, updaters, options) ;
+						updater.cache = {} ;
+						
+						
+						
+						for(var mode in desc){
+							
+							var type = desc[mode] ;
+							var o = options[mode] ;
+							
+							if(!!!o) continue ;
+							
+							var target = options['target'],
+								source = options['from'],
+								dest = options['to'],
+								cuepoints = options['cuepoints'],
+								ease = options['ease'],
+								time = options['time'] ;
+							
+							action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
+							
+							
+							for (var name in o) {
+								
+								var customs = BetweenJS.$.PropertyMapper.Customs ;
+								
+								for(var check in customs){
+									var reg = new RegExp(check, 'i') ;
+									
+									if(reg.test(name)){
+										var r = customs[check](updater, o, name, o[name]) ;
+										delete o[name] ;
+										name = r.name ;
+										o[name] = r.value ;
+										break ;
+									}
+								}
+								
+								
+								// BEZIER CASE
+								if(type == 'cuepoints'){
+									
+									if (typeof(value = cuepoints[name]) == 'number') {
+										value = [value] ;
+									}
+									if (value.constructor == Array) {
+										cp = value ;
+										l = cp.length ;
+										for (i = 0 ; i < l ; ++i) {
+											updater.addCuePoint(name, cp[i]) ;
+										}
+									} else {
+										if (map[name] !== true) {
+											parent = updater ;
+											
+											var childOptions = {
+												'target' : parent.getInObject(name),
+												'to' : valueExists(options['to'], name),
+												'from' : valueExists(options['from'], name),
+												'ease' : ease,
+												'time' : time
+											}
+											
+											child = UpdaterFactory.create(childOptions) ;
+											
+											updaters.push(new UpdaterProxy(parent, child, name)) ;
+											map[name] = true ;
+										}
+									}
+									
+								}else{
+									
+									value = o[name] ;
+									
+									// REGULAR CASE
+									// WHEN PROVIDED VALUE IS NUMBER
+									if (typeof(value) == "number") {
+										
+										parent = updater ;
+										parent[action](name, parseFloat(value)) ;
+										
+									} else {
+										
+										// WHEN OBJECTS ARE PASSED IN
+										// je veux pas le resetter car il existerai deja le updater
+										var isInDest = (type == 'dest' && !(source && name in source))
+										
+										if (type == 'source' || isInDest) {
+											
+											parent = updater ;
+											
+											var childOptions = {
+												'target' : parent.getInObject(name),
+												'to' : valueExists(options['to'], name), // FROM DEST CASE
+												'from' : valueExists(options['from'], name),  // FROM DEST CASE
+												'ease' : ease,
+												'time' : time
+											}
+											
+											child = UpdaterFactory.create(childOptions) ;
+											var proxy = new UpdaterProxy(parent, child, name) ;
+											updaters.push(proxy) ;
+										}
+									}
+								}
+							}
+							
+							options[mode] = o ;
+						}
+						
+						
+						return options ;
+					},
 					create:function(options){
 						var BulkUpdater = BetweenJS.$.BulkUpdater,
 							map, updaters, updater, l, source, dest, cuepoints,
@@ -1523,7 +1652,7 @@
 						map = r.map,
 						updaters = r.updaters ;
 						
-						Mapper.treat(map, updaters, options) ;
+						this.treat(map, updaters, options) ;
 						
 						l = updaters.length ;
 						
@@ -1764,10 +1893,10 @@
 						this.relativeMap['cp.' + name + '.' + cuepoints.length] = isRelative ;
 					},
 					getInObject:function(name){
-						return Mapper.getIn(this, name) ;
+						return BetweenJS.$.PropertyMapper.getIn(this, name) ;
 					},
 					setInObject:function(name, value){
-						Mapper.setIn(this, name, value) ;
+						BetweenJS.$.PropertyMapper.setIn(this, name, value) ;
 					},
 					physicalTimeEval:function(){
 						if (this.isResolved === false) {
@@ -1956,12 +2085,6 @@
 						}
 						return ret ;
 					},
-					getInObject:function(name){
-						return Mapper.getIn(this, name) ;
-					},
-					setInObject:function(name, val){
-						return Mapper.setIn(this, name, value) ;
-					},
 					getUpdaterAt:function(index){
 						switch(index){
 							case 0 :
@@ -2031,323 +2154,185 @@
 
 			}) ;
 			
-			
-			var Mapper = Type.define({
-				pkg:'::Mapper',
-				domain:BetweenJSCore,
-				statics:{
-					treat:function(map, updaters, options){
-						
-						
-						(function(){
+			// CORE.MAPPING
+			Pkg.write('mapping', function(path){
+				
+				var PropertyMapper = Type.define({
+					pkg:'::PropertyMapper',
+					domain:BetweenJSCore,
+					statics:{
+						getIn:function(up, name){
+							return up.cache[name].getMethod.apply(up, [up.target, name]) ;
+						},
+						setIn:function(up, name, value){
+							up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
+						},
+						Customs:{
+							'(background|color)$':function(up, obj, name, val){
 							
-							
-							
-							var desc = 
-							{
-								'to':'dest',
-								'from':'source',
-								'cuepoints':'cuepoints'
-							} ;
-							
-							var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
-							var active = UpdaterFactory.getActiveUpdater ;
-
-							var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
-							var action, name, value, parent, child, updater, cp, i, l ;
-
-							var updater = active(map, updaters, options) ;
-							updater.cache = {} ;
-							
-							
-							
-							for(var mode in desc){
+								var CSS = BetweenJS.$.PropertyMapper ;
 								
-								var type = desc[mode] ;
-								var o = options[mode] ;
+								name = name == 'background' ? name + '-color' : name ;
 								
-								if(!!!o) continue ;
+								val = BetweenJS.$.Color.toColorObj(val) ;
 								
-								var target = options['target'],
-									source = options['from'],
-									dest = options['to'],
-									cuepoints = options['cuepoints'],
-									ease = options['ease'],
-									time = options['time'] ;
-								
-								action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
-								
-								
-								for (var name in o) {
-									
-									var customs = BetweenJS.$.CSSMapper.CSSCustoms ;
-									
-									for(var check in customs){
-										var reg = new RegExp(check, 'i') ;
-										
-										if(reg.test(name)){
-											var r = customs[check](updater, o, name, o[name]) ;
-											delete o[name] ;
-											name = r.name ;
-											o[name] = r.value ;
-											break ;
+								if(!up.cache[name]){
+									up.cache[name] = {
+										getMethod:function(tg, n){
+											return CSS.colorGet(tg, n) ;
+										},
+										setMethod:function(tg, n, v){
+											return CSS.colorSet(tg, n, v) ;
 										}
 									}
-									
-									
-									
-									// BEZIER CASE
-									if(type == 'cuepoints'){
-										
-										if (typeof(value = cuepoints[name]) == 'number') {
-											value = [value] ;
-										}
-										if (value.constructor == Array) {
-											cp = value ;
-											l = cp.length ;
-											for (i = 0 ; i < l ; ++i) {
-												active(map, updaters, options).addCuePoint(name, cp[i]) ;
-											}
-										} else {
-											if (map[name] !== true) {
-												parent = active(map, updaters, options) ;
-												
-												var childOptions = {
-													'target' : parent.getInObject(name),
-													'to' : valueExists(options['to'], name),
-													'from' : valueExists(options['from'], name),
-													'ease' : ease,
-													'time' : time
-												}
-												
-												child = UpdaterFactory.create(childOptions) ;
-												
-												updaters.push(new UpdaterProxy(parent, child, name)) ;
-												map[name] = true ;
-											}
-										}
-										
-									}else{
-										
-										value = o[name] ;
-										
-										// REGULAR CASE
-										// WHEN PROVIDED VALUE IS NUMBER
-										if (typeof(value) == "number") {
-											
-											parent = active(map, updaters, options) ;
-											parent[action](name, parseFloat(value)) ;
-											
-										} else {
-											
-											// WHEN OBJECTS ARE PASSED IN
-											// je veux pas le resetter car il existerai deja le updater
-											var isInDest = (type == 'dest' && !(source && name in source))
-											
-											if (type == 'source' || isInDest) {
-												
-												parent = active(map, updaters, options) ;
-												
-												var childOptions = {
-													'target' : parent.getInObject(name),
-													'to' : valueExists(options['to'], name), // FROM DEST CASE
-													'from' : valueExists(options['from'], name),  // FROM DEST CASE
-													'ease' : ease,
-													'time' : time
-												}
-												
-												child = UpdaterFactory.create(childOptions) ;
-												var proxy = new UpdaterProxy(parent, child, name) ;
-												updaters.push(proxy) ;
-											}
-										}
-									}
-									
 								}
 								
-								options[mode] = o ;
+								return {
+									value:val,
+									name:name
+								} ;
+							},
+							'(.*)$':function(up, obj, name, val){
+								
+								var CSS = BetweenJS.$.PropertyMapper ;
+								
+								var units = CSS.checkForUnits(up, obj, name, val) ;
+								
+								name = units.name ;
+								val = units.value ;
+								name = CSS.replaceCapitalToDash(name) ;
+								
+								var unit = units.unit ;
+								
+								if(!up.cache[name]){
+									up.cache[name] = {
+										getMethod:function(tg, n){
+											return CSS.simpleGet(tg, n, unit) ;
+										},
+										setMethod:function(tg, n, v){
+											return CSS.simpleSet(tg, n, v, unit) ;
+										}
+									}
+								}
+								
+								return {
+									value:val,
+									name:name
+								} ;
 							}
-						})() ;
-						
-						
-						return options ;
-					},
-					getIn:function(up, name){
-						return up.cache[name].getMethod.apply(up, [up.target, name]) ;
-					},
-					setIn:function(up, name, value){
-						up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
+						},
+						detectNameUnits:function(name){
+							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
+							var unit ;
+							var n = name.replace(nameunits_reg, function($1, $2){
+								unit = arguments[3] ;
+								return '' ;
+							}) ;
+							return {name:n, unit:unit} ;
+						},
+						detectValueUnits:function(value){
+							
+							if(typeof(value) != 'string') return {unit : ''} ;
+							
+							var valueunits_reg = /(px|em|pc|pt|%)$/i ;
+							var unit ;
+							
+							value = value.replace(valueunits_reg, function($1, $2){
+								unit = arguments[0] ;
+								return '' ;
+							}) ;
+							
+							return {unit:unit, value:parseFloat(value)} ;
+						},
+						checkForUnits:function(updater, props, name, val){
+							var unit, 
+								value = val ;
+							var nameunits = this.detectNameUnits(name) ;
+							var valueunits = this.detectValueUnits(value) ;
+							
+							unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
+							name = nameunits.name || name ;
+							value = valueunits.value || value ;
+							
+							return {unit:unit, name:name, value:value} ;
+						},
+						replaceCapitalToDash:function(name){
+							return name.replace(/[A-Z](?=[a-z])/g, function($1){
+								return '-' + $1.toLowerCase() ;
+							}) ;
+						},
+						getStyle:function(tg, name){
+							var val = '' ;
+							if(window.getComputedStyle){
+								var shortreg = /(border)(width|color)/gi ;
+								(shortreg.test(name) && (name = name.replace(shortreg, '$1Top$2'))) ;
+								val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
+							
+							}else if(tg.currentStyle){
+								try{
+									val = name == 'background-color' ? tg.currentStyle[name] : this.cssHackGet(tg, name) ;
+								}catch(e){}
+							}
+							return val ;
+						},
+						setStyle:function(tg, name, val){
+							tg['style'][name] = val ;
+						},
+						cssHackGet:function(el, name){
+							if (el.currentStyle) {
+								if (/backgroundcolor/i.test(name)) {
+								  return (function (elm) { // get a rgb based color on IE
+									var oRG = document.body.createTextRange() ;
+									oRG.moveToElementText(elm) ;
+									var iClr = oRG.queryCommandValue("BackColor") ;
+									  return "rgb(" + (iClr & 0xFF) + "," + ((iClr & 0xFF00) >> 8) + "," + ((iClr & 0xFF0000) >> 16) + ")" ;
+								  })(el) ;
+								}
+								return el.currentStyle[name] ;
+							}
+						},
+						colorGet:function(target, pname){
+							var Color = BetweenJS.$.Color ;
+							return Color.toColorObj(this.getStyle(target, pname)) ;
+						},
+						colorSet:function(target, pname, val){
+							var Color = BetweenJS.$.Color ;
+							this.setStyle(target, pname, Color.toColorString(val)) ;
+						},
+						simpleGet:function(tg, n, unit){
+							if(this.isDOM(tg))
+								return this.simpleDOMGet(tg, n, unit || 'px') ;
+							var str = String(tg[n]) ;
+							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+						},
+						simpleSet:function(tg, n, v, unit){
+							if(this.isDOM(tg))
+								return this.simpleDOMSet(tg, n, v, unit || 'px') ;
+							tg[n] = unit == '' ? v : v + unit ;
+						},
+						simpleDOMGet:function(tg, n, unit){
+							var str = this.getStyle(tg, n) ;
+							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+						},
+						simpleDOMSet:function(tg, n, v, unit){
+							this.setStyle(tg, n, v + unit) ;
+						},
+						isDOM:function(tg){
+							var ctor = tg.constructor ;
+							switch(true){
+								case ctor === undefined : // IE 7-
+								case (/HTML[a-zA-Z]*Element/.test(ctor)) :
+									return true ;
+								break ;
+							}
+							return false ;
+						}
 					}
-				}
+					
+				}) ;
+				
 			}) ;
 			
-		}) ;
-		
-		var CSSMapper = Type.define({
-			pkg:'::CSSMapper',
-			domain:BetweenJSCore,
-			statics:{
-				CSSCustoms:{
-					'(background|color)$':function(up, obj, name, val){
-					
-						var CSS = BetweenJS.$.CSSMapper ;
-						
-						name = name == 'background' ? name + '-color' : name ;
-						
-						val = BetweenJS.$.Color.toColorObj(val) ;
-						
-						if(!up.cache[name]){
-							up.cache[name] = {
-								getMethod:function(tg, n){
-									return CSS.colorGet(tg, n) ;
-								},
-								setMethod:function(tg, n, v){
-									return CSS.colorSet(tg, n, v) ;
-								}
-							}
-						}
-						
-						return {
-							value:val,
-							name:name
-						} ;
-					},
-					'(.*)$':function(up, obj, name, val){
-						
-						var CSS = BetweenJS.$.CSSMapper ;
-						
-						var units = CSS.checkForUnits(up, obj, name, val) ;
-						
-						name = units.name ;
-						val = units.value ;
-						name = CSS.replaceCapitalToDash(name) ;
-						
-						var unit = units.unit ;
-						
-						if(!up.cache[name]){
-							up.cache[name] = {
-								getMethod:function(tg, n){
-									return CSS.simpleGet(tg, n, unit) ;
-								},
-								setMethod:function(tg, n, v){
-									return CSS.simpleSet(tg, n, v, unit) ;
-								}
-							}
-						}
-						
-						return {
-							value:val,
-							name:name
-						} ;
-					}
-				},
-				detectNameUnits:function(name){
-					var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
-					var unit ;
-					var n = name.replace(nameunits_reg, function($1, $2){
-						unit = arguments[3] ;
-						return '' ;
-					}) ;
-					return {name:n, unit:unit} ;
-				},
-				detectValueUnits:function(value){
-					
-					if(typeof(value) != 'string') return {unit : ''} ;
-					
-					var valueunits_reg = /(px|em|pc|pt|%)$/i ;
-					var unit ;
-					
-					value = value.replace(valueunits_reg, function($1, $2){
-						unit = arguments[0] ;
-						return '' ;
-					}) ;
-					
-					return {unit:unit, value:parseFloat(value)} ;
-				},
-				checkForUnits:function(updater, props, name, val){
-					var unit, 
-						value = val ;
-					var nameunits = this.detectNameUnits(name) ;
-					var valueunits = this.detectValueUnits(value) ;
-					
-					unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
-					name = nameunits.name || name ;
-					value = valueunits.value || value ;
-					
-					return {unit:unit, name:name, value:value} ;
-				},
-				replaceCapitalToDash:function(name){
-					return name.replace(/[A-Z](?=[a-z])/g, function($1){
-						return '-' + $1.toLowerCase() ;
-					}) ;
-				},
-				isDOM:function(tg){
-					var ctor = tg.constructor ;
-					switch(true){
-						case ctor === undefined : // IE 7-
-						case (/HTML[a-zA-Z]*Element/.test(ctor)) :
-							return true ;
-						break ;
-					}
-					return false ;
-				},
-				getStyle:function(tg, name){
-					var val = '' ;
-					if(window.getComputedStyle){
-						var shortreg = /(border)(width|color)/gi ;
-						(shortreg.test(name) && (name = name.replace(shortreg, '$1Top$2'))) ;
-						val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
-					
-					}else if(tg.currentStyle){
-						try{
-							val = name == 'background-color' ? tg.currentStyle[name] : this.cssHackGet(tg, name) ;
-						}catch(e){}
-					}
-					return val ;
-				},
-				setStyle:function(tg, name, val){
-					tg['style'][name] = val ;
-				},
-				cssHackGet:function(el, name){
-					if (el.currentStyle) {
-						if (/backgroundcolor/i.test(name)) {
-						  return (function (elm) { // get a rgb based color on IE
-							var oRG = document.body.createTextRange() ;
-							oRG.moveToElementText(elm) ;
-							var iClr = oRG.queryCommandValue("BackColor") ;
-							  return "rgb(" + (iClr & 0xFF) + "," + ((iClr & 0xFF00) >> 8) + "," + ((iClr & 0xFF0000) >> 16) + ")" ;
-						  })(el) ;
-						}
-						return el.currentStyle[name] ;
-					}
-				},
-				colorGet:function(target, pname){
-					var Color = BetweenJS.$.Color ;
-					return Color.toColorObj(this.getStyle(target, pname)) ;
-				},
-				colorSet:function(target, pname, val){
-					var Color = BetweenJS.$.Color ;
-					this.setStyle(target, pname, Color.toColorString(val)) ;
-				},
-				simpleGet:function(tg, n, unit){
-					if(this.isDOM(tg))
-						return this.simpleDOMGet(tg, n, unit || 'px') ;
-					var str = String(tg[n]) ;
-					return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
- 				},
-				simpleSet:function(tg, n, v, unit){
-					if(this.isDOM(tg))
-						return this.simpleDOMSet(tg, n, v, unit || 'px') ;
-					tg[n] = unit == '' ? v : v + unit ;
-				},
-				simpleDOMGet:function(tg, n, unit){
-					var str = this.getStyle(tg, n) ;
-					return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
-				},
-				simpleDOMSet:function(tg, n, v, unit){
-					this.setStyle(tg, n, v + unit) ;
-				}
-			}
 		}) ;
 		
 		// BETWEENJS MAIN CLASS
