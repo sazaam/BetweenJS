@@ -9,13 +9,15 @@
  * Highly Inspired by Yossi (up to the name)
  * yossi(at)be-interactive.org
  *
- * authored under Spark Project License
+ * authored under same license as the rest of Spark Project
+ * MIT License
  *
  * by saz aka True
  * sazaam[(at)gmail.com]
  * 2011-2012
  *
  */
+ "use strict";
 (function(name, definition){
 
 	if ('function' === typeof define){ // AMD
@@ -35,52 +37,24 @@
 
 	return Pkg.write('org.libspark.betweenjs', function(path){
 		var BetweenJSCore = {} ;
-		var getNow = function(){
-				if('performance' in window) {
-					return ('now' in window.performance) ? performance.now() : new Date().getTime() ;
-				}
-				return new Date().getTime() ;
-			},
-			getTimer = function(){
-				return getNow() - liveTime ;
-			} ;
-
+		var getNow = function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
+			getTimer = function(){ return getNow() - liveTime },
+			concat = function(p){ return (p === undefined) ? [] : p },
+			valueExists = function(o, val){ return !!o ? o[val] : undefined } ;
+			
 		var liveTime = getNow(),
 			OFF_TIME = 0,
 			TIME = NaN,
 			SIM_EPSILON = 'EPSILON' in Number ? Number.EPSILON : .005,
 			simulationTimestep = 1000 / 60,
-			concat = function(p){;return
-				(p === undefined) ? [] : p },
-			valueExists = function(o, val){return !!o ? o[val] : undefined },
-			cloneReplaceObject = function(o, ex, rewrite){
-				if(!!!o) return ;
-				var p = !!rewrite ? o : {} ;
-				ex = ex || {} ;
-				for(var s in o){
-					if(!(s in ex)){
-						p[s] = o[s] ;
-					}else{
-						if(!!ex[s]){
-							p[s] = ex[s] ;
-						}else{
-
-						}
-					}
-				}
-				return p ;
-			},
 			cacheInterval = {}, cacheTimeout = {},
 			units_reg = /(px|em|pc|pt|%)$/,
 			relative_reg =/^\$/ ;
+			
 
-
-		// REQUESTANIMATIONFRAME
 		(function () {
-			var lastTime = getTimer(),
-				now,
-				timeout,
-				vendors = ['ms', 'moz', 'webkit', 'o'];
+			// REQUEST / CANCEL ANIMATIONFRAME
+			var lastTime = getTimer(), now, timeout, vendors = ['ms', 'moz', 'webkit', 'o'] ;
 
 			if (!window.requestAnimationFrame)
 				for (var x = 0; x < vendors.length; ++x) {
@@ -89,14 +63,14 @@
 				}
 			requestAnimationFrame = window.requestAnimationFrame || function (callback) {
 				now = getNow() ;
-				timeout = Math.max(0, simulationTimestep - (now - lastTime));
-				lastTime = now + timeout;
+				timeout = Math.max(0, simulationTimestep - (now - lastTime)) ;
+				lastTime = now + timeout ;
 				return setTimeout(function () {
-					callback(now + timeout);
-				}, timeout);
+					callback(now + timeout) ;
+				}, timeout) ;
 			};
 
-			cancelAnimationFrame = window.cancelAnimationFrame || clearTimeout;
+			cancelAnimationFrame = window.cancelAnimationFrame || clearTimeout ;
 		})();
 
 		// BETWEENJS CORE
@@ -153,7 +127,6 @@
 							return new Animation(func) ;
 						},
 						func:function(timestamp){
-
 							var loops = this.loops ;
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
@@ -1563,7 +1536,9 @@
 
 						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
 						var action, name, value, parent, child, updater, cp, i, l ;
-
+						
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						
 						var updater = active(map, updaters, options) ;
 						updater.cache = {} ;
 						
@@ -1577,24 +1552,8 @@
 							
 							for (var name in o) {
 								
-								var customs = BetweenJS.$.PropertyMapper.Customs ;
-								var ll = customs.length ;
-								for(; ll > 0 ;){
-									
-									
-									var custom = customs[--ll] ;
-									for(var check in custom){
-										var reg = new RegExp(check, 'i') ;
-										
-										if(reg.test(name)){
-											var r = custom[check](updater, o, name, o[name], type) ;
-											delete o[name] ;
-											name = r.name ;
-											o[name] = r.value ;
-											break ;
-										}
-									}
-								}
+								PropertyMapper.treat(updater, name, o, type) ;
+								
 							}
 						}
 						
@@ -1747,6 +1706,7 @@
 					physicalTime:0.0,
 					position:0.0,
 					isResolved:false,
+					units:{},
 					constructor:Updater = function Updater(){
 						Updater.base.call(this) ;
 						
@@ -1802,7 +1762,11 @@
 						var factor = 0.0 ;
 
 						if(position > factor){
-							factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
+							if(this.isPhysical){
+								factor = this.position / this.time ;
+							}else{
+								factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
+							}
 						}
 						
 						this.factor = Math.round(factor * 100) / 100 ;
@@ -1815,7 +1779,7 @@
 						this.position = position ;
 					},
 					update:function(position){
-
+						
 						if (this.isResolved === false) {
 							this.resolveValues() ;
 							this.isResolved = true ;
@@ -1860,26 +1824,15 @@
 								}else{
 									val = a * invert + b * factor ;
 								}
+								
 							}else{
-
-								if(this.isPhysical){
-									if (position >= dur[name]) {
-										factor = 1.0 ;
-										invert = 1.0 - factor ;
-									} else if(position <= 0.0){
-										factor = 0.0 ;
-										invert = 1.0 - factor ;
-									}else {
-										factor = e.calculate(position, a, b - a) / b ;
-										invert = 1.0 - factor ;
-									}
-								}
 
 								if (factor != 1.0 && !!(cpVec = this.cuepoints[name])) {
 									l = cpVec.length ;
 									if (l == 1) {
 										val = a + factor * (2 * invert * (cpVec[0] - a) + factor * (b - a)) ;
 									} else {
+										
 										if (factor < 0.0)
 											ip = 0 ;
 										else if (factor > 1.0)
@@ -1905,7 +1858,6 @@
 									val = a * invert + b * factor ;
 								}
 							}
-							
 							
 							this.setInObject(name, val) ;
 						}
@@ -1977,6 +1929,7 @@
 							if(this.isPhysical){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
+								
 								if (maxDuration < duration) {
 									maxDuration = duration ;
 								}
@@ -1984,24 +1937,49 @@
 						}
 
 						var cuepoints = this.cuepoints, cpVec, l, i ;
+						
 						for (key in cuepoints) {
+							
+							if (!(key in source)) {
+								source[key] = this.getInObject(key) ;
+							}
+							
+							if (!(key in dest)) {
+								dest[key] = this.getInObject(key) ;
+							}
+							
+							var first = source[key] ;
+							var last = dest[key] ;
+							
 							cpVec = cuepoints[key] ;
 							l = cpVec.length ;
+							var cur ;
+							var cpduration = 0 ;
 							for (i = 0 ; i < l ; ++i) {
+								
+								var prev = cur || first ;
+								
 								if (rMap['cp.' + key + '.' + i]) {
-									var ss = cpVec[i] ;
-									cpVec[i] += this.getInObject(key) ;
-									var sss = cpVec[i] ;
-
-									if(this.isPhysical){
-										duration = this.ease.getDuration(ss, ss < sss ? sss - ss : ss - sss  ) ;
-										maxDuration += duration ;
+									(cpVec[i] += this.getInObject(key)) ;
+								}
+								
+								cur = cpVec[i] ;
+								
+								if(this.isPhysical){
+									cpduration += this.ease.getDuration(prev, cur > prev ? cur - prev : prev - cur) ;
+									if(cpVec[i+1] === undefined){
+										cpduration += this.ease.getDuration(cur, last > cur ? last - cur : cur - last) ;
 									}
-
+									
+								}
+							}
+							if(this.isPhysical){
+								d[key] = cpduration ;
+								if (maxDuration < cpduration) {
+									maxDuration = cpduration ;
 								}
 							}
 						}
-
 						if(this.isPhysical){
 							this.maxDuration = maxDuration ;
 							this.time = this.maxDuration ;
@@ -2234,42 +2212,36 @@
 						setIn:function(up, name, value){
 							up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
 						},
-						Customs:[{
-							'(background|color)$':function(up, obj, name, val){
-							
-								var CSS = BetweenJS.$.PropertyMapper ;
-								
-								name = name == 'background' ? name + '-color' : name ;
-								
-								val = BetweenJS.$.Color.toColorObj(val) ;
-								
-								if(!up.cache[name]){
-									up.cache[name] = {
-										getMethod:function(tg, n){
-											return CSS.colorGet(tg, n) ;
-										},
-										setMethod:function(tg, n, v){
-											return CSS.colorSet(tg, n, v) ;
-										}
+						treat:function(up, name, o, type){
+							var customs = this.Customs ;
+							var ll = customs.length ;
+							for(; ll > 0 ;){
+								var custom = customs[--ll] ;
+								for(var check in custom){
+									var reg = new RegExp(check, 'i') ;
+									
+									if(reg.test(name)){
+										var r = custom[check](up, o, name, o[name], type) ;
+										delete o[name] ;
+										name = r.name ;
+										o[name] = r.value ;
+										// break ;
 									}
 								}
-								
-								return {
-									value:val,
-									name:name
-								} ;
-							},
+							}
+						},
+						Customs:[{
 							'(.*)$':function(up, obj, name, val, type){
 								var unit ;
-								var CSS = BetweenJS.$.PropertyMapper ;
 								
-								var units = CSS.checkForUnits(up, obj, name, val) ;
+								var units = PropertyMapper.checkForUnits(up, obj, name, val) ;
 								
 								name = units.name ;
 								val = units.value ;
-								unit = units.unit ;
 								
-								var relative = CSS.replaceRelative(name, up, type) ;
+								up.units[name] = units.unit ;
+								
+								var relative = PropertyMapper.replaceRelative(name, up, type) ;
 								var isRelative = relative.isRelative ;
 								name = relative.name ;
 								
@@ -2277,17 +2249,30 @@
 									up.relativeMap[type+'.' + name] = isRelative ;
 								}
 								
-								name = CSS.replaceCapitalToDash(name) ;
+								name = PropertyMapper.replaceCapitalToDash(name) ;
 								
-								if(!up.cache[name]){
-									up.cache[name] = {
-										getMethod:function(tg, n){
-											return CSS.simpleGet(tg, n, unit) ;
-										},
-										setMethod:function(tg, n, v){
-											return CSS.simpleSet(tg, n, v, unit) ;
-										}
-									}
+								var map = PropertyMapper.mapMethods['default'] ;
+								
+								if(!up.cache[name] || up.cache[name] != map){
+									up.cache[name] = map ;
+								}
+								
+								return {
+									value:val,
+									name:name
+								} ;
+							},
+							'(background|color)$':function(up, obj, name, val){
+								
+								name = name == 'background' ? name + '-color' : name ;
+								// name = PropertyMapper.replaceCapitalToDash(name) ;
+								
+								val = BetweenJS.$.Color.toColorObj(val) ;
+								
+								var map = PropertyMapper.mapMethods['colors'] ;
+								
+								if(!up.cache[name] || up.cache[name] != map){
+									up.cache[name] = map ;
 								}
 								
 								return {
@@ -2296,6 +2281,24 @@
 								} ;
 							}
 						}],
+						mapMethods:{
+							'colors':{
+								getMethod:function(tg, n){
+									return PropertyMapper.colorGet(tg, n) ;
+								},
+								setMethod:function(tg, n, v){
+									return PropertyMapper.colorSet(tg, n, v) ;
+								}
+							},
+							'default':{
+								getMethod:function(tg, n){
+									return PropertyMapper.simpleGet(tg, n, this.units[n]) ;
+								},
+								setMethod:function(tg, n, v){
+									return PropertyMapper.simpleSet(tg, n, v, this.units[n]) ;
+								}
+							}
+						},
 						detectNameUnits:function(name){
 							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
 							var unit ;
