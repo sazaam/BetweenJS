@@ -353,7 +353,6 @@
 							l.nextListener = this.tickerListenerPaddings[n + 1] ;
 						}
 					}
-					
 				}) ;
 			})
 
@@ -519,51 +518,7 @@
 					*/
 					prepare:function(options){
 						// HERE I KNOW TIME FROM UPDATER & BULKLOADER ALREADY
-						// var updater = this.updater ;
-						
-						var BulkUpdater = BetweenJS.$.BulkUpdater ;
-						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
-						var supertime = 0 ;
-						
-						if(this.updater.isPhysical){
-							var f = function(updater,supertime){
-								var st = 0 ;
-								if(updater instanceof BulkUpdater){
-									
-									updater.bulkFunc(function(up){
-										var sss = f(up) ;
-										if(sss > st) {
-											st = sss ;
-										}else{
-											if(up.isPhysical){
-												up.time = st ;
-											}
-										}
-									}) ;
-									updater.time = st ;
-								}else if(updater instanceof UpdaterProxy){
-									if(updater.child.isPhysical){
-										updater.child.physicalTimeEval() ;
-										updater.setTime() ;
-										st = updater.time ;
-									}
-								}else{
-									if(updater.isPhysical){
-										updater.physicalTimeEval() ;
-										st = updater.time ;
-									}
-								}
-								return supertime > st ? supertime : st ;
-							}
-							
-							var tt = f(this.updater, supertime) ;
-							this.setTime(tt) ;
-						}else{
-							
-							this.setTime(this.updater.time) ;
-							
-						}
-						
+						this.setTime(this.updater.time) ;
 						return this ;
 					},
 					setUpdater:function(updater){
@@ -690,7 +645,6 @@
 						if (this.isPlaying) {
 
 							if (this.position >= this.time) {
-
 								if (!this.stopOnComplete) {
 									this.seek(0) ;
 								} else {
@@ -1543,7 +1497,7 @@
 				}) ;
 
 			}) ;
-
+			
 			// CORE.UPDATERS
 			Pkg.write('updaters', function(path){
 				// FACTORY
@@ -1551,6 +1505,7 @@
 					poolIndex:0,
 					mapPool:[],
 					listPool:[],
+					REQUIRED:'__REQUIRED__',
 					getActiveUpdater:function(map, updaters, options){
 						var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
 						var updater = map[upstr] ;
@@ -1558,153 +1513,196 @@
 						if (!!!updater) {
 							
 							updater = new (Pkg.definition(upstr))() ;
-							updater.setOptions(options) ;
-
+							
 							if (!!updaters) updaters.push(updater) ;
 							map[upstr] = updater ;
 						}
 
 						return updater ;
 					},
-					treat:function(map, updaters, options){
-						
-						var desc = 
-						{
-							'to':'dest',
-							'from':'source',
-							'cuepoints':'cuepoints'
-						} ;
-						
+					treatCuePoints:function(cp){
+						var l = cp.length ;
+						var nu = {} ;
+						for(var i = 0 ; i < l ; i ++){
+							var cpVec = cp[i] ;
+							for(var s in cpVec){
+								if(!(s in nu)){
+									nu[s] = [] ;
+								}
+								nu[s][i] = cp[i][s] ;
+							}
+						}
+						return nu ;
+					},
+					checkCustomMapper:function(updater, typename, type, name){
 						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
-						var active = UpdaterFactory.getActiveUpdater ;
-
-						var UpdaterProxy = BetweenJS.$.UpdaterProxy ;
-						var action, name, value, parent, child, updater, cp, i, l ;
+						var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
+						var val = type[name] ;
+						var i, l, s, j, ll, custom, pattern ;
 						
-						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						var customs = CustomMappers ;
+						l = customs.length ;
 						
-						var updater = active(map, updaters, options) ;
+						
+						for(i = 0 ; i < l ; i ++){
+							custom = customs[i] ;
+							pattern = custom.pattern ;
+							
+							if(pattern.test(name)){
+								var tt = type[name] ;
+								delete type[name] ;
+								s = custom.check(updater, typename, type, name, tt) ;
+								name = s.name ;
+								type[name] = s.value ;
+								if(s.block) break ;
+							
+							}
+						}
+						return name ;
+					},
+					isofy:function(updater, props){
+						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+						var to = props['to'] ;
+						var fr = props['from'] ;
+						var cp = props['cuepoints'] ;
+						
+						var s, r ;
+						
+						var safeWriteIn = function(s, o){
+							if(!(s in o)) o[s] = UpdaterFactory.REQUIRED ;
+						}
+						
+						// cuepoints no need REQUIREDSTUFF to be written bur needs to write
+						if(!!cp){
+							for(s in cp){
+								s = UpdaterFactory.checkCustomMapper(updater, 'cuepoints', cp, s) ;
+								safeWriteIn(s, to) ;
+								safeWriteIn(s, fr) ;
+							}
+						}
+						
+						// Write back SOURCE from DEST
+						for(s in to){
+							s = UpdaterFactory.checkCustomMapper(updater, 'to', to, s) ;
+							safeWriteIn(s, fr) ;
+						}
+						
+						// Write back DEST from SOURCE
+						for(s in fr){
+							s = UpdaterFactory.checkCustomMapper(updater, 'fr', fr, s) ;
+							safeWriteIn(s, to) ;
+						}
+						
+						if(!props['from']) props['from'] = fr ;
+						if(!props['to']) props['to'] = to ;
+						
+						return props ;
+					},
+					treat:function(map, updaters, options){
+						var updater = UpdaterFactory.getActiveUpdater(map, updaters, options) ;
+						
 						updater.cache = {} ;
 						
+						var parent, child ;
 						
-						for(var mode in desc){
-							
-							var type = desc[mode] ;
-							var o = options[mode] ;
-							
-							if(!!!o) continue ;
-							
-							for (var name in o) {
-								PropertyMapper.treat(updater, name, o, type) ;
-							}
+						var desc = {
+							'to':options['to'] || {},
+							'from':options['from'] || {},
+							'cuepoints':options['cuepoints']
 						}
 						
-						for(var mode in desc){
+						var ease = options['ease'] ;
+						var time = options['time'] ;
+						var target = options['target'] ;
+						
+						desc = this.isofy(updater, desc) ;
+						
+						
+						updater.isPhysical = ease instanceof Physical ;
+						updater.target = target ;
+						updater.time = time ;
+						updater.ease = ease ;
+						updater.userData = desc ;
+						
+						
+						
+						for(var type in desc){
 							
-							var type = desc[mode] ;
-							var o = options[mode] ;
+							var o = desc[type] ;
 							
 							if(!!!o) continue ;
 							
-							var target = options['target'],
-								source = options['from'],
-								dest = options['to'],
-								cuepoints = options['cuepoints'],
-								ease = options['ease'],
-								time = options['time'] ;
+							var target = target,
+								source = desc['from'],
+								dest = desc['to'],
+								cuepoints = desc['cuepoints'],
+								ease = ease,
+								time = time,
+								value, cp,
+								action ;
 							
-							action = type == 'source' ? 'setSourceValue' : 'setDestinationValue' ;
-							
-							
-							for (var name in o) {
-								
-								if(type == 'cuepoints'){
-									value = cuepoints[name] ;
+							switch(type){
+								case 'to' :			// TO
+								case 'from' :		// FROM
+									action = type == 'to' ? 'setDestinationValue' : 'setSourceValue' ;
 									
-									if (typeof (value) == 'number') { // number
-										value = [value] ;
-									}
-									if (value.constructor == Array) { // array
+									for (var name in o) {
 										
-										cp = value ;
-										var test = cp[0] ;
-										if(typeof test == 'number'){
-											l = cp.length ;
-											for (i = 0 ; i < l ; ++i) {
-												updater.addCuePoint(name, cp[i]) ;
-											}
-										}else{
-											if(!map[name]){
+										value = o[name] ;
+										
+										if(value == UpdaterFactory.REQUIRED){
+											updater[action](name, UpdaterFactory.REQUIRED) ;
+										}else if (typeof value == "number") {
+											updater[action](name, parseFloat(value)) ;
+										} else{
+											
+											if (type == 'to') {
+												var cps = desc['cuepoints'] ;
 												
-												parent = updater ;
+												if(!!cps && name in cps){
+													cp = this.treatCuePoints(cps[name]) ;
+													delete cps[name] ;
+												}
 												
 												var childOptions = {
-													'target' : parent.getInObject(name),
-													'to' : parent.getInObject(name),
-													'from' : parent.getInObject(name),
-													'cuepoints':cuepoints[name],
+													'target' : updater.getIn(name),
+													'to' : desc['to'][name],
+													'from' : desc['from'][name],
+													'cuepoints' : cp,
 													'ease' : ease,
 													'time' : time
 												}
 												
-												child = UpdaterFactory.create(childOptions) ;
-												var proxy = new UpdaterProxy(parent, child, name) ;
+												child = UpdaterFactory.make(childOptions) ;
+												var proxy = new UpdaterProxy(updater, child, name) ;
 												updaters.push(proxy) ;
-												map[name] = proxy ;
 											}
-											
-										}
-										
-									} else { // object
-										for(var s in value){
-											updater.addCuePoint(s, value[s]) ;
 										}
 									}
-									
-								}else{
-									
-									value = o[name] ;
-									
-									if (typeof(value) == "number") {
-										
-										parent = updater ;
-										parent[action](name, parseFloat(value)) ;
-										
-									} else {
-										
-										var isInDest = (type == 'dest' && !(source && name in source))
-										
-										if (type == 'source' || isInDest) {
-											if(!map[name]){
-												
-												parent = updater ;
-												
-												var childOptions = {
-													'target' : parent.getInObject(name),
-													'to' : valueExists(options['to'], name),
-													'from' : valueExists(options['from'], name),
-													'cuepoints':valueExists(options['cuepoints'], name),
-													'ease' : ease,
-													'time' : time
-												}
-												
-												child = UpdaterFactory.create(childOptions) ;
-												var proxy = new UpdaterProxy(parent, child, name) ;
-												updaters.push(proxy) ;
-												map[name] = proxy ;
-												
+								break ;
+								default : // type is Cuepoints
+									action = 'addCuePoint' ;
+									for (var name in o) {
+										value = cuepoints[name] ;
+										if (typeof value == 'number') {
+											value = [value] ;
+										}
+										if (value.constructor == Array) {
+											cp = value ;
+											var l = cp.length ;
+											for (var i = 0 ; i < l ; ++i) {
+												updater[action](name, cp[i]) ;
 											}
-											
-											
 										}
 									}
-								}
+								break ;
 							}
 						}
 						
-						return options ;
+						return desc ;
 					},
-					create:function(options){
+					make:function(options){
+						
 						var BulkUpdater = BetweenJS.$.BulkUpdater,
 							map, updaters, updater, l, source, dest, cuepoints,
 							r = this.registerUpdaters(map, updaters) ;
@@ -1725,7 +1723,14 @@
 								updater = new BulkUpdater(options['target'], updaters) ;
 								break;
 						}
+						
 						r = this.unregisterUpdaters(map, updaters) ;
+						return updater ;
+					},
+					create:function(options){
+						var updater = this.make(options) ;
+						if(updater.isPhysical) updater.resolve() ;
+						
 						return updater ;
 					},
 					registerUpdaters:function(map,updaters){
@@ -1765,7 +1770,6 @@
 					physicalTime:0.0,
 					position:0.0,
 					isResolved:false,
-					isPhysical:false,
 					units:{},
 					constructor:Updater = function Updater(){
 						Updater.base.call(this) ;
@@ -1782,73 +1786,40 @@
 						this.position = 0 ;
 						this.maxDuration = 0.0 ;
 					},
-					setOptions:function(options){
-						for(var name in options){
-							switch(name){
-								case 'target' :
-									this.setTarget(options['target']) ;
-									break;
-								case 'ease' :
-									this.setEase(options['ease']) ;
-									break;
-								case 'time' :
-									this.setTime(options['time']) ;
-									break;
-								//////////////// IGNORES
-								case 'to' :
-								case 'from' :
-								case 'cuepoints' :
-								case 'position' :
-								break;
-								//////////////// DEFAULT WRITING
-								default :
-									this[name] = options[name] ;
-							}
-						}
-						
-						return this ;
-					},
-					setTarget:function(target){
-						this.target = target ;
-					},
-					setEase:function(ease){
-						this.ease = ease ;
-						this.setPhysical() ;
-					},
-					setPhysical:function(){
-						this.isPhysical = this.ease instanceof Physical ;
-					},
 					setFactor:function(position){
+						
 						var factor = 0.0 ;
 						if(this.isPhysical){
-							factor = this.position / this.time ;
-							if(factor > 1.0) factor = 1.0;
+							if(position > factor){
+								factor = position / this.time ;
+							}
 						}else{
 							if(position > factor){
 								factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
-							}else{
-								factor = 1.0
 							}
 						}
-						
-						this.factor = Math.round(factor * 100) / 100 ;
+						if(factor > 1) factor = 1.0 ;
+						this.factor = factor ;
 						return this ;
 					},
 					setTime:function(time){
 						this.time = time ;
 					},
 					setPosition:function(position){
-						this.position = position ;
+						this.position = Math.round(position * 10000) / 10000 ;
+					},
+					resolve:function(time){
+						return this.resolveValues(time) ;
 					},
 					update:function(position){
-						
-						if (this.isResolved === false) {
-							this.resolveValues() ;
+						if(!this.isResolved){
+							this.resolve() ;
 							this.isResolved = true ;
 						}
-
+						
 						this.setPosition(position) ;
-						this.setFactor(position) ;
+						this.setFactor(this.position) ;
+						
 						this.updateObject() ;
 					},
 					updateObject:function(){
@@ -1872,19 +1843,19 @@
 							b = d[name] ;
 							
 							if(!!!cp[name]){
-								
-								if(this.isPhysical){
-									if (position >= dur[name]) {
-										val = b ;
-									} else if(position <= 0.0){
-										val = a ;
-									}else {
-										val = e.calculate(position, a, b - a) ;
-									}
-								}else{
-									val = a * invert + b * factor ;
-								}
-								
+								// if(this.isPhysical){
+
+									// if (position >= dur[name]) {
+										// val = b ;
+									// } else if(position <= 0.0){
+										// val = a ;
+									// }else {
+										// val = e.calculate(position, a, b - a) ;
+									// }
+								// }else{
+									// val = a * invert + b * factor ;
+								// }
+								val = a * invert + b * factor ;
 							}else{
 
 								if (factor != 1.0 && !!(cpVec = this.cuepoints[name])) {
@@ -1919,7 +1890,7 @@
 								}
 							}
 							
-							this.setInObject(name, val) ;
+							this.setIn(name, val) ;
 						}
 					},
 					setSourceValue:function(name, value){
@@ -1941,22 +1912,19 @@
 						var cuepoints = this.cuepoints[name] ;
 						if (cuepoints === undefined) this.cuepoints[name] = cuepoints = [] ;
 						cuepoints.push(value) ;
-						this.relativeMap['cp.' + name + '.' + cuepoints.length] = isRelative ;
+						this.relativeMap['cuepoints.' + name + '.' + cuepoints.length] = isRelative ;
 					},
-					getInObject:function(name){
-						return BetweenJS.$.PropertyMapper.getIn(this, name) ;
+					getIn:function(name){
+						return this.cache[name]['getMethod'](this.target, name) ;
 					},
-					setInObject:function(name, value){
-						BetweenJS.$.PropertyMapper.setIn(this, name, value) ;
+					setIn:function(name, value){
+						this.cache[name]['setMethod'](this.target, name, value) ;
 					},
-					physicalTimeEval:function(){
-						
-						if (this.isResolved === false) {
-							this.resolveValues() ;
-							this.isResolved = true ;
-						}
+					superResolve:function(time){
+						return this.resolveValues(time) ;
 					},
-					resolveValues:function(){
+					resolveValues:function(time){
+						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
 						var key,
 							target = this.target,
 							source = this.source,
@@ -1966,28 +1934,26 @@
 							duration,
 							maxDuration = 0.0 ;
 						
-						
 						for (key in source) {
-							
-							if (!(key in dest)) {
-								dest[key] = this.getInObject(key) ;
+							if (source[key] == UpdaterFactory.REQUIRED) {
+								source[key] = this.getIn(key) ;
 							}
 							if (rMap['source.' + key]) {
-								source[key] += this.getInObject(key) ;
+								source[key] += this.getIn(key) ;
 							}
 							
 						}
 						
 						for (key in dest) {
 							
-							if (!(key in source)) {
-								source[key] = this.getInObject(key) ;
+							if (dest[key] == UpdaterFactory.REQUIRED) {
+								dest[key] = this.getIn(key) ;
 							}
 							if (rMap['dest.' + key]) {
-								dest[key] += this.getInObject(key) ;
+								dest[key] += this.getIn(key) ;
 							}
 
-							if(this.isPhysical){
+							if(this.isPhysical && !time){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
 								
@@ -2001,14 +1967,6 @@
 						
 						for (key in cuepoints) {
 							
-							if (!(key in source)) {
-								source[key] = this.getInObject(key) ;
-							}
-							
-							if (!(key in dest)) {
-								dest[key] = this.getInObject(key) ;
-							}
-							
 							var first = source[key] ;
 							var last = dest[key] ;
 							
@@ -2020,34 +1978,35 @@
 								
 								var prev = cur || first ;
 								
-								if (rMap['cp.' + key + '.' + i]) {
+								if (rMap['cuepoints.' + key + '.' + i]) {
 									(cpVec[i] += this.getInObject(key)) ;
 								}
+								
 								cur = cpVec[i] ;
 								
-								if(this.isPhysical){
+								if(this.isPhysical && !time){
 									cpduration += this.ease.getDuration(prev, cur > prev ? cur - prev : prev - cur) ;
 									if(cpVec[i+1] === undefined){
 										cpduration += this.ease.getDuration(cur, last > cur ? last - cur : cur - last) ;
 									}
-									
 								}
 							}
-							if(this.isPhysical){
+							if(this.isPhysical && !time){
 								d[key] = cpduration ;
 								if (maxDuration < cpduration) {
 									maxDuration = cpduration ;
 								}
 							}
 						}
-						
-						trace('max:', maxDuration) ;
-						trace('time:', this.time) ;
-						
 						if(this.isPhysical){
+							
+							if(time) maxDuration = time ;
+							
 							this.maxDuration = maxDuration ;
 							this.time = this.maxDuration ;
 						}
+						
+						return this.time ;
 					},
 					newInstance:function(){
 						return new Updater() ;
@@ -2066,6 +2025,7 @@
 						Updater.factory.destroy.call(this) ;
 					}
 				}) ;
+				
 				var UpdaterProxy = Type.define({
 					pkg:'::UpdaterProxy',
 					domain:BetweenJSCore,
@@ -2074,27 +2034,42 @@
 					child:undefined,
 					propertyName:undefined,
 					time:NaN,
-					isPhysical:false,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
 						UpdaterProxy.base.call(this) ;
 
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
-						this.isPhysical = this.parent.isPhysical ;
-
+						
+						this.checkPhysical(this.child) ;
 					},
-					setTime:function(time){
-						var c = this.child.time ;
-						var p = this.parent.time ;
-
-						this.time = c > p ? c : p ;
-						this.child.setTime(this.time) ;
-						this.parent.setTime(this.time) ;
+					checkPhysical:function(el){
+						this.isPhysical = el.isPhysical ;
+						return el ;
+					},
+					resolve:function(time){
+						
+						var t = this.child.resolve(time) ;
+						var tt = this.parent.resolve(time) ;
+						var parentBigger = tt > t ;
+						var ttt = parentBigger ? tt : t ;
+						
+						if(parentBigger){
+							this.child.resolve(tt) ;
+							this.child.isResolved = true ;
+						}else if(tt != t){
+							this.parent.resolve(t) ;
+						}
+						
+						return this.time = ttt ;
+					},
+					superResolve:function(time){
+						
+						return this.resolve(time)  ;
 					},
 					update:function(position){
 						this.child.update(position) ;
-						this.parent.setInObject(this.propertyName, this.child.target) ;
+						this.parent.setIn(this.propertyName, this.child.target) ;
 					},
 					clone:function(source){
 						return new UpdaterProxy(this.parent, this.child, this.propertyName) ;
@@ -2113,18 +2088,37 @@
 					c:undefined,
 					d:undefined,
 					updaters:undefined,
-					time:1,
-					isPhysical:false,
-					checkUpdater:function(updater){
-						if(updater.isPhysical) this.isPhysical = true ;
-						// if(updater instanceof Updater){
-							// if(updater.isPhysical){
-								// updater.physicalTimeEval() ;
-							// }
-						// }else if(updater instanceof UpdaterProxy){
-							// updater.setTime() ;
-						// }
-						return updater ;
+					time:0,
+					resolve:function(){
+						
+						var time = this.time ;
+						
+						this.bulkFunc(function(updater){
+							var t = updater.resolve() ;
+							if(updater.isPhysical){
+								if(t > time) time = t ;
+							}
+						})
+						
+						this.time = time ;
+						return time ;
+					},
+					superResolve:function(){
+						
+						var bulk = this ;
+						this.bulkFunc(function(updater){
+							if(updater.isPhysical){
+								// updater.resolve(bulk.time) ;
+								// trace(updater)
+								updater.superResolve(bulk.time) ;
+							}
+						}) ;
+						return this.time ;
+					},
+					checkPhysical:function(el){
+						this.isPhysical = this.isPhysical || el.isPhysical ;
+						this.time = el.time > this.time ? el.time : this.time ;
+						return el ;
 					},
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
 						BulkUpdater.base.call(this) ;
@@ -2133,39 +2127,26 @@
 						this.length = updaters.length ;
 
 						var l = updaters.length, t, tar ;
-
-						var time = 0 ;
-
+						
 						if (l >= 1) {
-							this.a = this.checkUpdater(updaters[0]) ;
-							t = this.a.time ;
-							time = t > time ? t : time ;
+							this.a = this.checkPhysical(updaters[0]) ;
 							if (l >= 2) {
-								this.b = this.checkUpdater(updaters[1]) ;
-								t = this.b.time ;
-								time = t > time ? t : time ;
+								this.b = this.checkPhysical(updaters[1]) ;
 								if (l >= 3) {
-									this.c = this.checkUpdater(updaters[2]) ;
-									t = this.c.time ;
-									time = t > time ? t : time ;
+									this.c = this.checkPhysical(updaters[2]) ;
 									if (l >= 4) {
-										this.d = this.checkUpdater(updaters[3]) ;
-										t = this.d.time ;
-										time = t > time ? t : time ;
+										this.d = this.checkPhysical(updaters[3]) ;
 										if (l >= 5) {
 											this.updaters = new Array(l - 4) ;
 											for (var i = 4 ; i < l ; ++i) {
-												tar = this.updaters[i - 4] = this.checkUpdater(updaters[i]) ;
-												t = tar.time ;
-												time = t > time ? t : time ;
+												tar = this.updaters[i - 4] = this.checkPhysical(updaters[i]) ;
 											}
 										}
 									}
 								}
 							}
 						}
-
-						this.time = time ;
+						
 					},
 					bulkFunc:function(f){
 						var els = [] ;
@@ -2198,14 +2179,26 @@
 						}
 					},
 					update:function(position){
+						
+						if(!this.isResolved){
+							this.resolve() ;
+							
+							this.superResolve() ;
+							this.isResolved = true ;
+						}
+						
 						if (!!this.a) {
 							this.a.update(position) ;
+							
 							if (!!this.b) {
 								this.b.update(position) ;
+								
 								if (!!this.c) {
 									this.c.update(position) ;
+									
 									if (!!this.d) {
-										this.d.update(position);
+										this.d.update(position) ;
+										
 										if (!!this.updaters) {
 											var updaters = this.updaters ;
 											var l = updaters.length ;
@@ -2217,7 +2210,6 @@
 								}
 							}
 						}
-
 					},
 					clone:function(source){
 						var updaters = [] ;
@@ -2266,146 +2258,140 @@
 						BulkUpdater.factory.destroy.call(this) ;
 					}
 				}) ;
-
 			}) ;
 			
+	
 			// CORE.MAPPING
 			Pkg.write('mapping', function(path){
-				
+				var CustomMapper = Type.define({
+					pkg:'::CustomMapper',
+					statics:{
+						ALL:/(.*)$/
+					},
+					constructor:CustomMapper = function CustomMapper(pattern, methods){
+						this.pattern = pattern || CustomMapper.ALL ;
+						
+						this.parseMethod = methods['parseMethod'] ;
+						this.getMethod = methods['getMethod'] ;
+						this.setMethod = methods['setMethod'] ;
+						
+					},
+					check:function(updater, typename, type, name, val){
+						var val = type[name] || val ;
+						var units ;
+						var m ;
+						
+						if(val.constructor == Array){ // CUEPOINTS
+							var bb = false ;
+							var l = val.length ;
+							for(var i = 0 ; i < l ; i ++){
+								var vv = val[i] ;
+								var r = this.parseMethod(updater, typename, type, name, vv) ;
+								val[i] = r.value ;
+								name = r.name ;
+								
+								if(r.units){
+									updater.units[typename + '.' + name] = r.units ;
+								}
+								
+								if(r.isRelative){									
+									updater.relativeMap[typename + '.' + name] = r.isRelative ;
+								}
+								
+								bb = bb || r.block ;
+							}
+							
+							return {
+								name:name,
+								value:val,
+								units:units,
+								block:bb
+							} ;
+							
+						}else{
+							var m = this.parseMethod(updater, typename, type, name, val) ;
+							if(m.units){
+								updater.units[typename + '.' + name] = m.units ;
+							}
+							
+							if(m.isRelative){									
+								updater.relativeMap[typename + '.' + name] = m.isRelative ;
+							}
+							
+							updater.cache[name] = this ;
+							
+							return m ;
+						}
+					}
+				}) ;
 				var PropertyMapper = Type.define({
 					pkg:'::PropertyMapper',
 					domain:BetweenJSCore,
 					statics:{
-						
-						initialize:function(domain){
-							var comp = window.getComputedStyle ;
-							this.hasComputedStyle = comp !== undefined && typeof(comp) == 'function';
-							this.isIE = /MSIE/.test(navigator.userAgent) ;
-							this.isIEunder9 = /MSIE [0-8]/.test(navigator.userAgent) ;
-							this.isIEunder8 = /MSIE [0-7]/.test(navigator.userAgent) ;
-						},
-						
-						getIn:function(up, name){
-							return up.cache[name].getMethod.apply(up, [up.target, name]) ;
-						},
-						setIn:function(up, name, value){
-							up.cache[name].setMethod.apply(up, [up.target, name, value]) ;
-						},
-						treat:function(up, name, o, type){
-							
-							var customs = this.Customs ;
-							
-							var l = customs.length ;
-							for(var i = 0 ; i <  l ; i ++){
-								var custom = customs[i] ;
-								for(var check in custom){
-									var reg = new RegExp(check, 'i') ;
+						CustomMappers:[
+							new CustomMapper(CustomMapper.ALL, {
+								parseMethod:function(updater, typename, type, name, val){
+									var PropertyMapper = BetweenJS.$.PropertyMapper ;
+									val = val === undefined ? type[name] : val ;
 									
-									if(reg.test(name)){
-										var r ;
-										r = custom[check](up, o, name, o[name], type) ;
-										delete o[name] ;
-										name = r.name ;
-										o[name] = r.value ;											
-										
-										// break ;
+									var units ;
+									var un = PropertyMapper.checkForUnits(name, val) ;
+									
+									name = un.name ;
+									val = un.value ;
+									units = un.units ;
+									
+									var relative = PropertyMapper.replaceRelative(name) ;
+									var isRelative = relative.isRelative ;
+									name = relative.name ;
+									
+									name = PropertyMapper.replaceCapitalToDash(name) ;
+									
+									return {
+										name:name,
+										value:val,
+										units:units,
+										isRelative:isRelative,
+										block:false
 									}
-								}
-							}
-							
-						},
-						Customs:[{
-							'(.*)$':function(up, obj, name, val, type){
-								var unit ;
-								
-								var units = PropertyMapper.checkForUnits(up, obj, name, val) ;
-								
-								name = units.name ;
-								val = units.value ;
-								
-								up.units[name] = units.unit ;
-								
-								var relative = PropertyMapper.replaceRelative(name, up, type) ;
-								var isRelative = relative.isRelative ;
-								name = relative.name ;
-								
-								if(isRelative){									
-									up.relativeMap[type+'.' + name] = isRelative ;
-								}
-								
-								name = PropertyMapper.replaceCapitalToDash(name) ;
-								
-								var map = PropertyMapper.mapMethods['default'] ;
-								
-								if(!up.cache[name] || up.cache[name] != map){
-									up.cache[name] = map ;
-								}
-								
-								return {
-									value:val,
-									name:name
-								} ;
-							},
-							'((border|background)?color|background)$':function(up, obj, name, val){
-								
-								name = name == 'background' ? name + '-color' : name ;
-								name = PropertyMapper.replaceCapitalToDash(name) ;
-								
-								val = BetweenJS.$.Color.toColorObj(val) ;
-								
-								var map = PropertyMapper.mapMethods['colors'] ;
-								
-								if(!up.cache[name] || up.cache[name] != map){
-									up.cache[name] = map ;
-								}
-								
-								return {
-									value:val,
-									name:name
-								} ;
-							},
-							'scroll(left|top)?':function(up, obj, name, val){
-								
-								var map = PropertyMapper.mapMethods['scroll'] ;
-								
-								if(!up.cache[name] || up.cache[name] != map){
-									up.cache[name] = map ;
-								}
-								
-								return {
-									value:val,
-									name:name
-								} ;
-							}
-						}],
-						mapMethods:{
-							'colors':{
-								getMethod:function(tg, n){
-									return PropertyMapper.colorGet(tg, n) ;
 								},
-								setMethod:function(tg, n, v){
-									return PropertyMapper.colorSet(tg, n, v) ;
-								}
-							},
-							'scroll':{
-								getMethod:function(tg, n){
-									return PropertyMapper.scrollGet(tg, n, this.units[n]) ;
+								getMethod:function getMethodAll(tg, n, unit){
+									return BetweenJS.$.PropertyMapper.simpleGet(tg, n, unit || '') ;
 								},
-								setMethod:function(tg, n, v){
-									return PropertyMapper.scrollSet(tg, n, v, this.units[n]) ;
-								}
-							},
-							'default':{
-								getMethod:function(tg, n){
-									return PropertyMapper.simpleGet(tg, n, this.units[n]) ;
+								setMethod:function setMethodAll(tg, n, val, unit){
+									return BetweenJS.$.PropertyMapper.simpleSet(tg, n, val, unit || '') ;
 								},
-								setMethod:function(tg, n, v){
-									return PropertyMapper.simpleSet(tg, n, v, this.units[n]) ;
+								drawMethod:function(tg, n, val, unit){
+									
 								}
-							}
-						},
-						
-						//// DETECTIONS / REPLACEMENTS
+							}),
+							new CustomMapper(/((border|background)?color|background)$/i, {
+								parseMethod:function(updater, typename, type, name, val){
+									var PropertyMapper = BetweenJS.$.PropertyMapper ;
+									val = val === undefined ? type[name] : val ;
+									
+									name = name == 'background' ? name + '-color' : name ;
+									name = PropertyMapper.replaceCapitalToDash(name) ;
+									
+									val = BetweenJS.$.Color.toColorObj(val) ;
+									
+									return {
+										name:name,
+										value:val,
+										block:true
+									}
+								},
+								getMethod:function getMethodColor(tg, n){
+									return BetweenJS.$.PropertyMapper.colorGet(tg, n) ;
+								},
+								setMethod:function setMethodColor(tg, n, val){
+									return BetweenJS.$.PropertyMapper.colorSet(tg, n, val) ;
+								},
+								drawMethod:function(tg, n, val){
+									
+								}
+							})
+						],
 						detectNameUnits:function(name){
 							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
 							var unit ;
@@ -2429,7 +2415,7 @@
 							
 							return {unit:unit, value:parseFloat(value)} ;
 						},
-						checkForUnits:function(updater, props, name, val){
+						checkForUnits:function(name, val){
 							var unit, 
 								value = val ;
 							var nameunits = this.detectNameUnits(name) ;
@@ -2439,7 +2425,7 @@
 							name = nameunits.name || name ;
 							value = valueunits.value || value ;
 							
-							return {unit:unit, name:name, value:value} ;
+							return {units:unit, name:name, value:value} ;
 						},
 						replaceCapitalToDash:function(name){
 							return name.replace(/[A-Z](?=[a-z])/g, function($1){
@@ -2451,18 +2437,6 @@
 							o.name = o.isRelative ? name.substr(1) : name ;
 							return o ;
 						},
-						
-						//// CSS / DOM HANDLING
-						isDOM:function(tg){
-							var ctor = tg.constructor ;
-							switch(true){
-								case ctor === undefined : // IE 7-
-								case (/HTML[a-zA-Z]*Element/.test(ctor)) :
-									return true ;
-								break ;
-							}
-							return false ;
-						},
 						getStyle:function(tg, name){
 							var val = '' ;
 							if(window.getComputedStyle){
@@ -2472,7 +2446,7 @@
 							
 							}else if(tg.currentStyle){
 								try{
-									val = name == 'background-color' ? tg.currentStyle[name] : this.cssHackGet(tg, name) ;
+									val = name == 'background-color' ? tg.currentStyle['backgroundColor'] : this.cssHackGet(tg, name) ;
 								}catch(e){}
 							}
 							return val ;
@@ -2493,9 +2467,6 @@
 								return el.currentStyle[name] ;
 							}
 						},
-						
-						//// EXTERNAL USE
-						// COLOR
 						colorGet:function(target, pname){
 							var Color = BetweenJS.$.Color ;
 							return Color.toColorObj(this.getStyle(target, pname)) ;
@@ -2504,47 +2475,6 @@
 							var Color = BetweenJS.$.Color ;
 							this.setStyle(target, pname, Color.toColorString(val)) ;
 						},
-						// SCROLL
-						scrollGet:function(target, name, unit) {
-							return (target === window || target === document) ?
-							(
-								this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] ||
-								(PropertyMapper.isIEunder9 && document.documentElement[name]) ||
-								document.body[name]
-							) :
-							target[name] ;
-						},
-						scrollSet:function(target, name, val, unit) {
-							if(target === window || target === document){
-								try{
-									this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
-								}catch(e){
-									if(!PropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
-									else document.body[name] = parseInt(val) ;
-								}
-							}else{
-								target[name] = parseInt(val) ;
-							}
-						},
-						// ALPHA
-						alphaGet:function(target, pname){
-							var val ;
-							if(PropertyMapper.hasComputedStyle){
-								val = (target.style['opacity'] != '') ? target.style['opacity'] : window.getComputedStyle(target, '')['opacity'] ;
-								val = val * 100 ;
-							} else
-								val = target.currentStyle['filter'] == '' ? 100 : target.currentStyle['filter'].replace(/alpha\(opacity=|\)/g, '') ;
-							
-							return val ;
-						},
-						alphaSet:function(target, pname, val){
-							if(PropertyMapper.hasComputedStyle){
-								return target['style']['opacity'] = val / 100 ;
-							}else{
-								return target['style']['filter'] = 'alpha(opacity='+val+')' ;
-							}
-						},
-						// DEFAULT CSS STYLE / OBJECT SETTING
 						simpleGet:function(tg, n, unit){
 							if(this.isDOM(tg))
 								return this.simpleDOMGet(tg, n, unit || 'px') ;
@@ -2562,38 +2492,22 @@
 						},
 						simpleDOMSet:function(tg, n, v, unit){
 							this.setStyle(tg, n, v + unit) ;
+						},
+						isDOM:function(tg){
+							var ctor = tg.constructor ;
+							switch(true){
+								case ctor === undefined : // IE 7-
+								case (/HTML[a-zA-Z]*Element/.test(ctor)) :
+									return true ;
+								break ;
+							}
+							return false ;
 						}
 					}
 					
 				}) ;
 				
-				PropertyMapper.mapMethods['alpha'] = {
-					getMethod:function(tg, n){
-						return PropertyMapper.alphaGet(tg, n, this.units[n]) ;
-					},
-					setMethod:function(tg, n, v){
-						return PropertyMapper.alphaSet(tg, n, v, this.units[n]) ;
-					}
-				} ;
-				
-				PropertyMapper.Customs.push({'alpha|opacity':function(up, obj, name, val){
-					
-					name = 'alpha' ;
-					
-					var map = PropertyMapper.mapMethods['alpha'] ;
-					
-					if(!up.cache[name] || up.cache[name] != map){
-						up.cache[name] = map ;
-					}
-					
-					return {
-						value:val,
-						name:name
-					} ;
-				}}) ;
-				
 			}) ;
-			
 		}) ;
 		
 		// BETWEENJS MAIN CLASS
@@ -3866,21 +3780,6 @@
 						return m ;
 					},
 					toColorString:function(val, mode){
-						
-						
-						if(val.constructor == Array){
-							
-							var l = val.length ;
-							for(var i = 0 ; i < l ; i ++){
-								val[i] = this.toColorString(val[i], mode) ;
-							}
-							
-							return val ;
-							
-						}
-						
-						
-						
 						var res ;
 						var MODE = mode || 'rgb' ;
 						
@@ -3929,26 +3828,13 @@
 					},
 					toColorObj:function(val, mode){
 						
-						
-						if(val.constructor == Array){
-							
-							var l = val.length ;
-							for(var i = 0 ; i < l ; i ++){
-								val[i] = this.toColorObj(val[i], mode) ;
-							}
-							
-							return val ;
-							
-						}
-						
-						
-						
 						var res ;
 						var MODE = mode || 'rgb' ;
 						
 						var isString = function(){
 							return typeof val == 'string' ;
 						}
+						
 						switch(true){
 							case isString() && /^[a-z]+$/i.test(val) && val in BetweenJS.$.Color.css :
 								val = BetweenJS.$.Color.css[val] ;
