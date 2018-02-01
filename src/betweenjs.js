@@ -41,16 +41,28 @@
 			getTimer = function(){ return getNow() - liveTime },
 			concat = function(p){ return (p === undefined) ? [] : p },
 			valueExists = function(o, val){ return !!o ? o[val] : undefined } ;
-			
+
 		var liveTime = getNow(),
 			OFF_TIME = 0,
 			TIME = NaN,
 			SIM_EPSILON = 'EPSILON' in Number ? Number.EPSILON : .005,
+
 			simulationTimestep = 1000 / 60,
-			cacheInterval = {}, cacheTimeout = {},
+			frameDelta = 0,
+			lastFrameTimeMs = 0,
+			fps = 60,
+			lastFpsUpdate = 0,
+			framesThisSecond = 0,
+			numUpdateSteps = 0,
+			minFrameDelay = 0,
+			running = false,
+			started = false,
+			panic = false,
+
+			cacheTimeout = {},
 			units_reg = /(px|em|pc|pt|%)$/,
 			relative_reg =/^\$/ ;
-			
+
 
 		(function () {
 			// REQUEST / CANCEL ANIMATIONFRAME
@@ -75,14 +87,14 @@
 
 		// BETWEENJS CORE
 		Pkg.write('core', function(path){
-			
+
 			var Destroyable =  Type.define({
 				pkg:'utils::Destroyable',
 				constructor:Destroyable = function Destroyable(){
 					//
 				},
 				destroy:function(){
-					
+
 					for(var s in this){
 						var p = this[s] ;
 						if(p instanceof Destroyable) p.destroy() ;
@@ -94,7 +106,7 @@
 					}
 				}
 			}) ;
-			
+
 			var Traceable =  Type.define({
 				pkg:'utils::Traceable',
 				inherits:Destroyable,
@@ -112,9 +124,17 @@
 					return false ;
 				}
 			}) ;
-			
+
 			// CORE.LOOPS
 			Pkg.write('loops', function(){
+
+
+				var NOOP = function(){} ;
+
+				var begin = NOOP,
+					update = NOOP,
+					draw = NOOP,
+					end = NOOP ;
 
 				var AnimationTicker = Type.define({
 					pkg:'::AnimationTicker',
@@ -137,13 +157,58 @@
 								}
 							}
 						},
+						draw:function(timestamp){
+							var loops = this.loops ;
+							var l = loops.length ;
+							for(var i = 0 ; i < l ; i++){
+								var loop = loops[i] ;
+								loop.draw(timestamp) ;
+							}
+						},
 						innerFunc:function(timestamp){
+							/////
+							if (timestamp < lastFrameTimeMs + minFrameDelay) {
+								return;
+							}
+							/////
 							var anim = AnimationTicker ;
 							TIME = timestamp ;
-							timestamp = timestamp - OFF_TIME ;
-							anim.timestamp = timestamp * .001 ;
-							anim.func(timestamp) ;
+							var faketimestamp = timestamp - OFF_TIME ;
+							anim.timestamp = faketimestamp * .001 ;
+							// anim.func(faketimestamp) ;
 							anim.ID = requestAnimationFrame(anim.innerFunc) ;
+
+
+							/////
+							frameDelta += timestamp - lastFrameTimeMs;
+							lastFrameTimeMs = timestamp;
+
+							begin(timestamp, frameDelta);
+
+							if (timestamp > lastFpsUpdate + 1000) {
+								fps = 0.25 * framesThisSecond + 0.75 * fps;
+								lastFpsUpdate = timestamp;
+								framesThisSecond = 0;
+							}
+
+							framesThisSecond++;
+							numUpdateSteps = 0;
+
+							while (frameDelta >= simulationTimestep) {
+								// update(simulationTimestep);
+								anim.func(faketimestamp) ;
+
+								frameDelta -= simulationTimestep;
+								if (++numUpdateSteps >= 240) {
+									panic = true;
+									break;
+								}
+							}
+
+							anim.draw(frameDelta / simulationTimestep) ;
+
+							end(fps, panic);
+							panic = false;
 						},
 						start:function(){
 							var anim = AnimationTicker ;
@@ -155,7 +220,6 @@
 						},
 						stop:function(){
 							var anim = AnimationTicker ;
-
 							cancelAnimationFrame(this.ID) ;
 							this.started = false ;
 							delete this.ID ;
@@ -176,11 +240,12 @@
 					index:undefined,
 					func:undefined,
 					dieNext:false,
-					constructor:Animation = function Animation(func){
-						this.enable(func) ;
+					constructor:Animation = function Animation(func, draw){
+						this.enable(func, draw) ;
 					},
-					enable:function(func){
+					enable:function(func, draw){
 						this.func = func ;
+						this.draw = draw ;
 					},
 					start:function(){
 						AnimationTicker.attach(this) ;
@@ -195,7 +260,6 @@
 						return undefined ;
 					}
 				})
-
 			}) ;
 
 			// CORE.TICKERS
@@ -214,6 +278,7 @@
 					}
 				}) ;
 				// ENTERFRAMETICKER
+				// ENTERFRAMETICKER
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
 					domain:BetweenJSCore,
@@ -224,7 +289,7 @@
 						tickerListenerPaddings:undefined,
 						time:undefined,
 						initialize:function initialize(domain){
-							
+
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
 
 							AnimationTicker.start() ;
@@ -285,12 +350,17 @@
 							var AnimationTicker = BetweenJS.$.AnimationTicker ;
 							var Animation = BetweenJS.$.Animation ;
 							var EFT = this ;
-							
+
 							EFT.time = AnimationTicker.timestamp ;
-							var a = new Animation(function(timestamp){
-								EFT.update(AnimationTicker.timestamp) ;
-							}) ;
-							
+							var a = new Animation(
+								function(timestamp){
+									EFT.update(AnimationTicker.timestamp) ;
+								},
+								function(timestamp){
+									EFT.draw(AnimationTicker.timestamp) ;
+								}
+							) ;
+
 							this.animation = a.start() ;
 							this.started = true ;
 						},
@@ -298,8 +368,17 @@
 							this.animation.stop() ;
 							this.started = false ;
 						},
+						draw:function(ts){
+							var drawables = this.drawables ;
+							var l = drawables.length ;
+							for(var i = 0 ; i < l ; i ++){
+								var drawable = drawables[i] ;
+
+								drawable.draw(ts) ;
+							}
+						},
 						update:function(time){
-							
+
 							var min = 0 ;
 							var EFT = this ;
 							var total = EFT.coreListenersMax - 2 ;
@@ -320,7 +399,7 @@
 								while (i < total) {
 									listener = listener.nextListener ;
 									var AbstractTween = BetweenJS.$.AbstractTween ;
-									// if(listener instanceof AbstractTween) drawables.push(listener) ;
+									if(listener instanceof AbstractTween) drawables.push(listener) ;
 									if(listener instanceof AbstractTween && !!listener.startTime) {
 										t = t - listener.startTime ;
 										min ++ ;
@@ -342,17 +421,18 @@
 									i++ ;
 								}
 							}
-							
+
 							if(min == 0){
 								this.stop() ;
 							}
-							
+
 							if (!!(this.first = l.nextListener))
 								this.first.prevListener = undefined ;
 
 							l.nextListener = this.tickerListenerPaddings[n + 1] ;
 						}
 					}
+
 				}) ;
 			})
 
@@ -509,6 +589,7 @@
 					assignUpdater:function(options){//		SETTINGS
 						var updater = BetweenJS.$.UpdaterFactory.create(options) ;
 						this.setUpdater(updater) ;
+						this.time = updater.time ;
 						return this ;
 					},
 					/*
@@ -560,7 +641,7 @@
 						this.isPlaying = true ;
 						var p = this.position ;
 						p = isNaN(p) ? 0 : p >= this.time ? 0 : p ;
-						
+
 						this
 							.register()
 							.seek(p) ;
@@ -606,7 +687,7 @@
 							this.update(position) ;
 					},
 					play:function(){
-						
+
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
@@ -632,13 +713,18 @@
 
 						return this ;
 					},
+					draw:function(){
+						this.internalDraw() ;
+					},
+					internalDraw:function(){
+						this.updater.draw() ;
+					},
 					//////// END CAUTION
 					//////// END CAUTION
 					//////// END CAUTION
 					tick:function(position){
 
 						if (!this.isPlaying) return true ;
-
 						this.update(position) ;
 						this.fire('update') ;
 
@@ -648,6 +734,7 @@
 								if (!this.stopOnComplete) {
 									this.seek(0) ;
 								} else {
+									this.draw() ;
 									this.setPosition(this.time)
 										.fire('complete')
 											.stop() ;
@@ -700,11 +787,11 @@
 						}
 					},
 					destroy:function(){
-						
+
 						if(this.isPlaying){
 							this.stop() ;
 						}
-						
+
 						AbstractTween.factory.destroy.call(this) ;
 					}
 				}) ;
@@ -724,7 +811,7 @@
 						this.updater = source.updater.clone() ;
 					}
 				}) ;
-				
+
 				// ACTIONS
 				Pkg.write('actions', function(path){
 					var AbstractActionTween = Type.define({
@@ -753,6 +840,7 @@
 								this.rollback() ;
 							}
 						},
+						internalDraw:function(){},
 						action:function(){},
 						rollback:function(){}
 					}) ;
@@ -914,6 +1002,9 @@
 						},
 						internalUpdate:function(time){
 							this.baseTween.update(time) ;
+						},
+						internalDraw:function(){
+							this.baseTween.draw() ;
 						}
 					}) ;
 					// SUBCLASSES
@@ -976,7 +1067,7 @@
 						},
 						prepare:function(){
 							this.time = this.scale * this.baseTween.time ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1024,12 +1115,12 @@
 
 							this.repeatCount = options['repeatCount'] || 2 ;
 							this.basetime = this.baseTween.time ;
-							
+
 							return this ;
 						},
 						prepare:function(){
 							this.time = this.basetime * this.repeatCount ;
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
@@ -1231,6 +1322,28 @@
 								}
 							}
 						},
+						internalDraw:function(){
+							if (!!this.a) {
+								this.a.draw() ;
+								if (!!this.b) {
+									this.b.draw() ;
+									if (!!this.c) {
+										this.c.draw() ;
+										if (!!this.d) {
+											this.d.draw() ;
+											if (!!this.targets) {
+												var targets = this.targets ;
+												var l = targets.length ;
+												for (var i = 0 ; i < l ; ++i){
+													var t = targets[i] ;
+													t.draw() ;
+												}
+											}
+										}
+									}
+								}
+							}
+						},
 						newInstance:function(){
 							var targets = [] ;
 							if (this.a !== undefined) {
@@ -1397,24 +1510,28 @@
 								if (!!this.a) {
 									if (lt <= (d += this.a.time) && ld <= position) {
 										this.a.update(this.checkForEpsilon(position - ld)) ;
+										cur = this.a ;
 									}
 									ld = d ;
 
 									if (!!this.b) {
 										if (lt <= (d += this.b.time) && ld <= position) {
 											this.b.update(this.checkForEpsilon(position - ld)) ;
+											cur = this.b ;
 										}
 										ld = d ;
 
 										if (!!this.c) {
 											if (lt <= (d += this.c.time) && ld <= position) {
 												this.c.update(this.checkForEpsilon(position - ld)) ;
+												cur = this.c ;
 											}
 											ld = d ;
 
 											if (!!this.d) {
 												if (lt <= (d += this.d.time) && ld <= position) {
 													this.d.update(this.checkForEpsilon(position - ld)) ;
+													cur = this.d ;
 												}
 												ld = d ;
 
@@ -1424,6 +1541,7 @@
 														t = this.targets[i] ;
 														if (lt <= (d += t.time) && ld <= position) {
 															t.update(this.checkForEpsilon(position - ld)) ;
+															cur = t ;
 														}
 														ld = d ;
 													}
@@ -1440,6 +1558,7 @@
 										t = this.targets[i] ;
 										if (lt >= (d -= t.time) && ld >= position) {
 											t.update(this.checkForEpsilon(position - d)) ;
+											cur = t ;
 										}
 										ld = d ;
 									}
@@ -1447,28 +1566,36 @@
 								if (!!this.d) {
 									if (lt >= (d -= this.d.time) && ld >= position) {
 										this.d.update(this.checkForEpsilon(position - d)) ;
+										cur = this.d ;
 									}
 									ld = d ;
 								}
 								if (!!this.c) {
 									if (lt >= (d -= this.c.time) && ld >= position) {
 										this.c.update(this.checkForEpsilon(position - d)) ;
+										cur = this.c ;
 									}
 									ld = d ;
 								}
 								if (!!this.b) {
 									if (lt >= (d -= this.b.time) && ld >= position) {
 										this.b.update(this.checkForEpsilon(position - d)) ;
+										cur = this.b ;
 									}
 									ld = d ;
 								}
 								if (!!this.a) {
 									if (lt >= (d -= this.a.time) && ld >= position) {
 										this.a.update(this.checkForEpsilon(position - d)) ;
+										cur = this.a ;
 									}
 									ld = d ;
 								}
 							}
+							this.drawable = cur ;
+						},
+						internalDraw:function(position){
+							if(!!this.drawable) this.drawable.draw(position) ;
 						},
 						newInstance:function(){
 							var targets = [] ;
@@ -1497,7 +1624,7 @@
 				}) ;
 
 			}) ;
-			
+
 			// CORE.UPDATERS
 			Pkg.write('updaters', function(path){
 				// FACTORY
@@ -1511,9 +1638,9 @@
 						var updater = map[upstr] ;
 
 						if (!!!updater) {
-							
+
 							updater = new (Pkg.definition(upstr))() ;
-							
+
 							if (!!updaters) updaters.push(updater) ;
 							map[upstr] = updater ;
 						}
@@ -1539,15 +1666,15 @@
 						var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
 						var val = type[name] ;
 						var i, l, s, j, ll, custom, pattern ;
-						
+
 						var customs = CustomMappers ;
 						l = customs.length ;
-						
-						
+
+
 						for(i = 0 ; i < l ; i ++){
 							custom = customs[i] ;
 							pattern = custom.pattern ;
-							
+
 							if(pattern.test(name)){
 								var tt = type[name] ;
 								delete type[name] ;
@@ -1555,7 +1682,7 @@
 								name = s.name ;
 								type[name] = s.value ;
 								if(s.block) break ;
-							
+
 							}
 						}
 						return name ;
@@ -1565,13 +1692,13 @@
 						var to = props['to'] ;
 						var fr = props['from'] ;
 						var cp = props['cuepoints'] ;
-						
+
 						var s, r ;
-						
+
 						var safeWriteIn = function(s, o){
 							if(!(s in o)) o[s] = UpdaterFactory.REQUIRED ;
 						}
-						
+
 						// cuepoints no need REQUIREDSTUFF to be written bur needs to write
 						if(!!cp){
 							for(s in cp){
@@ -1580,58 +1707,58 @@
 								safeWriteIn(s, fr) ;
 							}
 						}
-						
+
 						// Write back SOURCE from DEST
 						for(s in to){
 							s = UpdaterFactory.checkCustomMapper(updater, 'to', to, s) ;
 							safeWriteIn(s, fr) ;
 						}
-						
+
 						// Write back DEST from SOURCE
 						for(s in fr){
 							s = UpdaterFactory.checkCustomMapper(updater, 'fr', fr, s) ;
 							safeWriteIn(s, to) ;
 						}
-						
+
 						if(!props['from']) props['from'] = fr ;
 						if(!props['to']) props['to'] = to ;
-						
+
 						return props ;
 					},
 					treat:function(map, updaters, options){
 						var updater = UpdaterFactory.getActiveUpdater(map, updaters, options) ;
-						
+
 						updater.cache = {} ;
-						
+
 						var parent, child ;
-						
+
 						var desc = {
 							'to':options['to'] || {},
 							'from':options['from'] || {},
 							'cuepoints':options['cuepoints']
 						}
-						
+
 						var ease = options['ease'] ;
 						var time = options['time'] ;
 						var target = options['target'] ;
-						
+
 						desc = this.isofy(updater, desc) ;
-						
-						
+
+
 						updater.isPhysical = ease instanceof Physical ;
 						updater.target = target ;
 						updater.time = time ;
 						updater.ease = ease ;
 						updater.userData = desc ;
-						
-						
-						
+
+
+
 						for(var type in desc){
-							
+
 							var o = desc[type] ;
-							
+
 							if(!!!o) continue ;
-							
+
 							var target = target,
 								source = desc['from'],
 								dest = desc['to'],
@@ -1640,30 +1767,30 @@
 								time = time,
 								value, cp,
 								action ;
-							
+
 							switch(type){
 								case 'to' :			// TO
 								case 'from' :		// FROM
 									action = type == 'to' ? 'setDestinationValue' : 'setSourceValue' ;
-									
+
 									for (var name in o) {
-										
+
 										value = o[name] ;
-										
+
 										if(value == UpdaterFactory.REQUIRED){
 											updater[action](name, UpdaterFactory.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
 										} else{
-											
+
 											if (type == 'to') {
 												var cps = desc['cuepoints'] ;
-												
+
 												if(!!cps && name in cps){
 													cp = this.treatCuePoints(cps[name]) ;
 													delete cps[name] ;
 												}
-												
+
 												var childOptions = {
 													'target' : updater.getIn(name),
 													'to' : desc['to'][name],
@@ -1672,7 +1799,7 @@
 													'ease' : ease,
 													'time' : time
 												}
-												
+
 												child = UpdaterFactory.make(childOptions) ;
 												var proxy = new UpdaterProxy(updater, child, name) ;
 												updaters.push(proxy) ;
@@ -1698,22 +1825,22 @@
 								break ;
 							}
 						}
-						
+
 						return desc ;
 					},
 					make:function(options){
-						
+
 						var BulkUpdater = BetweenJS.$.BulkUpdater,
 							map, updaters, updater, l, source, dest, cuepoints,
 							r = this.registerUpdaters(map, updaters) ;
 
 						map = r.map,
 						updaters = r.updaters ;
-						
+
 						this.treat(map, updaters, options) ;
-						
+
 						l = updaters.length ;
-						
+
 						switch(l){
 							case 0: break;
 							case 1:
@@ -1723,14 +1850,15 @@
 								updater = new BulkUpdater(options['target'], updaters) ;
 								break;
 						}
-						
+
 						r = this.unregisterUpdaters(map, updaters) ;
 						return updater ;
 					},
 					create:function(options){
 						var updater = this.make(options) ;
+
 						if(updater.isPhysical) updater.resolve() ;
-						
+
 						return updater ;
 					},
 					registerUpdaters:function(map,updaters){
@@ -1753,7 +1881,7 @@
 						return ;
 					}
 				}
-				
+
 				// UPDATERS
 				var Updater = Type.define({
 					pkg:'::Updater',
@@ -1773,7 +1901,7 @@
 					units:{},
 					constructor:Updater = function Updater(){
 						Updater.base.call(this) ;
-						
+
 						this.reset() ;
 					},
 					reset:function(){
@@ -1787,11 +1915,12 @@
 						this.maxDuration = 0.0 ;
 					},
 					setFactor:function(position){
-						
+
 						var factor = 0.0 ;
 						if(this.isPhysical){
 							if(position > factor){
 								factor = position / this.time ;
+								factor = Math.round(factor * 10000) / 10000 ;
 							}
 						}else{
 							if(position > factor){
@@ -1816,16 +1945,16 @@
 							this.resolve() ;
 							this.isResolved = true ;
 						}
-						
+
 						this.setPosition(position) ;
 						this.setFactor(this.position) ;
-						
+
 						this.updateObject() ;
 					},
 					updateObject:function(){
-						
+
 						var factor = this.factor ;
-						
+
 						var t = this.target,
 							e = this.ease,
 							d = this.destination,
@@ -1836,26 +1965,26 @@
 							invert = 1.0 - factor,
 							cpVec, a, b, l, ip, it, p1, p2,
 							name, val ;
-						
+
 						for (var name in d) {
 
 							a = s[name] ;
 							b = d[name] ;
-							
-							if(!!!cp[name]){
-								// if(this.isPhysical){
 
-									// if (position >= dur[name]) {
-										// val = b ;
-									// } else if(position <= 0.0){
-										// val = a ;
-									// }else {
-										// val = e.calculate(position, a, b - a) ;
-									// }
-								// }else{
-									// val = a * invert + b * factor ;
-								// }
-								val = a * invert + b * factor ;
+							if(!!!cp[name]){
+								if(this.isPhysical){
+
+									if (position >= dur[name]) {
+										val = b ;
+									} else if(position <= 0.0){
+										val = a ;
+									}else {
+										val = e.calculate(position, a, b - a) ;
+									}
+								}else{
+									val = a * invert + b * factor ;
+								}
+								// val = a * invert + b * factor ;
 							}else{
 
 								if (factor != 1.0 && !!(cpVec = this.cuepoints[name])) {
@@ -1863,7 +1992,7 @@
 									if (l == 1) {
 										val = a + factor * (2 * invert * (cpVec[0] - a) + factor * (b - a)) ;
 									} else {
-										
+
 										if (factor < 0.0)
 											ip = 0 ;
 										else if (factor > 1.0)
@@ -1889,7 +2018,20 @@
 									val = a * invert + b * factor ;
 								}
 							}
-							
+
+							this.store(name, val) ;
+						}
+					},
+					store:function(name, val){
+						if(!this.value){
+							this.value = {} ;
+						}
+						this.value[name] = val ;
+					},
+					draw:function(){
+						var v = this.value, val ;
+						for(var name in v){
+							val = v[name] ;
 							this.setIn(name, val) ;
 						}
 					},
@@ -1908,7 +2050,7 @@
 					addCuePoint:function(name, value){
 						var isRelative = relative_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
-						
+
 						var cuepoints = this.cuepoints[name] ;
 						if (cuepoints === undefined) this.cuepoints[name] = cuepoints = [] ;
 						cuepoints.push(value) ;
@@ -1933,7 +2075,7 @@
 							d = this.duration,
 							duration,
 							maxDuration = 0.0 ;
-						
+
 						for (key in source) {
 							if (source[key] == UpdaterFactory.REQUIRED) {
 								source[key] = this.getIn(key) ;
@@ -1941,11 +2083,11 @@
 							if (rMap['source.' + key]) {
 								source[key] += this.getIn(key) ;
 							}
-							
+
 						}
-						
+
 						for (key in dest) {
-							
+
 							if (dest[key] == UpdaterFactory.REQUIRED) {
 								dest[key] = this.getIn(key) ;
 							}
@@ -1956,7 +2098,7 @@
 							if(this.isPhysical && !time){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
-								
+
 								if (maxDuration < duration) {
 									maxDuration = duration ;
 								}
@@ -1964,26 +2106,26 @@
 						}
 
 						var cuepoints = this.cuepoints, cpVec, l, i ;
-						
+
 						for (key in cuepoints) {
-							
+
 							var first = source[key] ;
 							var last = dest[key] ;
-							
+
 							cpVec = cuepoints[key] ;
 							l = cpVec.length ;
 							var cur ;
 							var cpduration = 0 ;
 							for (i = 0 ; i < l ; ++i) {
-								
+
 								var prev = cur || first ;
-								
+
 								if (rMap['cuepoints.' + key + '.' + i]) {
 									(cpVec[i] += this.getInObject(key)) ;
 								}
-								
+
 								cur = cpVec[i] ;
-								
+
 								if(this.isPhysical && !time){
 									cpduration += this.ease.getDuration(prev, cur > prev ? cur - prev : prev - cur) ;
 									if(cpVec[i+1] === undefined){
@@ -1999,13 +2141,13 @@
 							}
 						}
 						if(this.isPhysical){
-							
+
 							if(time) maxDuration = time ;
-							
+
 							this.maxDuration = maxDuration ;
 							this.time = this.maxDuration ;
 						}
-						
+
 						return this.time ;
 					},
 					newInstance:function(){
@@ -2025,7 +2167,7 @@
 						Updater.factory.destroy.call(this) ;
 					}
 				}) ;
-				
+
 				var UpdaterProxy = Type.define({
 					pkg:'::UpdaterProxy',
 					domain:BetweenJSCore,
@@ -2040,7 +2182,7 @@
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
-						
+
 						this.checkPhysical(this.child) ;
 					},
 					checkPhysical:function(el){
@@ -2048,27 +2190,30 @@
 						return el ;
 					},
 					resolve:function(time){
-						
+
 						var t = this.child.resolve(time) ;
 						var tt = this.parent.resolve(time) ;
 						var parentBigger = tt > t ;
 						var ttt = parentBigger ? tt : t ;
-						
+
 						if(parentBigger){
 							this.child.resolve(tt) ;
 							this.child.isResolved = true ;
 						}else if(tt != t){
 							this.parent.resolve(t) ;
 						}
-						
+
 						return this.time = ttt ;
 					},
 					superResolve:function(time){
-						
+
 						return this.resolve(time)  ;
 					},
 					update:function(position){
 						this.child.update(position) ;
+					},
+					draw:function(){
+						this.child.draw() ;
 						this.parent.setIn(this.propertyName, this.child.target) ;
 					},
 					clone:function(source){
@@ -2090,25 +2235,25 @@
 					updaters:undefined,
 					time:0,
 					resolve:function(){
-						
+
 						var time = this.time ;
-						
+
 						this.bulkFunc(function(updater){
 							var t = updater.resolve() ;
 							if(updater.isPhysical){
 								if(t > time) time = t ;
 							}
 						})
-						
+
 						this.time = time ;
 						return time ;
 					},
 					superResolve:function(){
-						
+
 						var bulk = this ;
 						this.bulkFunc(function(updater){
 							if(updater.isPhysical){
-								// updater.resolve(bulk.time) ;
+								updater.resolve(bulk.time) ;
 								// trace(updater)
 								updater.superResolve(bulk.time) ;
 							}
@@ -2122,12 +2267,12 @@
 					},
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
 						BulkUpdater.base.call(this) ;
-						
+
 						this.target = target ;
 						this.length = updaters.length ;
 
 						var l = updaters.length, t, tar ;
-						
+
 						if (l >= 1) {
 							this.a = this.checkPhysical(updaters[0]) ;
 							if (l >= 2) {
@@ -2146,7 +2291,7 @@
 								}
 							}
 						}
-						
+
 					},
 					bulkFunc:function(f){
 						var els = [] ;
@@ -2179,31 +2324,56 @@
 						}
 					},
 					update:function(position){
-						
+
 						if(!this.isResolved){
 							this.resolve() ;
-							
+
 							this.superResolve() ;
 							this.isResolved = true ;
 						}
-						
+
 						if (!!this.a) {
 							this.a.update(position) ;
-							
+
 							if (!!this.b) {
 								this.b.update(position) ;
-								
+
 								if (!!this.c) {
 									this.c.update(position) ;
-									
+
 									if (!!this.d) {
 										this.d.update(position) ;
-										
+
 										if (!!this.updaters) {
 											var updaters = this.updaters ;
 											var l = updaters.length ;
 											for (var i = 0 ; i < l ; ++i) {
 												updaters[i].update(position) ;
+											}
+										}
+									}
+								}
+							}
+						}
+					},
+					draw:function(){
+						if (!!this.a) {
+							this.a.draw() ;
+
+							if (!!this.b) {
+								this.b.draw() ;
+
+								if (!!this.c) {
+									this.c.draw() ;
+
+									if (!!this.d) {
+										this.d.draw() ;
+
+										if (!!this.updaters) {
+											var updaters = this.updaters ;
+											var l = updaters.length ;
+											for (var i = 0 ; i < l ; ++i) {
+												updaters[i].draw() ;
 											}
 										}
 									}
@@ -2259,8 +2429,8 @@
 					}
 				}) ;
 			}) ;
-			
-	
+
+
 			// CORE.MAPPING
 			Pkg.write('mapping', function(path){
 				var CustomMapper = Type.define({
@@ -2270,17 +2440,17 @@
 					},
 					constructor:CustomMapper = function CustomMapper(pattern, methods){
 						this.pattern = pattern || CustomMapper.ALL ;
-						
+
 						this.parseMethod = methods['parseMethod'] ;
 						this.getMethod = methods['getMethod'] ;
 						this.setMethod = methods['setMethod'] ;
-						
+
 					},
 					check:function(updater, typename, type, name, val){
 						var val = type[name] || val ;
 						var units ;
 						var m ;
-						
+
 						if(val.constructor == Array){ // CUEPOINTS
 							var bb = false ;
 							var l = val.length ;
@@ -2289,37 +2459,37 @@
 								var r = this.parseMethod(updater, typename, type, name, vv) ;
 								val[i] = r.value ;
 								name = r.name ;
-								
+
 								if(r.units){
 									updater.units[typename + '.' + name] = r.units ;
 								}
-								
-								if(r.isRelative){									
+
+								if(r.isRelative){
 									updater.relativeMap[typename + '.' + name] = r.isRelative ;
 								}
-								
+
 								bb = bb || r.block ;
 							}
-							
+
 							return {
 								name:name,
 								value:val,
 								units:units,
 								block:bb
 							} ;
-							
+
 						}else{
 							var m = this.parseMethod(updater, typename, type, name, val) ;
 							if(m.units){
 								updater.units[typename + '.' + name] = m.units ;
 							}
-							
-							if(m.isRelative){									
+
+							if(m.isRelative){
 								updater.relativeMap[typename + '.' + name] = m.isRelative ;
 							}
-							
+
 							updater.cache[name] = this ;
-							
+
 							return m ;
 						}
 					}
@@ -2333,20 +2503,20 @@
 								parseMethod:function(updater, typename, type, name, val){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
-									
+
 									var units ;
 									var un = PropertyMapper.checkForUnits(name, val) ;
-									
+
 									name = un.name ;
 									val = un.value ;
 									units = un.units ;
-									
+
 									var relative = PropertyMapper.replaceRelative(name) ;
 									var isRelative = relative.isRelative ;
 									name = relative.name ;
-									
+
 									name = PropertyMapper.replaceCapitalToDash(name) ;
-									
+
 									return {
 										name:name,
 										value:val,
@@ -2362,19 +2532,19 @@
 									return BetweenJS.$.PropertyMapper.simpleSet(tg, n, val, unit || '') ;
 								},
 								drawMethod:function(tg, n, val, unit){
-									
+
 								}
 							}),
 							new CustomMapper(/((border|background)?color|background)$/i, {
 								parseMethod:function(updater, typename, type, name, val){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
-									
+
 									name = name == 'background' ? name + '-color' : name ;
 									name = PropertyMapper.replaceCapitalToDash(name) ;
-									
+
 									val = BetweenJS.$.Color.toColorObj(val) ;
-									
+
 									return {
 										name:name,
 										value:val,
@@ -2388,7 +2558,7 @@
 									return BetweenJS.$.PropertyMapper.colorSet(tg, n, val) ;
 								},
 								drawMethod:function(tg, n, val){
-									
+
 								}
 							})
 						],
@@ -2402,29 +2572,29 @@
 							return {name:n, unit:unit} ;
 						},
 						detectValueUnits:function(value){
-							
+
 							if(typeof(value) != 'string') return {unit : ''} ;
-							
+
 							var valueunits_reg = /(px|em|pc|pt|%)$/i ;
 							var unit ;
-							
+
 							value = value.replace(valueunits_reg, function($1, $2){
 								unit = arguments[0] ;
 								return '' ;
 							}) ;
-							
+
 							return {unit:unit, value:parseFloat(value)} ;
 						},
 						checkForUnits:function(name, val){
-							var unit, 
+							var unit,
 								value = val ;
 							var nameunits = this.detectNameUnits(name) ;
 							var valueunits = this.detectValueUnits(value) ;
-							
+
 							unit = (nameunits.unit || valueunits.unit || '').toLowerCase() ;
 							name = nameunits.name || name ;
 							value = valueunits.value || value ;
-							
+
 							return {units:unit, name:name, value:value} ;
 						},
 						replaceCapitalToDash:function(name){
@@ -2443,7 +2613,7 @@
 								var shortreg = /(border)(width|color)/gi ;
 								(shortreg.test(name) && (name = name.replace(shortreg, '$1Top$2'))) ;
 								val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
-							
+
 							}else if(tg.currentStyle){
 								try{
 									val = name == 'background-color' ? tg.currentStyle['backgroundColor'] : this.cssHackGet(tg, name) ;
@@ -2504,12 +2674,12 @@
 							return false ;
 						}
 					}
-					
+
 				}) ;
-				
+
 			}) ;
 		}) ;
-		
+
 		// BETWEENJS MAIN CLASS
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
@@ -2525,7 +2695,7 @@
 					(also set to tick forever from start, to disable, @see BetweenJS.$.EnterFrameTicker.stop())
 				*/
 				initialize:function initialize(domain){
-					
+
 					var exclude = {
 						'getTimer':undefined,
 						'toString':undefined,
@@ -3148,7 +3318,7 @@
 				}
 			}
 		}) ;
-		
+
 		// EASE
 		Pkg.write('ease', function(path){
 			/* EASINGS */
@@ -3631,9 +3801,9 @@
 						if(hex.length == 3)
 							hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
 						n = parseInt('0x' + hex) ;
-						
+
 						var o = this.UINTto(n) ;
-						
+
 						switch(MODE){
 							case 'hsv':
 								o = this.RGBto(o.r, o.g, o.b, o.a, 'hsv') ;
@@ -3643,7 +3813,7 @@
 								res = this.getRGBAObject(o.r, o.g, o.b, o.a) ;
 							break;
 						}
-						
+
 						return res ;
 					},
 					UINTto:function(val, MODE){
@@ -3679,7 +3849,7 @@
 									1) ;
 							}
 						}
-						
+
 						return res ;
 					},
 					RGBto:function(r, g, b, a, MODE){
@@ -3728,11 +3898,11 @@
 						}else if(MODE == 'rgb'){
 							m = this.getRGBAObject(r, g, b, a) ;
 						}
-						
+
 						return m ;
 					},
 					HSVto:function(h, s, v, a, MODE){
-						
+
 						var m = {} ;
 						if(MODE == 'rgb'){
 							h = h,
@@ -3772,17 +3942,17 @@
 							}
 							m.r = Math.round(m.r) ;
 							m.a = a || 1 ;
-							
+
 						}else if(MODE == 'hsv'){
 							m = this.getHSVAObject(h, s, v, a) ;
 						}
-						
+
 						return m ;
 					},
 					toColorString:function(val, mode){
 						var res ;
 						var MODE = mode || 'rgb' ;
-						
+
 						var isString = function(){
 							return typeof val == 'string' ;
 						}
@@ -3796,7 +3966,7 @@
 									v = val['v'],
 									l = val['l'],
 									a = val['a'] || 1.0 ;
-								
+
 								if('h' in val && 's' in val){
 									if('b' in val){ // HSB
 										val = this.getHSBAString(h, s, b, a) ;
@@ -3823,18 +3993,17 @@
 								}
 							break ;
 						}
-						
+
 						return res ;
 					},
 					toColorObj:function(val, mode){
-						
+
 						var res ;
 						var MODE = mode || 'rgb' ;
-						
+
 						var isString = function(){
 							return typeof val == 'string' ;
 						}
-						
 						switch(true){
 							case isString() && /^[a-z]+$/i.test(val) && val in BetweenJS.$.Color.css :
 								val = BetweenJS.$.Color.css[val] ;
@@ -3849,7 +4018,7 @@
 							break ;
 							case isString() && /^(0x|#)/.test(val) :
 								val = val.replace(/^(0x|#)/, '') ;
-								
+
 								switch(MODE){
 									case 'hsv':
 										res = this.HEXto(val, 'hsv') ;
@@ -3860,12 +4029,12 @@
 								}
 							break ;
 							case isString() && /rgba?/i.test(val) :
-								
+
 								var str = val.replace(/(rgba?\(|\)| )/gi, '') ;
 								var p = str.split(',') ;
 								res = this.getRGBAObject(
 									(p[0] & 0xFF),
-									(p[1] & 0xFF), 
+									(p[1] & 0xFF),
 									(p[2] & 0xFF),
 									parseFloat(p[3] || 1.0 )
 								) ;
@@ -3873,11 +4042,11 @@
 							case isString() &&/hsva?/i.test(val) :
 								var str = val.replace(/(hsva?\(|\)| )/gi, '') ;
 								var p = str.split(',') ;
-								
+
 								if(MODE == 'hsv'){
 									res = this.getHSVAObject(
 										(p[0] & 0xFF),
-										(p[1] & 0xFF), 
+										(p[1] & 0xFF),
 										(p[2] & 0xFF),
 										parseFloat(p[3] || 1.0 )
 									) ;
@@ -3885,13 +4054,13 @@
 								}
 								res = this.HSVto(
 									(p[0] & 0xFF),
-									(p[1] & 0xFF), 
+									(p[1] & 0xFF),
 									(p[2] & 0xFF),
 									parseFloat(p[3] || 1.0),
 								MODE) ;
 							break ;
 							case !isNaN(parseInt(val)) :
-								
+
 								switch(MODE){
 									case 'hsv':
 										res = this.UINTto(val) ;
@@ -3901,10 +4070,10 @@
 										res = this.UINTto(val) ;
 									break ;
 								}
-								
+
 							break ;
 							case !isString() && 'r' in val || 'h' in val :
-								
+
 								var r = val['r'],
 									g = val['g'],
 									b = val['b'],
@@ -3913,7 +4082,7 @@
 									v = val['v'],
 									l = val['l'],
 									a = val['a'] || 1.0 ;
-									
+
 								if('h' in val && 's' in val){
 									if('b' in val){ // HSB
 										val = this.getHSBAObject(h, s, b, a) ;
@@ -3928,7 +4097,7 @@
 								res = val ;
 							break ;
 						}
-						
+
 						return res ;
 					},
 					css:{
