@@ -715,6 +715,7 @@
 					},
 					draw:function(){
 						this.internalDraw() ;
+						this.fire('draw') ;
 					},
 					internalDraw:function(){
 						this.updater.draw() ;
@@ -978,7 +979,7 @@
 						enable:function(options){
 							TweenDecorator.factory.enable.apply(this, [options]) ;
 							this.baseTween = options['baseTween'] ;
-
+							
 							return this ;
 						},
 						prepare:function(options){
@@ -1632,7 +1633,6 @@
 					poolIndex:0,
 					mapPool:[],
 					listPool:[],
-					REQUIRED:'__REQUIRED__',
 					getActiveUpdater:function(map, updaters, options){
 						var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
 						var updater = map[upstr] ;
@@ -1661,34 +1661,8 @@
 						}
 						return nu ;
 					},
-					checkCustomMapper:function(updater, typename, type, name){
-						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
-						var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
-						var val = type[name] ;
-						var i, l, s, j, ll, custom, pattern ;
-
-						var customs = CustomMappers ;
-						l = customs.length ;
-
-
-						for(i = 0 ; i < l ; i ++){
-							custom = customs[i] ;
-							pattern = custom.pattern ;
-
-							if(pattern.test(name)){
-								var tt = type[name] ;
-								delete type[name] ;
-								s = custom.check(updater, typename, type, name, tt) ;
-								name = s.name ;
-								type[name] = s.value ;
-								if(s.block) break ;
-
-							}
-						}
-						return name ;
-					},
 					isofy:function(updater, props){
-						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						var to = props['to'] ;
 						var fr = props['from'] ;
 						var cp = props['cuepoints'] ;
@@ -1696,13 +1670,13 @@
 						var s, r ;
 
 						var safeWriteIn = function(s, o){
-							if(!(s in o)) o[s] = UpdaterFactory.REQUIRED ;
+							if(!(s in o)) o[s] = PropertyMapper.REQUIRED ;
 						}
 
 						// cuepoints no need REQUIREDSTUFF to be written bur needs to write
 						if(!!cp){
 							for(s in cp){
-								s = UpdaterFactory.checkCustomMapper(updater, 'cuepoints', cp, s) ;
+								s = PropertyMapper.checkCustomMapper(updater, 'cuepoints', cp, s) ;
 								safeWriteIn(s, to) ;
 								safeWriteIn(s, fr) ;
 							}
@@ -1710,13 +1684,13 @@
 
 						// Write back SOURCE from DEST
 						for(s in to){
-							s = UpdaterFactory.checkCustomMapper(updater, 'to', to, s) ;
+							s = PropertyMapper.checkCustomMapper(updater, 'to', to, s) ;
 							safeWriteIn(s, fr) ;
 						}
 
 						// Write back DEST from SOURCE
 						for(s in fr){
-							s = UpdaterFactory.checkCustomMapper(updater, 'fr', fr, s) ;
+							s = PropertyMapper.checkCustomMapper(updater, 'fr', fr, s) ;
 							safeWriteIn(s, to) ;
 						}
 
@@ -1726,6 +1700,8 @@
 						return props ;
 					},
 					treat:function(map, updaters, options){
+						
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						var updater = UpdaterFactory.getActiveUpdater(map, updaters, options) ;
 
 						updater.cache = {} ;
@@ -1777,8 +1753,8 @@
 
 										value = o[name] ;
 
-										if(value == UpdaterFactory.REQUIRED){
-											updater[action](name, UpdaterFactory.REQUIRED) ;
+										if(value == PropertyMapper.REQUIRED){
+											updater[action](name, PropertyMapper.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
 										} else{
@@ -2057,16 +2033,17 @@
 						this.relativeMap['cuepoints.' + name + '.' + cuepoints.length] = isRelative ;
 					},
 					getIn:function(name){
-						return this.cache[name]['getMethod'](this.target, name) ;
+						return BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name) ;
 					},
 					setIn:function(name, value){
-						this.cache[name]['setMethod'](this.target, name, value) ;
+						BetweenJS.$.PropertyMapper.cache[name]['setMethod'](this.target, name, value) ;
 					},
 					superResolve:function(time){
 						return this.resolveValues(time) ;
 					},
 					resolveValues:function(time){
-						var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						
 						var key,
 							target = this.target,
 							source = this.source,
@@ -2077,7 +2054,7 @@
 							maxDuration = 0.0 ;
 
 						for (key in source) {
-							if (source[key] == UpdaterFactory.REQUIRED) {
+							if (source[key] == PropertyMapper.REQUIRED) {
 								source[key] = this.getIn(key) ;
 							}
 							if (rMap['source.' + key]) {
@@ -2088,7 +2065,7 @@
 
 						for (key in dest) {
 
-							if (dest[key] == UpdaterFactory.REQUIRED) {
+							if (dest[key] == PropertyMapper.REQUIRED) {
 								dest[key] = this.getIn(key) ;
 							}
 							if (rMap['dest.' + key]) {
@@ -2450,7 +2427,8 @@
 						var val = type[name] || val ;
 						var units ;
 						var m ;
-
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						
 						if(val.constructor == Array){ // CUEPOINTS
 							var bb = false ;
 							var l = val.length ;
@@ -2479,7 +2457,8 @@
 							} ;
 
 						}else{
-							var m = this.parseMethod(updater, typename, type, name, val) ;
+							var m = this.parseMethod(updater, typename, type, name, val, val == '__REQUIRED__') ;
+							
 							if(m.units){
 								updater.units[typename + '.' + name] = m.units ;
 							}
@@ -2487,8 +2466,9 @@
 							if(m.isRelative){
 								updater.relativeMap[typename + '.' + name] = m.isRelative ;
 							}
-
-							updater.cache[name] = this ;
+							if(!(name in PropertyMapper.cache) || PropertyMapper.cache[name] !== this){
+								PropertyMapper.cache[name] = this ;								
+							}
 
 							return m ;
 						}
@@ -2498,6 +2478,34 @@
 					pkg:'::PropertyMapper',
 					domain:BetweenJSCore,
 					statics:{
+						REQUIRED:'__REQUIRED__',
+						cache:{},
+						checkCustomMapper:function(updater, typename, type, name){
+							var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
+							var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
+							var val = type[name] ;
+							var i, l, s, j, ll, custom, pattern ;
+							
+							var customs = CustomMappers ;
+							l = customs.length ;
+
+
+							for(i = 0 ; i < l ; i ++){
+								custom = customs[i] ;
+								pattern = custom.pattern ;
+
+								if(pattern.test(name)){
+									var tt = type[name] ;
+									delete type[name] ;
+									s = custom.check(updater, typename, type, name, tt) ;
+									name = s.name ;
+									type[name] = s.value ;
+									if(s.block) break ;
+
+								}
+							}
+							return name ;
+						},
 						CustomMappers:[
 							new CustomMapper(CustomMapper.ALL, {
 								parseMethod:function(updater, typename, type, name, val){
@@ -2536,14 +2544,24 @@
 								}
 							}),
 							new CustomMapper(/((border|background)?color|background)$/i, {
-								parseMethod:function(updater, typename, type, name, val){
+								parseMethod:function(updater, typename, type, name, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
 
 									name = name == 'background' ? name + '-color' : name ;
 									name = PropertyMapper.replaceCapitalToDash(name) ;
-
-									val = BetweenJS.$.Color.toColorObj(val) ;
+									
+									if(required){
+										val = {
+											r:val,
+											g:val,
+											b:val,
+											a:val
+										}
+									}else{
+										val = BetweenJS.$.Color.toColorObj(val) ;
+									}
+									
 
 									return {
 										name:name,
