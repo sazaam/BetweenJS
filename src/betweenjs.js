@@ -36,34 +36,121 @@
 	})()) ;
 
 	return Pkg.write('org.libspark.betweenjs', function(path){
-		var BetweenJSCore = {} ;
-		var getNow = function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
-			getTimer = function(){ return getNow() - liveTime },
-			concat = function(p){ return (p === undefined) ? [] : p },
-			valueExists = function(o, val){ return !!o ? o[val] : undefined } ;
+		var NOOP 			= function(){} ;
+		var ZERO 			= 0.0 ;
+		var ONE 			= 1.0 ;
+		var TWO 			= 2.0 ;
+		var XXL				= 1e10 ;
+		var MAX				= 19;
+		// Externally-Pusblishable settings
+		var BetweenJSCore = {
+			settings:{
+				begin:NOOP,
+				update:NOOP,
+				draw:NOOP,
+				end:NOOP
+			},
+			Decimal:{
+				add:function(n1, n2){
+					var s1, s2, l1, l2 ;
+					
+					s1 = n1 + n2 ;
+					l1 = (''+s1).length ;
+					
+					if(l1 < MAX) return s1 ;
+					
+					s2 = ((n1 * XXL) + (n2 * XXL)) / XXL ;
+					l2 = (''+s2).length ;
+					
+					return l1 < l2 ? s1 : s2 ;
+				},
+				sub:function(n1, n2){
+					var s1, s2, l1, l2 ;
+					
+					s1 = n1 - n2 ;
+					l1 = (''+s1).length ;
+					
+					if(l1 < MAX) return s1 ;
+					
+					s2 = ((n1 * XXL) - (n2 * XXL)) / XXL ;
+					l2 = (''+s2).length ;
+					
+					return l1 < l2 ? s1 : s2 ;
+				},
+				mul:function(n1, n2){
+					var s1, s2, l1, l2 ;
+					
+					s1 = n1 * n2 ;
+					l1 = (''+s1).length ;
+					
+					if(l1 < MAX) return s1 ;
+					
+					s2 = ((n1 * XXL) * (n2 * XXL)) / XXL / XXL ;
+					l2 = (''+s2).length ;
+					
+					return l1 < l2 ? s1 : s2 ;
+				},
+				div:function(n1, n2){
+					var s1, s2, l1, l2 ;
+					
+					s1 = n1 / n2 ;
+					l1 = (''+s1).length ;
+					
+					if(l1 < MAX) return s1 ;
+					
+					s2 = ((n1 * XXL) / (n2 * XXL)) ;
+					l2 = (''+s2).length ;
+					
+					return l1 < l2 ? s1 : s2 ;
+				}
+			}
+		} ;
+		
+			// Animation Ticker Core
+		var getNow 			= function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
+			getTimer 		= function(){ return getNow() - __LIVE_TIME__ },
+			// other utils
+			concat 			= function(p){ return (p === undefined) ? [] : p },
+			valueExists 	= function(o, val){ return !!o ? o[val] : undefined },
+			checkForEpsilon = function(p){return (p > ZERO && p < __EPSILON__) ? ZERO : p },
+			isJQ			=function(tg){ return 'jQuery' in tg || 'selector' in tg },
+			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c))) } ;
+		
+		var ADD 			= function(n1, n2){ return BetweenJS.$.Decimal.add(n1, n2) },
+			SUB				= function(n1, n2){ return BetweenJS.$.Decimal.sub(n1, n2) },
+			MUL				= function(n1, n2){ return BetweenJS.$.Decimal.mul(n1, n2) },
+			DIV				= function(n1, n2){ return BetweenJS.$.Decimal.div(n1, n2) } ;
+		
+		
+			// Animation & TIcker Control
+		var __LIVE_TIME__ 			= getNow(),
+			__TIME__				= NaN,
+			__OFF_TIME__ 			= ZERO,
+			__EPSILON__ 			= 'EPSILON' in Number ? Number.EPSILON : .01,
+			__FPS__ 				= 60 ;
+		
+		var __SIM_TIMESTEP__ 		= 1000 / __FPS__,
+			__FRAME_DELTA__ 		= ZERO,
+			__LAST_FRAME_TIME_MS__ 	= ZERO,
+			__LAST_FPS_UPDATE__ 	= ZERO,
+			__FRAMES_THIS_SECOND__ 	= ZERO,
+			__NUM_UPDATES_STEP__ 	= ZERO,
+			__MIN_FRAME_DELAY__ 	= ZERO,
+			__SAFE_TIME__ 			= ZERO,
+			__XXL__ 				= XXL ;
+		
+		var BASE_TIME 				= .75 ;
 
-		var liveTime = getNow(),
-			OFF_TIME = 0,
-			TIME = NaN,
-			SIM_EPSILON = 'EPSILON' in Number ? Number.EPSILON : .005,
-
-			simulationTimestep = 1000 / 60,
-			frameDelta = 0,
-			lastFrameTimeMs = 0,
-			fps = 60,
-			lastFpsUpdate = 0,
-			framesThisSecond = 0,
-			numUpdateSteps = 0,
-			minFrameDelay = 0,
-			running = false,
-			started = false,
-			panic = false,
-
-			cacheTimeout = {},
-			units_reg = /(px|em|pc|pt|%)$/,
-			relative_reg =/^\$/ ;
-
-
+		var running 				= false,
+			started 				= false,
+			panic 					= false,
+			// specials
+			CACHE_TIMEOUT 			= {},
+			// regexp
+			DOM_reg 				= /HTML[a-zA-Z]*Element/,
+			units_reg 				= /(px|em|pc|pt|%)$/,
+			relative_reg 			=/^\$/ ;
+		
 		(function () {
 			// REQUEST / CANCEL ANIMATIONFRAME
 			var lastTime = getTimer(), now, timeout, vendors = ['ms', 'moz', 'webkit', 'o'] ;
@@ -71,11 +158,11 @@
 			if (!window.requestAnimationFrame)
 				for (var x = 0; x < vendors.length; ++x) {
 					window.requestAnimationFrame = window[vendors[x] + 'RequestAnimationFrame'];
-					window.cancelAnimationFrame = window[vendors[x] + 'CancelAnimationFrame'] || window[vendors[x] + 'CancelRequestAnimationFrame'];
+					window.cancelAnimationFrame = window[vendors[x] + 'CancelAnimationFrame'] || window[vendors[x] + 'CancelRequestAnimationFrame'] ;
 				}
 			requestAnimationFrame = window.requestAnimationFrame || function (callback) {
 				now = getNow() ;
-				timeout = Math.max(0, simulationTimestep - (now - lastTime)) ;
+				timeout = Math.max(ZERO, __SIM_TIMESTEP__ - (now - lastTime)) ;
 				lastTime = now + timeout ;
 				return setTimeout(function () {
 					callback(now + timeout) ;
@@ -87,7 +174,7 @@
 
 		// BETWEENJS CORE
 		Pkg.write('core', function(path){
-
+			
 			var Destroyable =  Type.define({
 				pkg:'utils::Destroyable',
 				constructor:Destroyable = function Destroyable(){
@@ -124,17 +211,97 @@
 					return false ;
 				}
 			}) ;
-
+			
+			var Poly = Type.define({
+				pkg:'::Poly',
+				domain:BetweenJSCore,
+				inherits:Traceable,
+				a:undefined,
+				b:undefined,
+				c:undefined,
+				d:undefined,
+				elements:undefined,
+				length:0,
+				bulkFunc:function(f, reversed){
+					var els = [] ;
+					var ret = [] ;
+					
+					if(reversed !== true){
+						for(var i = 0 ; i < Infinity ; i++){
+							var s = this.getElementAt(i) ;
+							if(!!!s) break ;
+							els[i] = s ;
+							ret[i] = f(s, i, els) ;
+							if(ret[i] === true) break ;
+						}
+					}else{
+						var l = this.length ;
+						for(;l > 0 ; l--){
+							var i = l - 1 ;
+							var s = this.getElementAt(i) ;
+							if(!!!s) break ;
+							els[i] = s ;
+							ret[i] = f(s, i, els) ;
+							if(ret[i] === true) break ;
+						}
+					}
+				},
+				getElementAt:function(index){
+					switch(index){
+						case 0 :
+							return this.a ;
+						break ;
+						case 1 :
+							return this.b ;
+						break ;
+						case 2 :
+							return this.c ;
+						break ;
+						case 3 :
+							return this.d ;
+						break ;
+						default :
+							return this.elements[index - 4] ;
+						break ;
+					}
+				},
+				constructor:Poly = function Poly(elements, closure){
+					Poly.base.call(this) ;
+					
+					this.elements = elements ;
+					var l = elements.length, tar ;
+					closure = closure || function(){} ;
+					
+					if (l >= 1) {
+						this.a = elements[0] ;
+						closure(this.a, l) ;
+						if (l >= 2) {
+							this.b = elements[1] ;
+							closure(this.b, l) ;
+							if (l >= 3) {
+								this.c = elements[2] ;
+								closure(this.c, l) ;
+								if (l >= 4) {
+									this.d = elements[3] ;
+									closure(this.d, l) ;
+									if (l >= 5) {
+										this.elements = new Array(l - 4) ;
+										for (var i = 4 ; i < l ; ++i) {
+											tar = this.elements[i - 4] = elements[i] ;
+											closure(tar, l) ;
+										}
+									}
+								}
+							}
+						}
+					}
+					this.length = l ;
+					
+				}
+			}) ;
+			
 			// CORE.LOOPS
 			Pkg.write('loops', function(){
-
-
-				var NOOP = function(){} ;
-
-				var begin = NOOP,
-					update = NOOP,
-					draw = NOOP,
-					end = NOOP ;
 
 				var AnimationTicker = Type.define({
 					pkg:'::AnimationTicker',
@@ -167,60 +334,74 @@
 						},
 						innerFunc:function(timestamp){
 							/////
-							if (timestamp < lastFrameTimeMs + minFrameDelay) {
-								return;
+							if (timestamp < __LAST_FRAME_TIME_MS__ + __MIN_FRAME_DELAY__) {
+								return ;
 							}
 							/////
-							var anim = AnimationTicker ;
-							TIME = timestamp ;
-							var faketimestamp = timestamp - OFF_TIME ;
+							var anim = AnimationTicker,
+								begin = BetweenJSCore.settings.begin,
+								update = BetweenJSCore.settings.update,
+								draw = BetweenJSCore.settings.draw,
+								end = BetweenJSCore.settings.end,
+								faketimestamp = timestamp - __OFF_TIME__ ;
+							
+							__TIME__= timestamp ;
+							
 							anim.timestamp = faketimestamp * .001 ;
-							// anim.func(faketimestamp) ;
 							anim.ID = requestAnimationFrame(anim.innerFunc) ;
 
-
-							/////
-							frameDelta += timestamp - lastFrameTimeMs;
-							lastFrameTimeMs = timestamp;
-
-							begin(timestamp, frameDelta);
-
-							if (timestamp > lastFpsUpdate + 1000) {
-								fps = 0.25 * framesThisSecond + 0.75 * fps;
-								lastFpsUpdate = timestamp;
-								framesThisSecond = 0;
+							__FRAME_DELTA__ += timestamp - __LAST_FRAME_TIME_MS__ ;
+							__LAST_FRAME_TIME_MS__ = timestamp ;
+							
+							// UNUSED
+							begin(timestamp, __FRAME_DELTA__) ;
+							
+							
+							if (timestamp > __LAST_FPS_UPDATE__ + 1000) {
+								__FPS__ = 0.25 * __FRAMES_THIS_SECOND__ + 0.75 * __FPS__ ;
+								__LAST_FPS_UPDATE__ = timestamp ;
+								__FRAMES_THIS_SECOND__ = 0 ;
 							}
 
-							framesThisSecond++;
-							numUpdateSteps = 0;
+							__FRAMES_THIS_SECOND__++ ;
+							__NUM_UPDATES_STEP__ = 0 ;
 
-							while (frameDelta >= simulationTimestep) {
-								// update(simulationTimestep);
+							while (__FRAME_DELTA__ >= __SIM_TIMESTEP__) {
+								// UNUSED
+								update(__SIM_TIMESTEP__) ;
+								
+								// BETWEENJS TICKER
 								anim.func(faketimestamp) ;
 
-								frameDelta -= simulationTimestep;
-								if (++numUpdateSteps >= 240) {
-									panic = true;
-									break;
+								__FRAME_DELTA__ -= __SIM_TIMESTEP__ ;
+								if (++__NUM_UPDATES_STEP__ >= 240) {
+									panic = true ;
+									break ;
 								}
 							}
-
-							anim.draw(frameDelta / simulationTimestep) ;
-
-							end(fps, panic);
-							panic = false;
+							
+							// UNUSED
+							draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
+							
+							// BETWEENJS TICKER
+							anim.draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
+							
+							// UNUSED
+							end(__FPS__, panic) ;
+							panic = false ;
 						},
 						start:function(){
 							var anim = AnimationTicker ;
 							anim.started = true ;
 							anim.ID = requestAnimationFrame(function(now){
-								OFF_TIME += isNaN(TIME) ? 0 : now - TIME ;
+								__OFF_TIME__ += isNaN(__TIME__) ? 0 : now - __TIME__;
 								anim.innerFunc(now) ;
 							}) ;
 						},
 						stop:function(){
 							var anim = AnimationTicker ;
 							cancelAnimationFrame(this.ID) ;
+							
 							this.started = false ;
 							delete this.ID ;
 						},
@@ -278,7 +459,6 @@
 					}
 				}) ;
 				// ENTERFRAMETICKER
-				// ENTERFRAMETICKER
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
 					domain:BetweenJSCore,
@@ -288,6 +468,7 @@
 						coreListenersMax: 0,
 						tickerListenerPaddings:undefined,
 						time:undefined,
+						archive:undefined,
 						initialize:function initialize(domain){
 
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
@@ -295,7 +476,7 @@
 							AnimationTicker.start() ;
 
 							var prevListener = undefined,
-								max = this.coreListenersMax = 8 ;
+								max = this.coreListenersMax = 10 ;
 
 							this.tickerListenerPaddings = new Array(max) ;
 							this.numListeners = 0 ;
@@ -350,7 +531,7 @@
 							var AnimationTicker = BetweenJS.$.AnimationTicker ;
 							var Animation = BetweenJS.$.Animation ;
 							var EFT = this ;
-
+							this.archive = {} ;
 							EFT.time = AnimationTicker.timestamp ;
 							var a = new Animation(
 								function(timestamp){
@@ -360,11 +541,17 @@
 									EFT.draw(AnimationTicker.timestamp) ;
 								}
 							) ;
-
+							
 							this.animation = a.start() ;
 							this.started = true ;
 						},
 						stop:function(){
+							var a = this.archive ;
+							for(var s in a){
+								delete a[s] ;
+							}
+							delete this.archive ;
+							
 							this.animation.stop() ;
 							this.started = false ;
 						},
@@ -373,12 +560,16 @@
 							var l = drawables.length ;
 							for(var i = 0 ; i < l ; i ++){
 								var drawable = drawables[i] ;
-
+								
 								drawable.draw(ts) ;
 							}
 						},
 						update:function(time){
-
+							
+							if(!!this.archive[time]) return ;
+							else{this.archive[time] = time}
+							
+							
 							var min = 0 ;
 							var EFT = this ;
 							var total = EFT.coreListenersMax - 2 ;
@@ -389,7 +580,7 @@
 							var l = EFT.tickerListenerPaddings[n] ;
 							var ll ;
 							var drawables = EFT.drawables = [] ;
-
+							
 							if (!!(l.nextListener = EFT.first)) {
 								EFT.first.prevListener = l ;
 							}
@@ -399,11 +590,15 @@
 								while (i < total) {
 									listener = listener.nextListener ;
 									var AbstractTween = BetweenJS.$.AbstractTween ;
-									if(listener instanceof AbstractTween) drawables.push(listener) ;
-									if(listener instanceof AbstractTween && !!listener.startTime) {
-										t = t - listener.startTime ;
-										min ++ ;
+									if(listener instanceof AbstractTween){
+										if(!!listener.startTime){
+											t = SUB(t, listener.startTime) ;
+											min ++ ;
+											
+										}
+										drawables.push(listener) ;
 									}
+									
 									// THIS IS THE LISTENER REMOVAL CODE !!!!!!!!!!!!
 									if (listener.tick(t)) {
 										if (!!listener.prevListener) {
@@ -421,7 +616,7 @@
 									i++ ;
 								}
 							}
-
+							
 							if(min == 0){
 								this.stop() ;
 							}
@@ -442,7 +637,7 @@
 				var TweenFactory = BetweenJSCore.TweenFactory = {
 					optionDefaults:function(options){
 						if(!!!options['ease']) options['ease'] = Expo.easeOut ;
-						if(!!!options['time']) options['time'] = .75 ;
+						if(!!!options['time']) options['time'] = BASE_TIME ;
 					},
 					detectTweenTypeFromOptions:function(options){
 						var method = '';
@@ -471,11 +666,10 @@
 					createBasic:function(options){
 
 						var tw = new Tween() ;
-
 						return tw
+							.configure(options)
 							.setHandlers(options)
-							.assignUpdater(options)
-							.prepare(options) ;
+							.assignUpdater(options) ;
 					},
 					createAction:function(options){
 						var tw ;
@@ -497,27 +691,8 @@
 						}
 
 						return tw
-							.enable(t)
+							.configure(t)
 							.setHandlers(options)
-							.prepare(options) ;
-					},
-					createGroup:function(options){
-						var tw ;
-						var groups = options.groups ;
-						var t ;
-						switch(true){
-							case !!(t = groups.parallel) :
-								tw = new (BetweenJS.$.ParallelTween)() ;
-							break ;
-							case !!(t = groups.serial) :
-								tw = new (BetweenJS.$.SerialTween)() ;
-							break ;
-						}
-
-						return tw
-							.enable(t)
-							.setHandlers(options)
-							.prepare(options) ;
 					},
 					createDecorator:function(options){
 						var tw ;
@@ -543,9 +718,25 @@
 						}
 
 						return tw
-							.enable(t)
+							.configure(t)
 							.setHandlers(options)
-							.prepare(options) ;
+					},
+					createGroup:function(options){
+						var tw ;
+						var groups = options.groups ;
+						var t ;
+						switch(true){
+							case !!(t = groups.parallel) :
+								tw = new (BetweenJS.$.ParallelTween)() ;
+							break ;
+							case !!(t = groups.serial) :
+								tw = new (BetweenJS.$.SerialTween)() ;
+							break ;
+						}
+
+						return tw
+							.configure(t)
+							.setHandlers(options)
 					}
 				}
 				// TWEENS
@@ -555,21 +746,22 @@
 					inherits:Traceable,
 					isPlaying:false,
 					stopOnComplete:true,
-					position:NaN,
-					lastPosition:0,
+					position:ZERO,
 					time:NaN,
 					startTime:NaN,
 					updater:undefined,
 					isPlaying:false,
 					stopOnComplete:true,
+					archive:{},
 					constructor:AbstractTween = function AbstractTween(){
 						AbstractTween.base.call(this) ;
 						this.isPlaying = false ;
+						this.time = Tween.DEFAULT_TIME ;
 					},
-					enable:function(options){
+					configure:function(options){
 						this.stopOnComplete = options['stopOnComplete'] || true ;
-						this.position = options['initposition'] || 0 ;
-
+						this.position = options['initposition'] || ZERO ;
+						
 						return this ;
 					},
 					///////////
@@ -589,7 +781,6 @@
 					assignUpdater:function(options){//		SETTINGS
 						var updater = BetweenJS.$.UpdaterFactory.create(options) ;
 						this.setUpdater(updater) ;
-						this.time = updater.time ;
 						return this ;
 					},
 					/*
@@ -597,25 +788,20 @@
 						TWEEN & UPDATER SETTINGS
 
 					*/
-					prepare:function(options){
-						// HERE I KNOW TIME FROM UPDATER & BULKLOADER ALREADY
-						this.setTime(this.updater.time) ;
-						return this ;
-					},
 					setUpdater:function(updater){
 						this.updater = updater ;
 						return this ;
 					},
 					setPosition:function(position){
-						if (position < 0) position = 0 ;
+						if (position < ZERO) position = ZERO ;
 						if (position > this.time) position = this.time ;
-
+						
 						this.position = position ;
 						return this ;
 					},
 					setStartTime:function(position){
 						var EFT = BetweenJS.$.EnterFrameTicker ;
-						this.startTime = EFT.time - position ;
+						this.startTime = SUB(EFT.time, position) ;
 						return this ;
 					},
 					setTime:function(time){
@@ -640,8 +826,8 @@
 					setup:function(){
 						this.isPlaying = true ;
 						var p = this.position ;
-						p = isNaN(p) ? 0 : p >= this.time ? 0 : p ;
-
+						p = isNaN(p) ? ZERO : p >= this.time ? ZERO : p ;
+						
 						this
 							.register()
 							.seek(p) ;
@@ -657,7 +843,8 @@
 
 					*/
 					seek:function(position, isPercent){
-						position = !!isPercent ? this.time * position : position ;
+						position = !!isPercent ? MUL(this.time, position) : position ;
+						
 						this.setPosition(position) ;
 						this.setStartTime(position) ;
 
@@ -670,24 +857,25 @@
 						return this.rewind().play() ;
 					},
 					rewind:function(position){
-						return this.seek(0) ;
+						return this.seek(ZERO) ;
 					},
 					gotoAndPlay:function(position, isPercent){
-						position = !!isPercent ? this.time * position : position ;
+						position = !!isPercent ? MUL(this.time, position) : position ;
+						
 						if(!this.isPlaying)
 							return this.seek(position).play() ;
 						else
 							this.tick(this.position) ;
+						
 						return this ;
 					},
 					gotoAndStop:function(position, isPercent){
-						position = !!isPercent ? this.time * position : position ;
+						position = !!isPercent ? MUL(this.time, position) : position ;
 						return this.isPlaying ?
 							this.stop().update(position) :
 							this.update(position) ;
 					},
 					play:function(){
-
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
@@ -702,16 +890,96 @@
 						}
 						return this ;
 					},
-					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
-					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
-					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
-					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE
-					update:function(position){
-						this.lastPosition = this.position ;
+					checkFiniteTime:function(position){
+						return this.updater.update(position) ;
+					},
+					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
+					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
+					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
+					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
+					tick:function(position){
+						
+						if (!this.isPlaying) return true ;
+						
+						var r = this.update(position) ;
+						
+						if(r.started){
+							//
+						}
+						
+						if(r.decayed){
+							//
+							if (!this.stopOnComplete) {
+								
+								this.seek(ZERO) ;
+								
+							} else {
+								
+								this.stop() ;
+								
+								return true ;
+							}
+						}
+						
+						return false ;
+					},
+					internalUpdate:function(position){
+						
+						if(!isFinite(position)){
+							return this.checkFiniteTime(position) ;
+						}
+						
+						if(this.time == __XXL__){
+							this.setTime(this.updater.update(Infinity)) ;
+						}
+						
+						var r = this.setPositionAndFeedback(position) ;
+						
+						this.updater.update(this.position) ;
+						
+						return r ;
+					},
+					setPositionAndFeedback:function(position){
+						
+						var started, 
+							decayed, 
+							reversed = (this.position >= position) ;
+						
+						if(reversed){
+							started = position <= ZERO ;
+							decayed = SUB(this.position, this.time) >= ZERO ;
+						}else{
+							started = this.position <= ZERO ;
+							decayed = SUB(position, this.time) >= ZERO ;
+						}
+						
 						this.setPosition(position) ;
-						this.internalUpdate(this.position) ;
-
-						return this ;
+						
+						return this.info = {
+							started:started,
+							decayed:decayed,
+							reversed:reversed
+						} ;
+					},
+					update:function(position){
+						
+						if(!isFinite(position)){
+							return this.internalUpdate(position) ;
+						}
+						
+						var s = this.internalUpdate(position) ;
+						
+						/////////////////////////////////// EVENTS
+						// START
+						if(s.started) this.fire('start') ;
+						
+						// UPDATE
+						this.fire('update') ;
+						
+						// COMPLETE
+						if(s.decayed) this.fire('complete') ;
+						
+						return s ;
 					},
 					draw:function(){
 						this.internalDraw() ;
@@ -723,36 +991,9 @@
 					//////// END CAUTION
 					//////// END CAUTION
 					//////// END CAUTION
-					tick:function(position){
-
-						if (!this.isPlaying) return true ;
-						this.update(position) ;
-						this.fire('update') ;
-
-						if (this.isPlaying) {
-
-							if (this.position >= this.time) {
-								if (!this.stopOnComplete) {
-									this.seek(0) ;
-								} else {
-									this.draw() ;
-									this.setPosition(this.time)
-										.fire('complete')
-											.stop() ;
-									return true ;
-
-								}
-							}
-							return false ;
-						}
-						return true ;
-					},
-					internalUpdate:function(position){
-						this.updater.update(position) ;
-					},
 					clone:function(){
-						var instance = newInstance() ;
-						if (instance !== undefined) {
+						var instance = this.newInstance() ;
+						if (!!instance) {
 							instance.copyFrom(this) ;
 						}
 						return instance ;
@@ -761,10 +1002,12 @@
 					   return new AbstractTween() ;
 					},
 					copyFrom:function(source){
+						this.position = source.position ;
 						this.time = source.time ;
 						this.ease = source.ease ;
 						this.stopOnComplete = source.stopOnComplete ;
-						this.willTriggerFlags = source.willTriggerFlags ;
+						this.updater = source.updater.clone() ;
+						
 						this.copyHandlersFrom(source);
 					},
 					copyHandlersFrom:function(source){
@@ -801,6 +1044,10 @@
 					pkg:'::Tween',
 					domain:BetweenJSCore,
 					inherits:AbstractTween,
+					statics:{
+						SAFE_TIME:__EPSILON__,
+						DEFAULT_TIME:__XXL__
+					},
 					constructor:Tween = function Tween(){
 						Tween.base.call(this) ;
 					},
@@ -809,7 +1056,6 @@
 					},
 					copyFrom:function(source){
 						Tween.factory.copyFrom.apply(this, [source]) ;
-						this.updater = source.updater.clone() ;
 					}
 				}) ;
 
@@ -819,31 +1065,44 @@
 						pkg:'::AbstractActionTween',
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
-						statics:{
-							safeTime:SIM_EPSILON * 2
-						},
 						constructor:AbstractActionTween = function AbstractActionTween(){
 							AbstractActionTween.base.call(this) ;
 						},
-						enable:function(options){
-							AbstractActionTween.factory.enable.apply(this, [options]) ;
-
-							return this ;
-						},
-						prepare:function(){
-							this.time = AbstractActionTween.safeTime ;
+						configure:function(options){
+							AbstractActionTween.factory.configure.apply(this, [options]) ;
 							return this ;
 						},
 						internalUpdate:function(position){
-							if (this.lastPosition < this.time && position >= this.time) {
-								this.action() ;
-							}else if(this.lastPosition >= this.time && position < this.time){
-								this.rollback() ;
+							
+							if(!isFinite(position)){
+								return Tween.SAFE_TIME ;
 							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							if(r.decayed){
+								if(r.reversed){
+									this.rollback() ;
+								} else{
+									this.action() ;
+								}
+							}
+							
+							return r ;
 						},
 						internalDraw:function(){},
 						action:function(){},
-						rollback:function(){}
+						rollback:function(){},
+						copyFrom:function(source){
+							this.time = source['time'] ;
+							
+							this.copyHandlersFrom(source) ;
+						}
+						
 					}) ;
 					// SUBCLASSES
 					var FunctionAction = Type.define({
@@ -858,19 +1117,19 @@
 						constructor:FunctionAction = function FunctionAction(){
 							FunctionAction.base.call(this) ;
 						},
-						enable:function(options){
-							FunctionAction.factory.enable.apply(this, [options]) ;
+						configure:function(options){
+							FunctionAction.factory.configure.apply(this, [options]) ;
 
 							this.func = options['closure'] ;
 							this.params = options['params'] ;
 
 							if (!!options['useRollback']) {
 								if (!!options['rollbackClosure']) {
-									this.rollbackFunc = options['rollbackClosure'] ;
-									this.rollbackParams = options['rollbackParams'] || this.params ;
+									this.rollbackFunc		 = options['rollbackClosure'] ;
+									this.rollbackParams		 = options['rollbackParams'] || this.params ;
 								} else {
-									this.rollbackFunc = this.func ;
-									this.rollbackParams = options['rollbackParams'] || this.params ;
+									this.rollbackFunc		 = this.func ;
+									this.rollbackParams		 = options['rollbackParams'] || this.params ;
 								}
 							}
 
@@ -881,31 +1140,65 @@
 						},
 						rollback:function(){
 							if (!!this.rollbackFunc) this.rollbackFunc.apply(this, [].concat(this.rollbackParams)) ;
+						},
+						newInstance:function(){
+							return new FunctionAction() ;
+						},
+						copyFrom:function(source){
+							FunctionAction.factory.copyFrom.apply(this, [source]) ;
+							
+							this.func = 			source['func'] ;
+							this.params = 			source['params'] ;
+							this.useRollback = 		source['useRollback'] ;
+							this.rollbackFunc =		source['params'] ;
+							this.rollbackParams = 	source['params'] ;
+							
 						}
 					}) ;
 					var TimeoutAction = Type.define({
 						pkg:'::TimeoutAction',
 						domain:BetweenJSCore,
 						inherits:FunctionAction,
-						duration:0,
-						func:undefined,
-						params:undefined,
-						time:0,
 						constructor:TimeoutAction = function TimeoutAction(){
 							TimeoutAction.base.call(this) ;
 						},
-						enable:function(options){
-							TimeoutAction.factory.enable.apply(this, [options]) ;
-							var d = options['duration'] ;
-							this.time = (!!d && d != 0 ? d : AbstractActionTween.safeTime) ;
-
+						configure:function(options){
+							TimeoutAction.factory.configure.apply(this, [options]) ;
+							
+							this.duration = options['duration'] || options['time'] || Tween.SAFE_TIME ;
+							
 							return this ;
 						},
-						prepare:function(){
-							return this ;
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								return this.duration ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							if(r.decayed){
+								if(r.reversed){
+									this.rollback() ;
+								} else{
+									this.action() ;
+								}
+							}
+							
+							return r ;
 						},
 						clear:function(){
 							return this.stop() ;
+						},
+						newInstance:function(){
+							return new TimeoutAction() ;
+						},
+						copyFrom:function(source){
+							TimeoutAction.factory.copyFrom.apply(this, [source]) ;
 						}
 					}) ;
 					var AddChildAction = Type.define({
@@ -917,11 +1210,12 @@
 						constructor:AddChildAction = function AddChildAction(){
 							AddChildAction.base.call(this) ;
 						},
-						enable:function(options){
-							AddChildAction.factory.enable.apply(this, [options]) ;
-
-							this.target = options['target'] ;
-							this.parent = options['parent'] ;
+						configure:function(options){
+							var PropertyMapper = BetweenJS.$.PropertyMapper ;
+							AddChildAction.factory.configure.apply(this, [options]) ;
+							
+							this.target = PropertyMapper.checkNode(options['target']) ;
+							this.parent = PropertyMapper.checkNode(options['parent']) ;
 
 							return this ;
 						},
@@ -934,6 +1228,15 @@
 							if (!!this.target && !!this.parent && this.target.parentNode === this.parent) {
 								this.parent.removeChild(this.target) ;
 							}
+						},
+						newInstance:function(){
+							return new AddChildAction() ;
+						},
+						copyFrom:function(source){
+							AddChildAction.factory.copyFrom.apply(this, [source]) ;
+							
+							this.target = 			source['target'] ;
+							this.parent = 			source['parent'] ;
 						}
 					}) ;
 					var RemoveFromParentAction = Type.define({
@@ -944,10 +1247,10 @@
 						constructor:RemoveFromParentAction = function RemoveFromParentAction(){
 							RemoveFromParentAction.base.call(this) ;
 						},
-						enable:function(options){
-							RemoveFromParentAction.factory.enable.apply(this, [options]) ;
+						configure:function(options){
+							RemoveFromParentAction.factory.configure.apply(this, [options]) ;
 
-							this.target = options['target'] ;
+							this.target =  PropertyMapper.checkNode(options['target']) ;
 
 							return this ;
 						},
@@ -962,6 +1265,15 @@
 								this.parent.appendChild(this.target) ;
 								this.parent = undefined ;
 							}
+						},
+						newInstance:function(){
+							return new RemoveFromParentAction() ;
+						},
+						copyFrom:function(source){
+							RemoveFromParentAction.factory.copyFrom.apply(this, [source]) ;
+							
+							this.target = 			source['target'] ;
+							this.parent = 			source['parent'] ;
 						}
 					}) ;
 
@@ -976,15 +1288,10 @@
 						constructor:TweenDecorator = function TweenDecorator(){
 							TweenDecorator.base.call(this) ;
 						},
-						enable:function(options){
-							TweenDecorator.factory.enable.apply(this, [options]) ;
+						configure:function(options){
+							TweenDecorator.factory.configure.apply(this, [options]) ;
 							this.baseTween = options['baseTween'] ;
 							
-							return this ;
-						},
-						prepare:function(options){
-							this.time = this.baseTween.time ;
-
 							return this ;
 						},
 						play:function(){
@@ -1001,11 +1308,29 @@
 							}
 							return this ;
 						},
-						internalUpdate:function(time){
-							this.baseTween.update(time) ;
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								return this.baseTween.update(position) ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							this.baseTween.update(this.position) ;
+							
+							return r ;
 						},
 						internalDraw:function(){
 							this.baseTween.draw() ;
+						},
+						copyFrom:function(source){
+							this.copyHandlersFrom(source) ;
+							
+							this.baseTween = source['baseTween'] ;
 						}
 					}) ;
 					// SUBCLASSES
@@ -1018,38 +1343,59 @@
 						constructor:SlicedTween = function SlicedTween(){
 							SlicedTween.base.call(this) ;
 						},
-						enable:function(options){
-							SlicedTween.factory.enable.apply(this, [options]) ;
-							this.end = options['end'] || 1 ;
-							this.begin = options['begin'] || 0 ;
+						configure:function(options){
+							SlicedTween.factory.configure.apply(this, [options]) ;
+							this.end = options['end'] || 1.0 ;
+							this.begin = options['begin'] || 0.0 ;
 
 							return this ;
 						},
-						prepare:function(){
-							this.time = this.end - this.begin ;
-							if(this.end - this.begin == 0) this.instantUpdate = true ;
-
-							return this ;
-						},
-						internalUpdate:function(time){
-
-							if(this.instantUpdate === true){
-								time = 0 ;
-								this.baseTween.update(this.begin) ;
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								return this.end - this.begin ;
 							}
-
-							if (time > 0) {
-								if (time < this.time) {
-									this.baseTween.update(time + this.begin) ;
+							
+							if(this.time == __XXL__){
+								
+								this.setTime(this.update(-Infinity)) ;
+								
+								if(SUB(this.end, this.begin) == 0) {
+									this.instantUpdate = true ;
+									this.baseTween.update(this.begin) ;
+									s.started = true ;
+									s.decayed = true ;
+									
+									return s ;
+								}
+								
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							var pos 	= this.position,
+								bt 		= this.baseTween ;
+							
+							if (pos > 0) {
+								if (pos < this.time) {
+									bt.update(ADD(pos , this.begin)) ;
 								} else {
-									this.baseTween.update(this.end) ;
+									bt.update(this.end) ;
 								}
 							} else {
-								this.baseTween.update(this.begin) ;
+								bt.update(this.begin) ;
 							}
+							
+							return r ;
 						},
 						newInstance:function(){
-							return new SlicedTween(this.baseTween.clone(), this.begin, this.end) ;
+							return new SlicedTween() ;
+						},
+						copyFrom:function(source){
+							SlicedTween.factory.copyFrom.apply(this, [source]) ;
+							
+							this.end 			= source['end'] ;
+							this.begin 			= source['begin'] ;
 						}
 					}) ;
 					var ScaledTween = Type.define({
@@ -1060,22 +1406,35 @@
 						constructor:ScaledTween = function ScaledTween(){
 							ScaledTween.base.call(this) ;
 						},
-						enable:function(options){
-							ScaledTween.factory.enable.apply(this, [options]) ;
-							this.scale = options['scale'] || 1 ;
-
-							return this ;
-						},
-						prepare:function(){
-							this.time = this.scale * this.baseTween.time ;
+						configure:function(options){
+							ScaledTween.factory.configure.apply(this, [options]) ;
+							this.scale = options['scale'] || 1.0 ;
 
 							return this ;
 						},
 						internalUpdate:function(position){
-							this.baseTween.update(position / this.scale) ;
+							
+							if(!isFinite(position)){
+								return this.baseTween.update(-Infinity) ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(DIV(position, this.scale)) ;
+							
+							this.baseTween.update(DIV(this.position, this.scale)) ;
+							
+							return r ;
 						},
 						newInstance:function(){
-							return new ScaledTween(this.baseTween.clone(), this.scale) ;
+							return new ScaledTween() ;
+						},
+						copyFrom:function(source){
+							ScaledTween.factory.copyFrom.apply(this, [source]) ;
+							
+							this.scale 			= source['scale'] ;
 						}
 					}) ;
 					var ReversedTween = Type.define({
@@ -1085,21 +1444,31 @@
 						constructor:ReversedTween = function ReversedTween(){
 							ReversedTween.base.call(this) ;
 						},
-						enable:function(options){
-							ReversedTween.factory.enable.apply(this, [options]) ;
-
-							return this ;
-						},
-						prepare:function(){
-							this.time = this.baseTween.time ;
-
+						configure:function(options){
+							ReversedTween.factory.configure.apply(this, [options]) ;
 							return this ;
 						},
 						internalUpdate:function(position){
-							this.baseTween.update(this.baseTween.time - position) ;
+							
+							if(!isFinite(position)){
+								return this.baseTween.update(-Infinity) ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							this.baseTween.update(this.baseTween.time - this.position) ;
+							
+							return r ;
 						},
 						newInstance:function(){
-							return new ReversedTween(this.baseTween.clone(), 0) ;
+							return new ReversedTween() ;
+						},
+						copyFrom:function(source){
+							ReversedTween.factory.copyFrom.apply(this, [source]) ;
 						}
 					}) ;
 					var RepeatedTween = Type.define({
@@ -1110,28 +1479,44 @@
 						constructor:RepeatedTween = function RepeatedTween(){
 						   RepeatedTween.base.call(this) ;
 						},
-						enable:function(options){
+						configure:function(options){
 
-							RepeatedTween.factory.enable.apply(this, [options]) ;
+							RepeatedTween.factory.configure.apply(this, [options]) ;
 
 							this.repeatCount = options['repeatCount'] || 2 ;
-							this.basetime = this.baseTween.time ;
-
-							return this ;
-						},
-						prepare:function(){
-							this.time = this.basetime * this.repeatCount ;
-
+							
 							return this ;
 						},
 						internalUpdate:function(position){
-						   if (position >= 0) {
-							   position -= position < this.time ? this.basetime * parseInt(position / this.basetime) : this.time - this.basetime ;
-						   }
-						   this.baseTween.update(position) ;
+							
+							if(!isFinite(position)){
+								return MUL((this.basetime = this.baseTween.update(position)), this.repeatCount) ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							var childpos = this.position ;
+							if (childpos >= 0) {
+								childpos -= childpos < this.time
+									? MUL(this.basetime, parseInt(childpos / this.basetime))
+									: SUB(this.time, this.basetime) ;
+							}
+							
+							this.baseTween.update(childpos) ;
+							
+							return r ;
 						},
 						newInstance:function(){
-							return new RepeatedTween(this.baseTween.clone(), this.repeatCount) ;
+							return new RepeatedTween() ;
+						},
+						copyFrom:function(source){
+							RepeatedTween.factory.copyFrom.apply(this, [source]) ;
+							
+							this.repeatCount = source['repeatCount'] ;
 						}
 					}) ;
 					var DelayedTween = Type.define({
@@ -1139,487 +1524,337 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						basetime:undefined,
-						delay:.5,
-						postDelay:.5,
+						delay:0,
+						postDelay:0,
 						constructor:DelayedTween = function DelayedTween(){
 						   DelayedTween.base.call(this) ;
 						},
-						enable:function(options){
-							DelayedTween.factory.enable.apply(this, [options]) ;
-
+						configure:function(options){
+							DelayedTween.factory.configure.apply(this, [options]) ;
+							
 							this.delay = options['delay'] || 0 ;
 							this.postDelay = options['postDelay'] || 0 ;
 
 							return this ;
 						},
-						prepare:function(){
-
-							this.time = this.delay + this.postDelay + this.baseTween.time ;
-
-							return this ;
-						},
 						internalUpdate:function(position){
-							this.baseTween.update(position - this.delay) ;
+							
+							if(!isFinite(position)){
+								return ADD(this.baseTween.update(position) , ADD(this.delay, this.postDelay)) ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var r = this.setPositionAndFeedback(position) ;
+							
+							
+							this.baseTween.update(this.position - this.delay) ;		
+							
+							return r ;
 						},
 						newInstance:function(){
-							return new DelayedTween(this.baseTween.clone(), this.delay, this.postDelay) ;
+							return new DelayedTween() ;
+						},
+						copyFrom:function(source){
+							DelayedTween.factory.copyFrom.apply(this, [source]) ;
+							
+							this.delay				= source['delay'] ;
+							this.postDelay			= source['postDelay'] ;
 						}
 					}) ;
 
 				}) ;
 				// GROUPS
 				Pkg.write('groups', function(path){
+					
+					var GroupTween = Type.define({
+						pkg:'::GroupTween',
+						domain:BetweenJSCore,
+						inherits:AbstractTween,
+						a:undefined,
+						b:undefined,
+						c:undefined,
+						d:undefined,
+						elements:undefined,
+						length:0,
+						bulkFunc:function(f, reversed){
+							var els = [] ;
+							var ret = [] ;
+							
+							if(reversed !== true){
+								for(var i = 0 ; i < Infinity ; i++){
+									var s = this.getElementAt(i) ;
+									if(!!!s) break ;
+									els[i] = s ;
+									ret[i] = f(s, i, els) ;
+									if(ret[i] === true) break ;
+								}
+							}else{
+								var l = this.length ;
+								for(;l > 0 ; l--){
+									var i = l - 1 ;
+									var s = this.getElementAt(i) ;
+									if(!!!s) break ;
+									els[i] = s ;
+									ret[i] = f(s, i, els) ;
+									if(ret[i] === true) break ;
+								}
+							}
+							return ret ;
+						},
+						getElementAt:function(index){
+							switch(index){
+								case 0 :
+									return this.a ;
+								break ;
+								case 1 :
+									return this.b ;
+								break ;
+								case 2 :
+									return this.c ;
+								break ;
+								case 3 :
+									return this.d ;
+								break ;
+								default :
+									return this.elements[index - 4] ;
+								break ;
+							}
+						},
+						constructor:GroupTween = function GroupTween(elements, closure){
+							GroupTween.base.call(this) ;
+							this.elements = [] ;
+						},
+						fill:function(elements, closure){
+							
+							var l = elements.length, tar ;
+							closure = closure || function(){} ;
+							
+							if (l >= 1) {
+								this.a = elements[0] ;
+								closure(this.a, l) ;
+								if (l >= 2) {
+									this.b = elements[1] ;
+									closure(this.b, l) ;
+									if (l >= 3) {
+										this.c = elements[2] ;
+										closure(this.c, l) ;
+										if (l >= 4) {
+											this.d = elements[3] ;
+											closure(this.d, l) ;
+											if (l >= 5) {
+												this.elements = new Array(l - 4) ;
+												for (var i = 4 ; i < l ; ++i) {
+													tar = this.elements[i - 4] = elements[i] ;
+													closure(tar, l) ;
+												}
+											}
+										}
+									}
+								}
+							}
+							
+							this.length = l ;
+						},
+						copyFrom:function(source){
+							this.copyHandlersFrom(source) ;
+							
+							this.a					= source['a'] ;
+							this.b					= source['b'] ;
+							this.c					= source['c'] ;
+							this.d					= source['d'] ;
+							this.elements			= source['elements'] ;
+							this.length				= source['length'] ;
+						}
+					}) ;
+					
 					// PARALLELTWEEN
 					var ParallelTween = Type.define({
 						pkg:'::ParallelTween',
 						domain:BetweenJSCore,
-						inherits:AbstractTween,
-						a:undefined,
-						b:undefined,
-						c:undefined,
-						d:undefined,
-						targets:undefined,
+						inherits:GroupTween,
 						tweens:undefined,
 						constructor:ParallelTween = function ParallelTween(){
 							ParallelTween.base.call(this) ;
 						},
-						enable:function(options){
-
-							ParallelTween.factory.enable.apply(this, [options]) ;
-							this.tweens = options['tweens'] ;
-
+						configure:function(options){
+							ParallelTween.factory.configure.apply(this, [options]) ;
+							
+							this.fill(options['tweens']) ;
+							
 							return this ;
 						},
-						prepare:function(){
-							var targets = this.tweens ;
-							var l = targets.length ;
-							this.time = 0 ;
-							if (l > 0) {
-								this.a = targets[0] ;
-								this.time = this.a.time > this.time ? this.a.time : this.time ;
-								if (l > 1) {
-									this.b = targets[1] ;
-									this.time = this.b.time > this.time ? this.b.time : this.time ;
-									if (l > 2) {
-										this.c = targets[2] ;
-										this.time = this.c.time > this.time ? this.c.time : this.time ;
-										if (l > 3) {
-											this.d = targets[3] ;
-											this.time = this.d.time > this.time ? this.d.time : this.time ;
-											if (l > 4) {
-												this.targets = new Array(l - 4) ;
-												for (var i = 4 ; i < l ; ++i) {
-													var t = targets[i] ;
-													this.targets[i - 4] = t ;
-													this.time = t.time > this.time ? t.time : this.time ;
-												}
-											}
-										}
-									}
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								var t = 0 ;
+								this.bulkFunc(function(el, i, arr){
+									var s = el.update(position) ;
+									t = s > t ? s : t ;
+								}, true) ;
+								return t ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var fff 	= this,
+								r		= this.setPositionAndFeedback(position) ;
+							
+							this.bulkFunc(function(el, i, arr){
+								
+								if(el.time == __XXL__){
+									el.setTime(el.update(Infinity)) ;
 								}
-							}
-
-							return this ;
-						},
-						contains:function(tw){
-							if (tw === undefined) return false ;
-							if (this.a === tw)
-								return true ;
-
-							if (this.b === tw) {
-								return true;
-							}
-							if (this.c === tw) {
-								return true;
-							}
-							if (this.d === tw) {
-								return true;
-							}
-							if (this.targets !== undefined) {
-								return this.checkForIndex(tw) ;
-							}
-							return false ;
-						},
-						checkForIndex:function(tw){
-							var l = this.targets.length , cond = false ;
-							for (var i = 0 ; i < l ; i++) {
-							  cond = this.targets[i] === tw ;
-							  if(!!cond) return true ;
-							} ;
-							return false ;
-						},
-						getTweenAt:function(index){
-							if (index < 0) {
-								return undefined ;
-							}
-							if (index == 0) {
-								return this.a ;
-							}
-							if (index == 1) {
-								return this.b ;
-							}
-							if (index == 2) {
-								return this.c ;
-							}
-							if (index == 3) {
-								return this.d ;
-							}
-							if (this.targets !== undefined) {
-								if (index - 4 < this.targets.length) {
-									return this.targets[index - 4] ;
-								}
-							}
-							return undefined ;
-						},
-						getTweenIndex:function(tw){
-							if (tw === undefined) {
-								return -1 ;
-							}
-							if (this.a === tw) {
-								return 0 ;
-							}
-							if (this.b === tw) {
-								return 1 ;
-							}
-							if (this.c === tw) {
-								return 2 ;
-							}
-							if (this.d === tw) {
-								return 3 ;
-							}
-							if (this.targets != null) {
-								var i = this.getIndex(tw) ;
-								if (i != -1) {
-									return i + 4;
-								}
-							}
-							return -1 ;
-						},
-						getIndex:function(tw){
-							var l = this.targets.length , ind = -1 ;
-							for(var i = 0 ; i < l ; i++)
-								if(this.targets[i] === tw) return i ;
-							return ind ;
-						},
-						internalUpdate:function(time){
-							if (!!this.a) {
-								this.a.update(time) ;
-								if (!!this.b) {
-									this.b.update(time) ;
-									if (!!this.c) {
-										this.c.update(time) ;
-										if (!!this.d) {
-											this.d.update(time) ;
-											if (!!this.targets) {
-												var targets = this.targets ;
-												var l = targets.length ;
-												for (var i = 0 ; i < l ; ++i){
-													var t = targets[i] ;
-													t.update(time) ;
-												}
-											}
-										}
-									}
-								}
-							}
+								
+								el.update(fff.position) ;
+								
+							}) ;
+							
+							return r ;
 						},
 						internalDraw:function(){
-							if (!!this.a) {
-								this.a.draw() ;
-								if (!!this.b) {
-									this.b.draw() ;
-									if (!!this.c) {
-										this.c.draw() ;
-										if (!!this.d) {
-											this.d.draw() ;
-											if (!!this.targets) {
-												var targets = this.targets ;
-												var l = targets.length ;
-												for (var i = 0 ; i < l ; ++i){
-													var t = targets[i] ;
-													t.draw() ;
-												}
-											}
-										}
-									}
-								}
-							}
+							
+							this.bulkFunc(function(el){
+								el.draw() ;
+							}) ;
+							
 						},
 						newInstance:function(){
-							var targets = [] ;
-							if (this.a !== undefined) {
-								targets.push(this.a.clone()) ;
-							}
-							if (this.b !== undefined) {
-								targets.push(this.b.clone()) ;
-							}
-							if (this.c !== undefined) {
-								targets.push(this.c.clone()) ;
-							}
-							if (this.d !== undefined) {
-								targets.push(this.d.clone()) ;
-							}
-							if (this.targets !== undefined) {
-								var t = this.targets ;
-								var l = t.length;
-								for (var i = 0 ; i < l ; ++i) {
-									targets.push(t[i].clone()) ;
-								}
-							}
-							return new ParallelTween(targets, 0) ;
+							return new ParallelTween() ;
+						},
+						copyFrom:function(source){
+							ParallelTween.factory.copyFrom.apply(this, [source]) ;
 						}
+						
 					}) ;
-					// SEIALTWEEN
+					
+					// SERIALTWEEN
 					var SerialTween = Type.define({
 						pkg:'::SerialTween',
 						domain:BetweenJSCore,
-						inherits:AbstractTween,
-						a:undefined,
-						b:undefined,
-						c:undefined,
-						d:undefined,
-						targets:undefined,
+						inherits:GroupTween,
 						tweens:undefined,
-						lastPosition:0,
+						drawable:undefined,
+						durations:[],
 						constructor:SerialTween = function SerialTween(){
 							SerialTween.base.call(this) ;
 						},
-						enable:function(options){
-
-							SerialTween.factory.enable.apply(this, [options]) ;
-							this.tweens = options['tweens'] ;
-
+						configure:function(options){
+							SerialTween.factory.configure.apply(this, [options]) ;
+							
+							this.fill(options['tweens']) ;
+							
 							return this ;
-						},
-						prepare:function(){
-							var targets = this.tweens ;
-							var l = targets.length ;
-							var t ;
-							this.time = 0 ;
-
-							if (l > 0) {
-								this.a = targets[0] ;
-								this.time += this.a.time ;
-								if (l > 1) {
-									this.b = targets[1] ;
-									this.time += this.b.time ;
-									if (l > 2) {
-										this.c = targets[2] ;
-										this.time += this.c.time ;
-										if (l > 3) {
-											this.d = targets[3] ;
-											this.time += this.d.time ;
-											if (l > 4) {
-												this.targets = new Array(l - 4) ;
-												for (var i = 4 ; i < l ; ++i) {
-													t = targets[i] ;
-													this.targets[i - 4] = t ;
-													this.time += t.time ;
-												}
-											}
-										}
-									}
-								}
-							}
-
-							return this ;
-						},
-						contains:function(tw){
-							if (tw === undefined)
-								return false ;
-							if (this.a === tw)
-								return true ;
-							if (this.b === tw)
-								return true;
-							if (this.c === tw)
-								return true;
-							if (this.d === tw)
-								return true;
-							if (this.targets !== undefined)
-								return this.checkForIndex(tw) ;
-							return false ;
-						},
-						checkForIndex:function(tw){
-							var l = this.targets.length , cond = false ;
-							for (var i = 0 ; i < l ; i++) {
-							  cond = this.targets[i] === tw ;
-							  if(!!cond) return true ;
-							} ;
-							return false ;
-						},
-						getTweenAt:function(index){
-							if (index < 0) {
-								return undefined ;
-							}
-							if (index == 0) {
-								return this.a ;
-							}
-							if (index == 1) {
-								return this.b ;
-							}
-							if (index == 2) {
-								return this.c ;
-							}
-							if (index == 3) {
-								return this.d ;
-							}
-							if (!!this.targets) {
-								if (index - 4 < this.targets.length) {
-									return this.targets[index - 4] ;
-								}
-							}
-							return undefined ;
-						},
-						getTweenIndex:function(tw){
-							if (tw === undefined) {
-								return -1 ;
-							}
-							if (this.a === tw) {
-								return 0 ;
-							}
-							if (this.b === tw) {
-								return 1 ;
-							}
-							if (this.c === tw) {
-								return 2 ;
-							}
-							if (this.d === tw) {
-								return 3 ;
-							}
-							if (!!this.targets) {
-								var i = this.getIndex(tw) ;
-								if (i != -1) {
-									return i + 4;
-								}
-							}
-							return -1 ;
-						},
-						getIndex:function(tw){
-							var l = this.targets.length , ind = -1 ;
-							for(var i = 0 ; i < l ; i++)
-								if(this.targets[i] === tw) return i ;
-							return ind ;
-						},
-						checkForEpsilon:function(position){
-							return (position > 0 && position < SIM_EPSILON) ? 0 : position ;
 						},
 						internalUpdate:function(position){
-
-							var d = 0, ld = 0, lt = this.lastPosition, l , i , t ;
-							var cur ;
-							if ((position - lt) >= 0) {
-								if (!!this.a) {
-									if (lt <= (d += this.a.time) && ld <= position) {
-										this.a.update(this.checkForEpsilon(position - ld)) ;
-										cur = this.a ;
-									}
-									ld = d ;
-
-									if (!!this.b) {
-										if (lt <= (d += this.b.time) && ld <= position) {
-											this.b.update(this.checkForEpsilon(position - ld)) ;
-											cur = this.b ;
-										}
-										ld = d ;
-
-										if (!!this.c) {
-											if (lt <= (d += this.c.time) && ld <= position) {
-												this.c.update(this.checkForEpsilon(position - ld)) ;
-												cur = this.c ;
-											}
-											ld = d ;
-
-											if (!!this.d) {
-												if (lt <= (d += this.d.time) && ld <= position) {
-													this.d.update(this.checkForEpsilon(position - ld)) ;
-													cur = this.d ;
-												}
-												ld = d ;
-
-												if (!!this.targets) {
-													l = this.targets.length ;
-													for (i = 0 ; i < l ; ++i) {
-														t = this.targets[i] ;
-														if (lt <= (d += t.time) && ld <= position) {
-															t.update(this.checkForEpsilon(position - ld)) ;
-															cur = t ;
-														}
-														ld = d ;
-													}
-												}
-											}
-										}
-									}
-								}
-							} else {
+							
+							if(!isFinite(position)){
+								
+								var t = 0 ;
+								this.bulkFunc(function(el, i, arr){
+									t = ADD(t, el.update(position)) ;
+								}, true) ;
+								
+								return t ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(-Infinity)) ;
+							}
+							
+							var drawables = [], cur ;
+							
+							var fff 		= this,
+								d 			= 0, 
+								ld 			= 0, 
+								extra 		= 0, 
+								oneframe 	= 0, 
+								local 		= 0, 
+									
+								lf 			= this.position,
+								r 			= this.setPositionAndFeedback(position) ;
+							
+							
+							if(r.reversed){
+								
 								d = this.time ;
 								ld = d ;
-								if (!!this.targets) {
-									for (i = this.targets.length - 1 ; i >= 0 ; --i) {
-										t = this.targets[i] ;
-										if (lt >= (d -= t.time) && ld >= position) {
-											t.update(this.checkForEpsilon(position - d)) ;
-											cur = t ;
+								
+								extra = 0 ;
+								
+								this.bulkFunc(function(el, i, arr){
+									
+									if(el.time == __XXL__){
+										el.setTime(el.update(-Infinity)) ;
+									}
+									
+									oneframe = lf - fff.position ;
+									
+									if(fff.position >= ((d-= el.time) - oneframe) && ld >= fff.position){
+										
+										var local = (fff.position - d) + extra ;
+										
+										if(local < 0){
+											extra = local ;
+											local = 0 ;
+										}else{
+											extra = 0 ;
 										}
-										ld = d ;
+										
+										el.update(local) ;
+										drawables.push(el) ;
 									}
-								}
-								if (!!this.d) {
-									if (lt >= (d -= this.d.time) && ld >= position) {
-										this.d.update(this.checkForEpsilon(position - d)) ;
-										cur = this.d ;
-									}
+									
 									ld = d ;
-								}
-								if (!!this.c) {
-									if (lt >= (d -= this.c.time) && ld >= position) {
-										this.c.update(this.checkForEpsilon(position - d)) ;
-										cur = this.c ;
+										
+									
+								}, true) ;
+								
+							}else{
+								
+								this.bulkFunc(function(el, i, arr){
+									
+									if(el.time == __XXL__){
+										el.setTime(el.update(Infinity)) ;
 									}
-									ld = d ;
-								}
-								if (!!this.b) {
-									if (lt >= (d -= this.b.time) && ld >= position) {
-										this.b.update(this.checkForEpsilon(position - d)) ;
-										cur = this.b ;
+									
+									if (lf <= (d + el.time) && ld <= (fff.position)) {
+										
+										var local = fff.position - d ;
+										
+										el.update(local) ;
+										drawables.push(el) ;
 									}
+									
+									d += (el.time) ;
 									ld = d ;
-								}
-								if (!!this.a) {
-									if (lt >= (d -= this.a.time) && ld >= position) {
-										this.a.update(this.checkForEpsilon(position - d)) ;
-										cur = this.a ;
-									}
-									ld = d ;
-								}
+								})
+								
 							}
-							this.drawable = cur ;
+							
+							this.drawables = drawables ;
+							
+							return r ;
 						},
-						internalDraw:function(position){
-							if(!!this.drawable) this.drawable.draw(position) ;
+						internalDraw:function(){
+							var d = this.drawables ;
+							
+							if(!d) return ;
+							var i, l = d.length ;
+							for(;l > 0; l--){
+								i = l - 1 ;
+								d[i].draw() ;
+							}
 						},
 						newInstance:function(){
-							var targets = [] ;
-							if (this.a !== undefined) {
-								targets.push(this.a.clone()) ;
-							}
-							if (this.b !== undefined) {
-								targets.push(this.b.clone()) ;
-							}
-							if (this.c !== undefined) {
-								targets.push(this.c.clone()) ;
-							}
-							if (this.d !== undefined) {
-								targets.push(this.d.clone()) ;
-							}
-							if (this.targets !== undefined) {
-								var t = this.targets ;
-								var l = t.length ;
-								for (var i = 0 ; i < l ; ++i) {
-									targets.push(t[i].clone()) ;
-								}
-							}
-							return new SerialTween(targets, 0) ;
+							return new SerialTween() ;
+						},
+						copyFrom:function(source){
+							SerialTween.factory.copyFrom.apply(this, [source]) ;
 						}
 					}) ;
 				}) ;
@@ -1690,7 +1925,7 @@
 
 						// Write back DEST from SOURCE
 						for(s in fr){
-							s = PropertyMapper.checkCustomMapper(updater, 'fr', fr, s) ;
+							s = PropertyMapper.checkCustomMapper(updater, 'from', fr, s) ;
 							safeWriteIn(s, to) ;
 						}
 
@@ -1715,11 +1950,10 @@
 						}
 
 						var ease = options['ease'] ;
-						var time = options['time'] ;
+						var time = ease instanceof Physical ? BetweenJS.$.Tween.SAFE_TIME : options['time'] ;
 						var target = options['target'] ;
 
 						desc = this.isofy(updater, desc) ;
-
 
 						updater.isPhysical = ease instanceof Physical ;
 						updater.target = target ;
@@ -1727,7 +1961,7 @@
 						updater.ease = ease ;
 						updater.userData = desc ;
 
-
+						
 
 						for(var type in desc){
 
@@ -1743,7 +1977,7 @@
 								time = time,
 								value, cp,
 								action ;
-
+							
 							switch(type){
 								case 'to' :			// TO
 								case 'from' :		// FROM
@@ -1752,13 +1986,12 @@
 									for (var name in o) {
 
 										value = o[name] ;
-
+										
 										if(value == PropertyMapper.REQUIRED){
 											updater[action](name, PropertyMapper.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
 										} else{
-
 											if (type == 'to') {
 												var cps = desc['cuepoints'] ;
 
@@ -1801,7 +2034,7 @@
 								break ;
 							}
 						}
-
+						
 						return desc ;
 					},
 					make:function(options){
@@ -1814,7 +2047,7 @@
 						updaters = r.updaters ;
 
 						this.treat(map, updaters, options) ;
-
+						
 						l = updaters.length ;
 
 						switch(l){
@@ -1832,11 +2065,10 @@
 					},
 					create:function(options){
 						var updater = this.make(options) ;
-
-						if(updater.isPhysical) updater.resolve() ;
-
 						return updater ;
 					},
+					
+					// ENTER REGISTRY UNIT
 					registerUpdaters:function(map,updaters){
 						if (this.poolIndex > 0) {
 							--this.poolIndex ;
@@ -1858,7 +2090,7 @@
 					}
 				}
 
-				// UPDATERS
+				// UPDATER
 				var Updater = Type.define({
 					pkg:'::Updater',
 					domain:BetweenJSCore,
@@ -1870,9 +2102,9 @@
 					cuepoints:undefined,
 					ease:undefined,
 					duration:undefined,
-					maxDuration:0.0,
-					physicalTime:0.0,
-					position:0.0,
+					maxDuration:ZERO,
+					time:ZERO,
+					position:ZERO,
 					isResolved:false,
 					units:{},
 					constructor:Updater = function Updater(){
@@ -1887,50 +2119,143 @@
 						this.relativeMap = {} ;
 						this.cuepoints = {} ;
 						this.duration = {} ;
-						this.position = 0 ;
-						this.maxDuration = 0.0 ;
+						this.position = 
+						this.maxDuration = ZERO ;
 					},
 					setFactor:function(position){
-
-						var factor = 0.0 ;
+						var factor = -Infinity ;
 						if(this.isPhysical){
 							if(position > factor){
 								factor = position / this.time ;
-								factor = Math.round(factor * 10000) / 10000 ;
 							}
 						}else{
 							if(position > factor){
-								factor = position < this.time ? this.ease.calculate(position, 0.0, 1.0, this.time) : 1.0 ;
+								factor = position < this.time ? this.ease.calculate(position, ZERO, ONE, this.time) : ONE ;
 							}
 						}
-						if(factor > 1) factor = 1.0 ;
+						
 						this.factor = factor ;
+						
 						return this ;
 					},
 					setTime:function(time){
 						this.time = time ;
 					},
 					setPosition:function(position){
-						this.position = Math.round(position * 10000) / 10000 ;
-					},
-					resolve:function(time){
-						return this.resolveValues(time) ;
+						this.position = position ;
 					},
 					update:function(position){
+						
+						if(!isFinite(position)){
+							return this.checkTime(position) ;
+						}
+						
 						if(!this.isResolved){
-							this.resolve() ;
+							this.resolveValues(true) ;
 							this.isResolved = true ;
 						}
-
+						
 						this.setPosition(position) ;
+						
 						this.setFactor(this.position) ;
-
+						
 						this.updateObject() ;
+						
+					},
+					checkTime:function(position){
+						var t = this.resolveValues() ;
+						return t > 0 ? t : -t ;
+					},
+					resolveValues:function(forReal){
+						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						
+						var key,
+							target = this.target,
+							source = this.source,
+							dest = this.destination,
+							rMap = this.relativeMap,
+							d = this.duration,
+							usersource = this.userData['from'],
+							userdest = this.userData['to'],
+							duration,
+							maxDuration = ZERO ;
+						
+						for (key in source) {
+							if (usersource[key] == PropertyMapper.REQUIRED) {
+								source[key] = this.getIn(key) ;
+							}
+							if (rMap['source.' + key]) {
+								source[key] += this.getIn(key) ;
+							}
+
+						}
+
+						for (key in dest) {
+
+							if (userdest[key] == PropertyMapper.REQUIRED) {
+								dest[key] = this.getIn(key) ;
+							}
+							if (rMap['dest.' + key]) {
+								dest[key] += this.getIn(key) ;
+							}
+
+							if(this.isPhysical){
+								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
+								d[key] = duration ;
+
+								if (maxDuration < duration) {
+									maxDuration = duration ;
+								}
+							}
+						}
+
+						var cuepoints = this.cuepoints, cpVec, l, i ;
+
+						for (key in cuepoints) {
+
+							var first = source[key] ;
+							var last = dest[key] ;
+
+							cpVec = cuepoints[key] ;
+							l = cpVec.length ;
+							var cur ;
+							var cpduration = 0 ;
+							for (i = 0 ; i < l ; ++i) {
+
+								var prev = cur || first ;
+
+								if (rMap['cuepoints.' + key + '.' + i]) {
+									(cpVec[i] += this.getInObject(key)) ;
+								}
+
+								cur = cpVec[i] ;
+
+								if(this.isPhysical){
+									cpduration += this.ease.getDuration(prev, cur > prev ? cur - prev : prev - cur) ;
+									if(cpVec[i+1] === undefined){
+										cpduration += this.ease.getDuration(cur, last > cur ? last - cur : cur - last) ;
+									}
+								}
+							}
+							if(this.isPhysical){
+								d[key] = cpduration ;
+								if (maxDuration < cpduration) {
+									maxDuration = cpduration ;
+								}
+							}
+						}
+						
+						if(this.isPhysical){
+							this.maxDuration = maxDuration ;
+							this.setTime(this.maxDuration) ;
+						}
+						
+						return this.time ;
 					},
 					updateObject:function(){
 
 						var factor = this.factor ;
-
+						
 						var t = this.target,
 							e = this.ease,
 							d = this.destination,
@@ -1938,7 +2263,7 @@
 							cp = this.cuepoints,
 							dur = this.duration,
 							position = this.position,
-							invert = 1.0 - factor,
+							invert = ONE - factor,
 							cpVec, a, b, l, ip, it, p1, p2,
 							name, val ;
 
@@ -1948,30 +2273,17 @@
 							b = d[name] ;
 
 							if(!!!cp[name]){
-								if(this.isPhysical){
-
-									if (position >= dur[name]) {
-										val = b ;
-									} else if(position <= 0.0){
-										val = a ;
-									}else {
-										val = e.calculate(position, a, b - a) ;
-									}
-								}else{
-									val = a * invert + b * factor ;
-								}
-								// val = a * invert + b * factor ;
+								val = a * invert + b * factor ;
 							}else{
-
-								if (factor != 1.0 && !!(cpVec = this.cuepoints[name])) {
+								if (factor != ONE && !!(cpVec = this.cuepoints[name])) {
 									l = cpVec.length ;
 									if (l == 1) {
 										val = a + factor * (2 * invert * (cpVec[0] - a) + factor * (b - a)) ;
 									} else {
 
-										if (factor < 0.0)
-											ip = 0 ;
-										else if (factor > 1.0)
+										if (factor < ZERO)
+											ip = ZERO ;
+										else if (factor > ONE)
 											ip = l - 1 ;
 										else
 											ip = (factor * l) >> 0 ;
@@ -1994,7 +2306,7 @@
 									val = a * invert + b * factor ;
 								}
 							}
-
+							
 							this.store(name, val) ;
 						}
 					},
@@ -2033,99 +2345,10 @@
 						this.relativeMap['cuepoints.' + name + '.' + cuepoints.length] = isRelative ;
 					},
 					getIn:function(name){
-						return BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name) ;
+						return BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name, this.units[name]) ;
 					},
 					setIn:function(name, value){
-						BetweenJS.$.PropertyMapper.cache[name]['setMethod'](this.target, name, value) ;
-					},
-					superResolve:function(time){
-						return this.resolveValues(time) ;
-					},
-					resolveValues:function(time){
-						var PropertyMapper = BetweenJS.$.PropertyMapper ;
-						
-						var key,
-							target = this.target,
-							source = this.source,
-							dest = this.destination,
-							rMap = this.relativeMap,
-							d = this.duration,
-							duration,
-							maxDuration = 0.0 ;
-
-						for (key in source) {
-							if (source[key] == PropertyMapper.REQUIRED) {
-								source[key] = this.getIn(key) ;
-							}
-							if (rMap['source.' + key]) {
-								source[key] += this.getIn(key) ;
-							}
-
-						}
-
-						for (key in dest) {
-
-							if (dest[key] == PropertyMapper.REQUIRED) {
-								dest[key] = this.getIn(key) ;
-							}
-							if (rMap['dest.' + key]) {
-								dest[key] += this.getIn(key) ;
-							}
-
-							if(this.isPhysical && !time){
-								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
-								d[key] = duration ;
-
-								if (maxDuration < duration) {
-									maxDuration = duration ;
-								}
-							}
-						}
-
-						var cuepoints = this.cuepoints, cpVec, l, i ;
-
-						for (key in cuepoints) {
-
-							var first = source[key] ;
-							var last = dest[key] ;
-
-							cpVec = cuepoints[key] ;
-							l = cpVec.length ;
-							var cur ;
-							var cpduration = 0 ;
-							for (i = 0 ; i < l ; ++i) {
-
-								var prev = cur || first ;
-
-								if (rMap['cuepoints.' + key + '.' + i]) {
-									(cpVec[i] += this.getInObject(key)) ;
-								}
-
-								cur = cpVec[i] ;
-
-								if(this.isPhysical && !time){
-									cpduration += this.ease.getDuration(prev, cur > prev ? cur - prev : prev - cur) ;
-									if(cpVec[i+1] === undefined){
-										cpduration += this.ease.getDuration(cur, last > cur ? last - cur : cur - last) ;
-									}
-								}
-							}
-							if(this.isPhysical && !time){
-								d[key] = cpduration ;
-								if (maxDuration < cpduration) {
-									maxDuration = cpduration ;
-								}
-							}
-						}
-						if(this.isPhysical){
-
-							if(time) maxDuration = time ;
-
-							this.maxDuration = maxDuration ;
-							this.time = this.maxDuration ;
-						}
-
-						return this.time ;
+						BetweenJS.$.PropertyMapper.cache[name]['setMethod'](this.target, name, value, this.units[name]) ;
 					},
 					newInstance:function(){
 						return new Updater() ;
@@ -2144,7 +2367,7 @@
 						Updater.factory.destroy.call(this) ;
 					}
 				}) ;
-
+				// UPDATERPROXY
 				var UpdaterProxy = Type.define({
 					pkg:'::UpdaterProxy',
 					domain:BetweenJSCore,
@@ -2152,41 +2375,59 @@
 					parent:undefined,
 					child:undefined,
 					propertyName:undefined,
-					time:NaN,
+					time:0,
+					isResolved:false,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
 						UpdaterProxy.base.call(this) ;
 
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
-
-						this.checkPhysical(this.child) ;
+						this.isPhysical = this.parent.isPhysical ;
+						this.setTime(this.parent.time) ;
 					},
-					checkPhysical:function(el){
-						this.isPhysical = el.isPhysical ;
-						return el ;
+					setTime:function(time){
+						this.time = time ;
 					},
-					resolve:function(time){
-
-						var t = this.child.resolve(time) ;
-						var tt = this.parent.resolve(time) ;
-						var parentBigger = tt > t ;
-						var ttt = parentBigger ? tt : t ;
-
-						if(parentBigger){
-							this.child.resolve(tt) ;
-							this.child.isResolved = true ;
-						}else if(tt != t){
-							this.parent.resolve(t) ;
+					checkTime:function(position){
+						var t = this.resolveValues() ;
+						return t > 0 ? t : -t ;
+					},
+					resolveValues:function(){
+						var p = this.parent ;
+						var time = p.time ;
+						var isPhysical = p.isPhysical ;
+						
+						if(isPhysical){
+							var c = this.child ;
+							if(!c.isResolved){
+								c.resolveValues() ;
+								c.isResolved = true ;
+								
+								if(time > c.time) c.setTime(time) ;
+								else {
+									time = c.time ;
+									p.setTime(time) ;
+								}
+							}
 						}
-
-						return this.time = ttt ;
-					},
-					superResolve:function(time){
-
-						return this.resolve(time)  ;
+						
+						this.setTime(time) ;
+						
+						return this.time ;
 					},
 					update:function(position){
+						var Tween = BetweenJS.$.Tween ;
+						
+						if(!isFinite(position)){
+							return this.checkTime(position) ;
+						}
+						
+						if(!this.isResolved){
+							this.resolveValues() ;
+							this.isResolved = true ;
+						}
+						
 						this.child.update(position) ;
 					},
 					draw:function(){
@@ -2200,163 +2441,73 @@
 						UpdaterProxy.factory.destroy.call(this) ;
 					}
 				}) ;
+				// BULKUPDATER
 				var BulkUpdater = Type.define({
 					pkg:'::BulkUpdater',
 					domain:BetweenJSCore,
-					inherits:Traceable,
+					inherits:Poly,
 					target:undefined,
-					a:undefined,
-					b:undefined,
-					c:undefined,
-					d:undefined,
-					updaters:undefined,
 					time:0,
-					resolve:function(){
-
-						var time = this.time ;
-
-						this.bulkFunc(function(updater){
-							var t = updater.resolve() ;
-							if(updater.isPhysical){
-								if(t > time) time = t ;
-							}
-						})
-
-						this.time = time ;
-						return time ;
+					isResolved:false,
+					isPhysical:false,
+					constructor:BulkUpdater = function BulkUpdater(target, updaters){
+						var isPhysical = false ;
+						
+						this.target = target ;
+						
+						BulkUpdater.base.apply(this, [updaters, function(el){
+							isPhysical = isPhysical || el.isPhysical ;
+						}]) ;
+						
+						this.length = updaters.length ;
 					},
-					superResolve:function(){
-
-						var bulk = this ;
-						this.bulkFunc(function(updater){
-							if(updater.isPhysical){
-								updater.resolve(bulk.time) ;
-								// trace(updater)
-								updater.superResolve(bulk.time) ;
+					setTime:function(time){
+						this.time = time ;
+					},
+					checkTime:function(position){
+						var t = this.resolveValues() ;
+						return t > 0 ? t : -t ;
+					},
+					resolveValues:function(position){
+						var time = this.time ;
+						var isPhysical = false ;
+						
+						this.bulkFunc(function(c){
+							isPhysical = isPhysical || c.isPhysical ;
+							
+							if(!c.isResolved){
+								c.resolveValues() ;
+								c.isResolved = true ;
+								
+								if(time > c.time) c.setTime(time) ;
+								else time = c.time ;
 							}
 						}) ;
+						
+						this.setTime(time) ;
 						return this.time ;
 					},
-					checkPhysical:function(el){
-						this.isPhysical = this.isPhysical || el.isPhysical ;
-						this.time = el.time > this.time ? el.time : this.time ;
-						return el ;
-					},
-					constructor:BulkUpdater = function BulkUpdater(target, updaters){
-						BulkUpdater.base.call(this) ;
-
-						this.target = target ;
-						this.length = updaters.length ;
-
-						var l = updaters.length, t, tar ;
-
-						if (l >= 1) {
-							this.a = this.checkPhysical(updaters[0]) ;
-							if (l >= 2) {
-								this.b = this.checkPhysical(updaters[1]) ;
-								if (l >= 3) {
-									this.c = this.checkPhysical(updaters[2]) ;
-									if (l >= 4) {
-										this.d = this.checkPhysical(updaters[3]) ;
-										if (l >= 5) {
-											this.updaters = new Array(l - 4) ;
-											for (var i = 4 ; i < l ; ++i) {
-												tar = this.updaters[i - 4] = this.checkPhysical(updaters[i]) ;
-											}
-										}
-									}
-								}
-							}
-						}
-
-					},
-					bulkFunc:function(f){
-						var els = [] ;
-						var ret = [] ;
-						for(var i = 0 ; i < Infinity ; i++){
-							var s = this.getUpdaterAt(i) ;
-							if(!!!s) break ;
-							els[i] = s ;
-							ret[i] = f(s, i, els) ;
-						}
-						return ret ;
-					},
-					getUpdaterAt:function(index){
-						switch(index){
-							case 0 :
-								return this.a ;
-							break ;
-							case 1 :
-								return this.b ;
-							break ;
-							case 2 :
-								return this.c ;
-							break ;
-							case 3 :
-								return this.d ;
-							break ;
-							default :
-								return this.updaters[index - 4] ;
-							break ;
-						}
-					},
 					update:function(position){
-
+						var Tween = BetweenJS.$.Tween ;
+						
+						if(!isFinite(position)){
+							return this.checkTime(position) ;
+						}
+						
 						if(!this.isResolved){
-							this.resolve() ;
-
-							this.superResolve() ;
+							this.resolveValues() ;
 							this.isResolved = true ;
 						}
-
-						if (!!this.a) {
-							this.a.update(position) ;
-
-							if (!!this.b) {
-								this.b.update(position) ;
-
-								if (!!this.c) {
-									this.c.update(position) ;
-
-									if (!!this.d) {
-										this.d.update(position) ;
-
-										if (!!this.updaters) {
-											var updaters = this.updaters ;
-											var l = updaters.length ;
-											for (var i = 0 ; i < l ; ++i) {
-												updaters[i].update(position) ;
-											}
-										}
-									}
-								}
-							}
-						}
+						
+						this.bulkFunc(function(c){
+							c.update(position) ;
+						}) ;
 					},
 					draw:function(){
-						if (!!this.a) {
-							this.a.draw() ;
-
-							if (!!this.b) {
-								this.b.draw() ;
-
-								if (!!this.c) {
-									this.c.draw() ;
-
-									if (!!this.d) {
-										this.d.draw() ;
-
-										if (!!this.updaters) {
-											var updaters = this.updaters ;
-											var l = updaters.length ;
-											for (var i = 0 ; i < l ; ++i) {
-												updaters[i].draw() ;
-											}
-										}
-									}
-								}
-							}
-						}
+						
+						this.bulkFunc(function(el){
+							el.draw() ;
+						})
 					},
 					clone:function(source){
 						var updaters = [] ;
@@ -2379,7 +2530,7 @@
 								}
 							}
 						}
-
+						
 						return new BulkUpdater(this.target, updaters) ;
 					},
 					destroy:function(){
@@ -2407,7 +2558,6 @@
 				}) ;
 			}) ;
 
-
 			// CORE.MAPPING
 			Pkg.write('mapping', function(path){
 				var CustomMapper = Type.define({
@@ -2425,52 +2575,38 @@
 					},
 					check:function(updater, typename, type, name, val){
 						var val = type[name] || val ;
-						var units ;
-						var m ;
-						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						var units, isRelative ;
 						
 						if(val.constructor == Array){ // CUEPOINTS
 							var bb = false ;
 							var l = val.length ;
-							for(var i = 0 ; i < l ; i ++){
+							for(var i = 0 ; i < l ; i++){
+								
 								var vv = val[i] ;
 								var r = this.parseMethod(updater, typename, type, name, vv) ;
 								val[i] = r.value ;
 								name = r.name ;
-
-								if(r.units){
-									updater.units[typename + '.' + name] = r.units ;
-								}
-
-								if(r.isRelative){
-									updater.relativeMap[typename + '.' + name] = r.isRelative ;
-								}
-
-								bb = bb || r.block ;
+								
+								if(r.units !=='') units = r.units ;
+								
+								isRelative = r.isRelative ;
+								
+								bb = Boolean(bb || r.block) ;
+								
+								if(bb) break ;
 							}
-
+							
 							return {
 								name:name,
 								value:val,
 								units:units,
+								isRelative:isRelative,
 								block:bb
 							} ;
 
 						}else{
-							var m = this.parseMethod(updater, typename, type, name, val, val == '__REQUIRED__') ;
 							
-							if(m.units){
-								updater.units[typename + '.' + name] = m.units ;
-							}
-
-							if(m.isRelative){
-								updater.relativeMap[typename + '.' + name] = m.isRelative ;
-							}
-							if(!(name in PropertyMapper.cache) || PropertyMapper.cache[name] !== this){
-								PropertyMapper.cache[name] = this ;								
-							}
-
-							return m ;
+							return this.parseMethod(updater, typename, type, name, val, val == '__REQUIRED__') ;
 						}
 					}
 				}) ;
@@ -2487,34 +2623,78 @@
 							var i, l, s, j, ll, custom, pattern ;
 							
 							var customs = CustomMappers ;
+							var accurate ;
 							l = customs.length ;
-
-
+							var units, isRelative ;
+							
+							var localname = name ;
+							
 							for(i = 0 ; i < l ; i ++){
+								
 								custom = customs[i] ;
-								pattern = custom.pattern ;
-
-								if(pattern.test(name)){
-									var tt = type[name] ;
+								
+								var tt = type[name] ;
+								
+								// KICK OUT UNDESIRABLES
+								if(!custom.pattern.test(name)) continue ;
+								
+								
+								s = custom.check(updater, typename, type, name, tt) ;
+								
+								accurate = custom ;
+								
+								// SET VALUE IS A START
+								if(tt !== s.value) type[name] = s.value ;
+								// IF NAME DIFFERENT PERFORM SMART REWRITE
+								if(localname != s.name){
+									// SET NEW NAME INSTEAD OF OLD
+									localname = s.name ;
+									// ERASE IN TARGET PROPS OBJ
 									delete type[name] ;
-									s = custom.check(updater, typename, type, name, tt) ;
-									name = s.name ;
-									type[name] = s.value ;
-									if(s.block) break ;
-
 								}
+								
+								// REWRITE VALUE WITH NEW NAME
+								type[localname] = s.value ;
+								
+								if(s.units){
+									units = s.units ;
+								}
+								
+								if(s.isRelative){
+									isRelative = s.isRelative ;
+								}
+								
+								if(s.block){
+									// FOUND !!!!!
+									break ;
+									
+								} else {
+									// FOUND BUT MODIFED NOSAVE & SMART REWRITE !!!!!
+									continue ; // WILL RECHECK THINGS
+								}
+								
 							}
-							return name ;
+							
+							// SET
+							if(!!units) updater.units[localname] = units ;
+							if(!!isRelative) updater.relativeMap[typename + '.' + localname] = isRelative ;
+							
+							// ONLY ONCE AT FINAL
+							if(!(localname in PropertyMapper.cache) || PropertyMapper.cache[localname] !== accurate){
+								PropertyMapper.cache[localname] = accurate ;								
+							}
+							
+							return localname ;
 						},
 						CustomMappers:[
 							new CustomMapper(CustomMapper.ALL, {
 								parseMethod:function(updater, typename, type, name, val){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
-
+									
 									var units ;
 									var un = PropertyMapper.checkForUnits(name, val) ;
-
+									
 									name = un.name ;
 									val = un.value ;
 									units = un.units ;
@@ -2524,7 +2704,7 @@
 									name = relative.name ;
 
 									name = PropertyMapper.replaceCapitalToDash(name) ;
-
+									
 									return {
 										name:name,
 										value:val,
@@ -2538,9 +2718,6 @@
 								},
 								setMethod:function setMethodAll(tg, n, val, unit){
 									return BetweenJS.$.PropertyMapper.simpleSet(tg, n, val, unit || '') ;
-								},
-								drawMethod:function(tg, n, val, unit){
-
 								}
 							}),
 							new CustomMapper(/((border|background)?color|background)$/i, {
@@ -2561,7 +2738,6 @@
 									}else{
 										val = BetweenJS.$.Color.toColorObj(val) ;
 									}
-									
 
 									return {
 										name:name,
@@ -2574,11 +2750,30 @@
 								},
 								setMethod:function setMethodColor(tg, n, val){
 									return BetweenJS.$.PropertyMapper.colorSet(tg, n, val) ;
+								}
+							}),
+							new CustomMapper(/alpha|opacity/gi, {
+								parseMethod:function(updater, typename, type, name, val, required){
+									var PropertyMapper = BetweenJS.$.PropertyMapper ;
+									val = val === undefined ? type[name] : val ;
+									
+									// TODO CSSPROPERTY-OPACITY-MISSING BROWSERS OPACITY TO WORK
+									name = 'opacity' ;
+									
+									return {
+										name:name,
+										value:val,
+										block:true
+									}
 								},
-								drawMethod:function(tg, n, val){
-
+								getMethod:function getMethodAlpha(tg, n){
+									return BetweenJS.$.PropertyMapper.alphaGet(tg, n) ;
+								},
+								setMethod:function setMethodAlpha(tg, n, val){
+									return BetweenJS.$.PropertyMapper.alphaSet(tg, n, val) ;
 								}
 							})
+							
 						],
 						detectNameUnits:function(name){
 							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
@@ -2655,13 +2850,55 @@
 								return el.currentStyle[name] ;
 							}
 						},
+						// SCROLL
+						scrollGet:function(target, name, unit) {
+							return (target === window || target === document) ?
+							(
+								this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] ||
+								(PropertyMapper.isIEunder9 && document.documentElement[name]) ||
+								document.body[name]
+							) :
+							target[name] ;
+						},
+						scrollSet:function(target, name, val, unit) {
+							if(target === window || target === document){
+								try{
+									this[(name == 'scrollTop') ? 'pageYOffset' : 'pageXOffset'] = parseInt(val) ;
+								}catch(e){
+									if(!PropertyMapper.isIEunder8) document.documentElement[name] = parseInt(val) ;
+									else document.body[name] = parseInt(val) ;
+								}
+							}else{
+								target[name] = parseInt(val) ;
+							}
+						},
+						// ALPHA
+						alphaGet:function(target, pname){
+							var val ;
+							if(window.getComputedStyle){
+								val = this.getStyle(target, 'opacity') ;
+								val = val * 100 ;
+							} else{
+								val = this.getStyle(target, 'filter') ;
+								val = val == '' ? 100 : val.replace(/alpha\(opacity=|\)/g, '') ;
+							}
+							
+							return val ;
+						},
+						alphaSet:function(target, pname, val){
+							if(window.getComputedStyle){
+								return target['style']['opacity'] = val / 100 ;
+							}else{
+								return target['style']['filter'] = 'alpha(opacity='+val+')' ;
+							}
+						},
 						colorGet:function(target, pname){
 							var Color = BetweenJS.$.Color ;
 							return Color.toColorObj(this.getStyle(target, pname)) ;
 						},
 						colorSet:function(target, pname, val){
 							var Color = BetweenJS.$.Color ;
-							this.setStyle(target, pname, Color.toColorString(val)) ;
+							this.setStyle(target, pname, Color.toColorString(Color.safe(val))) ;
 						},
 						simpleGet:function(tg, n, unit){
 							if(this.isDOM(tg))
@@ -2676,20 +2913,37 @@
 						},
 						simpleDOMGet:function(tg, n, unit){
 							var str = this.getStyle(tg, n) ;
-							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+							str = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+							return str ;
 						},
 						simpleDOMSet:function(tg, n, v, unit){
 							this.setStyle(tg, n, v + unit) ;
 						},
-						isDOM:function(tg){
-							var ctor = tg.constructor ;
-							switch(true){
-								case ctor === undefined : // IE 7-
-								case (/HTML[a-zA-Z]*Element/.test(ctor)) :
-									return true ;
-								break ;
+						printCSSRules:function(selector, propertyname, max, min, str){
+							min = min == undefined ? 0 : min ;
+							str = str == undefined ? '' : str ;
+							for(var i = min ; i < max ; i ++){
+								str += '\n' +
+										selector + i +
+										'{' +
+											propertyName + ':' + i + 
+										'}'
 							}
-							return false ;
+							return str ;
+						},
+						checkNode:function(tg){
+							var n ;
+							if(isDOM(tg) || 'appendChild' in tg)
+								n = tg ;
+							else if(isJQ(tg)) // jQuery
+								n = tg.get(0) ;
+							return n ;
+						},
+						isJQ:function(tg){
+							return isJQ(tg) ;
+						},
+						isDOM:function(tg){
+							return isDOM(tg) ;
 						}
 					}
 
@@ -2745,7 +2999,7 @@
 									// CREATE SPECIAL CASE
 									if(ind == 'create'){
 										var tg = target['target'] ;
-										if(!!tg && 'jquery' in tg) {
+										if(!!tg && isJQ(tg)) {
 											var s = tg.size() ;
 											if(s > 1){
 												target['target'] = tg.toArray() ;
@@ -2760,7 +3014,7 @@
 										}
 									}
 
-									if('jquery' in target) { // is jquery element
+									if(isJQ(target)) { // is jquery element
 
 										var s = target.size() ;
 
@@ -2922,7 +3176,7 @@
 						from: from,
 						time: time,
 						ease: ease
-					}).update(applyTime) ;
+					}).update(applyTime).draw() ;
 				},
 				/*
 					bezier
@@ -3053,7 +3307,7 @@
 						to: to,
 						from: from,
 						ease: ease
-					}).update(applyTime) ;
+					}).update(applyTime).draw() ;
 				},
 				/*
 					parallel
@@ -3121,7 +3375,7 @@
 					var position = !!reversePosition ? tween.time - tween.position : 0.0 ;
 
 					if(tween instanceof BetweenJS.$.ReversedTween && !!tween.baseTween){
-						return tween.baseTween ;
+						return tween.baseTween.seek(position) ;
 					}
 
 					var options = {
@@ -3236,7 +3490,7 @@
 					@param target HtmlDomElement
 					@param parent HtmlDomElement
 
-					@return TweenLike AbstactActionTween Object
+					@return TweenLike AbstractActionTween Object
 				*/
 				addChild:function addChild(target, parent){
 
@@ -3257,7 +3511,7 @@
 					@param target HtmlDomElement
 					@param parent HtmlDomElement
 
-					@return TweenLike AbstactActionTween Object
+					@return TweenLike AbstractActionTween Object
 				*/
 				removeFromParent:function removeFromParent(target){
 
@@ -3280,7 +3534,7 @@
 					@param rollbackFunc Function
 					@param rollbackParams Array
 
-					@return TweenLike AbstactActionTween Object
+					@return TweenLike AbstractActionTween Object
 				*/
 				func:function func(closure, params, useRollback, rollbackClosure, rollbackParams){
 
@@ -3289,7 +3543,7 @@
 							func:{
 								func:closure,
 								params:params,
-								useRollBack:useRollBack,
+								useRollback:useRollback,
 								rollbackClosure:rollbackClosure,
 								rollbackParams:rollbackParams
 							}
@@ -3305,18 +3559,18 @@
 					@param func Function
 					@param params Array
 
-					@return TweenLike AbstactActionTween Object
+					@return TweenLike AbstractActionTween Object
 				*/
 				timeout:function(duration, closure, params, useRollback, rollbackClosure, rollbackParams, force){
 					var uid = getTimer() ;
-
+					
 					var options = {
 						actions:{
 							timeout:{
 								duration:duration,
 								func:closure,
 								params:params,
-								useRollBack:useRollBack,
+								useRollback:useRollback,
 								rollbackClosure:rollbackClosure,
 								rollbackParams:rollbackParams,
 								force:force
@@ -3326,12 +3580,19 @@
 
 					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 					tw.uid = uid ;
-					return (cacheTimeout[uid] = tw) ;
+					return (CACHE_TIMEOUT[uid] = tw) ;
 				},
+				/*
+					clearTimeout
+
+					@param uid Integer
+
+					@return TweenLike AbstractActionTween Object
+				*/
 				clearTimeout:function(uid){
-					var cc = isNaN(uid)? uid : cacheTimeout[uid] ;
+					var cc = isNaN(uid)? uid : CACHE_TIMEOUT[uid] ;
 					uid = cc.uid ;
-					delete cacheTimeout[uid] ;
+					delete CACHE_TIMEOUT[uid] ;
 					return cc.stop() ;
 				}
 			}
@@ -3844,7 +4105,8 @@
 									(v & 0xFF000000) >>> 24,
 									(v & 0xFF0000) >> 16,
 									(v & 0xFF00) >> 8,
-									(v & 100) * .01 , 'hsv') ;
+									(v & 100) * .01 , 
+									'hsv') ;
 							}else{
 								res = this.getRGBAObject(
 									(v & 0xFF000000) >>> 24,
@@ -3858,7 +4120,8 @@
 									(v & 0xFF0000) >> 16,
 									(v & 0xFF00) >> 8,
 									(v & 0xFF),
-									1 , 'hsv') ;
+									1 , 
+									'hsv') ;
 							}else{
 								res = this.getRGBAObject(
 									(v & 0xFF0000) >> 16,
@@ -4013,6 +4276,22 @@
 						}
 
 						return res ;
+					},
+					safe:function(val, mode){
+						var MODE = mode || 'rgb' ;
+						
+						var max = {r:255, g:255, b:255, a:1.0} ;
+						var min = {r:0, g:0, b:0, a:0.0} ;
+						
+						for(var s in max){
+							var m = max[s] ;
+							var n = min[s] ;
+							var v = val[s] ;
+							if(v > m) val[s] = m ;
+							if(v < n) val[s] = n ;
+						}
+						
+						return val ;
 					},
 					toColorObj:function(val, mode){
 
