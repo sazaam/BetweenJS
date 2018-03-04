@@ -38,10 +38,14 @@
 	return Pkg.write('org.libspark.betweenjs', function(path){
 		var NOOP 			= function(){} ;
 		var ZERO 			= 0.0 ;
+		var ZERO_ONE		= 0.1 ;
 		var ONE 			= 1.0 ;
 		var TWO 			= 2.0 ;
+		var TEN 			= 10 ;
 		var XXL				= 1e10 ;
-		var MAX				= 19;
+		var MAX				= 19 ;
+		var BREAK			= 'BREAK' ;
+		var CONTINUE		= 'CONTINUE' ;
 		// Externally-Pusblishable settings
 		var BetweenJSCore = {
 			settings:{
@@ -51,10 +55,14 @@
 				end:NOOP
 			},
 			Decimal:{
+				DECIMAL_CORRECT:false,
 				add:function(n1, n2){
 					var s1, s2, l1, l2 ;
 					
 					s1 = n1 + n2 ;
+					
+					if(!this.DECIMAL_CORRECT) return s1 ;
+					
 					l1 = (''+s1).length ;
 					
 					if(l1 < MAX) return s1 ;
@@ -68,8 +76,10 @@
 					var s1, s2, l1, l2 ;
 					
 					s1 = n1 - n2 ;
-					l1 = (''+s1).length ;
 					
+					if(!this.DECIMAL_CORRECT) return s1 ;
+					
+					l1 = (''+s1).length ;
 					if(l1 < MAX) return s1 ;
 					
 					s2 = ((n1 * XXL) - (n2 * XXL)) / XXL ;
@@ -81,6 +91,9 @@
 					var s1, s2, l1, l2 ;
 					
 					s1 = n1 * n2 ;
+					
+					if(!this.DECIMAL_CORRECT) return s1 ;
+					
 					l1 = (''+s1).length ;
 					
 					if(l1 < MAX) return s1 ;
@@ -94,6 +107,9 @@
 					var s1, s2, l1, l2 ;
 					
 					s1 = n1 / n2 ;
+					
+					if(!this.DECIMAL_CORRECT) return s1 ;
+					
 					l1 = (''+s1).length ;
 					
 					if(l1 < MAX) return s1 ;
@@ -113,20 +129,21 @@
 			concat 			= function(p){ return (p === undefined) ? [] : p },
 			valueExists 	= function(o, val){ return !!o ? o[val] : undefined },
 			checkForEpsilon = function(p){return (p > ZERO && p < __EPSILON__) ? ZERO : p },
-			isJQ			=function(tg){ return 'jQuery' in tg || 'selector' in tg },
+			isJQ			= function(tg){ return 'jQuery' in tg || 'selector' in tg },
 			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c))) } ;
 		
-		var ADD 			= function(n1, n2){ return BetweenJS.$.Decimal.add(n1, n2) },
-			SUB				= function(n1, n2){ return BetweenJS.$.Decimal.sub(n1, n2) },
-			MUL				= function(n1, n2){ return BetweenJS.$.Decimal.mul(n1, n2) },
-			DIV				= function(n1, n2){ return BetweenJS.$.Decimal.div(n1, n2) } ;
+		var ADD 			= BetweenJSCore.Decimal.add,
+			SUB				= BetweenJSCore.Decimal.sub,
+			MUL				= BetweenJSCore.Decimal.mul,
+			DIV				= BetweenJSCore.Decimal.div ;
 		
 		
 			// Animation & TIcker Control
 		var __LIVE_TIME__ 			= getNow(),
+			__SLICE__				= [].slice,
 			__TIME__				= NaN,
 			__OFF_TIME__ 			= ZERO,
-			__EPSILON__ 			= 'EPSILON' in Number ? Number.EPSILON : .01,
+			__EPSILON__ 			= 'EPSILON' in Number ? Number.EPSILON : ZERO_ONE,
 			__FPS__ 				= 60 ;
 		
 		var __SIM_TIMESTEP__ 		= 1000 / __FPS__,
@@ -136,11 +153,12 @@
 			__FRAMES_THIS_SECOND__ 	= ZERO,
 			__NUM_UPDATES_STEP__ 	= ZERO,
 			__MIN_FRAME_DELAY__ 	= ZERO,
-			__SAFE_TIME__ 			= ZERO,
+			__EFT_START_TIME__	 	= ZERO,
+			__SAFE_TIME__ 			= __EPSILON__ / 2,
 			__XXL__ 				= XXL ;
 		
 		var BASE_TIME 				= .75 ;
-
+		
 		var running 				= false,
 			started 				= false,
 			panic 					= false,
@@ -185,10 +203,11 @@
 					for(var s in this){
 						var p = this[s] ;
 						if(p instanceof Destroyable) p.destroy() ;
-						else if(typeof p == 'object'){
+						if(typeof p == 'object'){
 							if('destroy' in p && typeof p['destroy'] == 'function')
 								p['destroy']() ;
 						}
+						this[s] = undefined ;
 						delete this[s] ;
 					}
 				}
@@ -232,7 +251,8 @@
 							if(!!!s) break ;
 							els[i] = s ;
 							ret[i] = f(s, i, els) ;
-							if(ret[i] === true) break ;
+							if(ret[i] === BREAK) break ;
+							if(ret[i] === CONTINUE) continue ;
 						}
 					}else{
 						var l = this.length ;
@@ -242,7 +262,8 @@
 							if(!!!s) break ;
 							els[i] = s ;
 							ret[i] = f(s, i, els) ;
-							if(ret[i] === true) break ;
+							if(ret[i] === BREAK) break ;
+							if(ret[i] === CONTINUE) continue ;
 						}
 					}
 				},
@@ -310,6 +331,8 @@
 						ID:NaN,
 						timestamp:NaN,
 						loops:[],
+						actions:[],
+						frames:-1,
 						createAnimation:function(func){
 							return new Animation(func) ;
 						},
@@ -318,6 +341,7 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
+								
 								loop.func(timestamp) ;
 								if(loop.die){
 									this.detach(loop) ;
@@ -332,6 +356,56 @@
 								loop.draw(timestamp) ;
 							}
 						},
+						programActionFrames(frames, closure, params){
+							var args = __SLICE__.call(arguments) ;
+							
+							frames = args.shift() ;
+							closure = args.shift() ;
+							params = args ;
+							
+							this.actions.unshift({
+								closure:closure,
+								params:params,
+								frames:frames
+							}) ;
+							
+						},
+						checkFrameActions:function(){
+							
+							var l = this.actions.length ;
+							
+							for(;l > 0 ; l--){
+								var i = l - 1 ;
+								
+								var action = this.actions[i] ;
+								
+								var closure = action.closure ;
+								var params = action.params ;
+								var frames = --action.frames ;
+								
+								if(frames <= 0){
+									var s = closure.apply(closure, [].concat(params)) ;
+									// remove
+									if(s == CONTINUE){
+										continue ;
+									}else if (s == BREAK){
+										break ;
+									}
+									this.actions.splice(i, 1) ;
+									
+								}
+							}
+							
+						},
+						haltSystem:function(){
+							var anim = AnimationTicker ;
+							anim.HALT = true ;
+						},
+						restoreSystem:function(){
+							var anim = AnimationTicker ;
+							anim.HALT = false ;
+							anim.start() ;
+						},
 						innerFunc:function(timestamp){
 							/////
 							if (timestamp < __LAST_FRAME_TIME_MS__ + __MIN_FRAME_DELAY__) {
@@ -345,6 +419,12 @@
 								end = BetweenJSCore.settings.end,
 								faketimestamp = timestamp - __OFF_TIME__ ;
 							
+							anim.frames ++ ;
+							
+							anim.checkFrameActions() ;
+							
+							if(anim.HALT) return anim.stop() ;
+							
 							__TIME__= timestamp ;
 							
 							anim.timestamp = faketimestamp * .001 ;
@@ -354,7 +434,7 @@
 							__LAST_FRAME_TIME_MS__ = timestamp ;
 							
 							// UNUSED
-							begin(timestamp, __FRAME_DELTA__) ;
+							//begin(timestamp, __FRAME_DELTA__) ;
 							
 							
 							if (timestamp > __LAST_FPS_UPDATE__ + 1000) {
@@ -367,11 +447,12 @@
 							__NUM_UPDATES_STEP__ = 0 ;
 
 							while (__FRAME_DELTA__ >= __SIM_TIMESTEP__) {
+								
 								// UNUSED
-								update(__SIM_TIMESTEP__) ;
+								//update(__SIM_TIMESTEP__) ;
 								
 								// BETWEENJS TICKER
-								anim.func(faketimestamp) ;
+								var s = anim.func(faketimestamp) ;
 
 								__FRAME_DELTA__ -= __SIM_TIMESTEP__ ;
 								if (++__NUM_UPDATES_STEP__ >= 240) {
@@ -381,18 +462,18 @@
 							}
 							
 							// UNUSED
-							draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
-							
+							//draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
 							// BETWEENJS TICKER
 							anim.draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
 							
 							// UNUSED
-							end(__FPS__, panic) ;
+							//end(__FPS__, panic) ;
 							panic = false ;
 						},
 						start:function(){
 							var anim = AnimationTicker ;
 							anim.started = true ;
+							
 							anim.ID = requestAnimationFrame(function(now){
 								__OFF_TIME__ += isNaN(__TIME__) ? 0 : now - __TIME__;
 								anim.innerFunc(now) ;
@@ -406,11 +487,23 @@
 							delete this.ID ;
 						},
 						attach:function(loop){
-							loop.index = this.loops.length ;
-							this.loops.push(loop) ;
+							var s = this.loops.push(loop) ;
+							if(s == 1) {
+								this.start() ;
+							}
 						},
 						detach:function(loop){
+							this.reorder() ;
 							this.loops.splice(loop.index, 1) ;
+							if(this.loops.length == 0) {
+								this.stop() ;
+							}
+						},
+						reorder:function(){
+							var l = this.loops.length ;
+							for(var i = 0 ; i < l ; i++){
+								this.loops[i].index = i ;
+							}
 						}
 					}
 				})
@@ -456,6 +549,14 @@
 					},
 					tick:function(time){
 						return false ;
+					},
+					triggerNext:function(time){},
+					destroy:function(){
+						
+						delete this.prevListener ;
+						delete this.nextListener ;
+						
+						TickerListener.factory.destroy.call(this) ;
 					}
 				}) ;
 				// ENTERFRAMETICKER
@@ -472,9 +573,7 @@
 						initialize:function initialize(domain){
 
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
-
-							AnimationTicker.start() ;
-
+							
 							var prevListener = undefined,
 								max = this.coreListenersMax = 10 ;
 
@@ -528,22 +627,36 @@
 							}
 						},
 						start:function(){
+							
 							var AnimationTicker = BetweenJS.$.AnimationTicker ;
 							var Animation = BetweenJS.$.Animation ;
+							
 							var EFT = this ;
+							
 							this.archive = {} ;
-							EFT.time = AnimationTicker.timestamp ;
-							var a = new Animation(
+							
+							new Animation(
 								function(timestamp){
-									EFT.update(AnimationTicker.timestamp) ;
+									
+									__EFT_START_TIME__ = AnimationTicker.timestamp ;
+									this.die = true ;
+									
+									var a = new Animation(
+										function(timestamp){
+											EFT.update(AnimationTicker.timestamp) ;
+										},
+										function(timestamp){
+											EFT.draw(AnimationTicker.timestamp) ;
+										}
+									) ;
+									
+									EFT.animation = a.start() ;
+									EFT.started = true ;
 								},
 								function(timestamp){
-									EFT.draw(AnimationTicker.timestamp) ;
 								}
-							) ;
-							
-							this.animation = a.start() ;
-							this.started = true ;
+								
+							).start() ;
 						},
 						stop:function(){
 							var a = this.archive ;
@@ -569,11 +682,13 @@
 							if(!!this.archive[time]) return ;
 							else{this.archive[time] = time}
 							
+							var EFT = this ;
 							
 							var min = 0 ;
 							var EFT = this ;
 							var total = EFT.coreListenersMax - 2 ;
-							var t = EFT.time = time ;
+							EFT.time = time - __EFT_START_TIME__ ;
+							var t = EFT.time ;
 
 							var n = total - (EFT.numListeners % total) ;
 							var listener = EFT.tickerListenerPaddings[0] ;
@@ -591,11 +706,13 @@
 									listener = listener.nextListener ;
 									var AbstractTween = BetweenJS.$.AbstractTween ;
 									if(listener instanceof AbstractTween){
-										if(!!listener.startTime){
-											t = SUB(t, listener.startTime) ;
-											min ++ ;
+										
+										listener.triggerNext(t) ;
+										
+										t = t - listener.startTime ;
 											
-										}
+										min ++ ;
+										
 										drawables.push(listener) ;
 									}
 									
@@ -637,7 +754,7 @@
 				var TweenFactory = BetweenJSCore.TweenFactory = {
 					optionDefaults:function(options){
 						if(!!!options['ease']) options['ease'] = Expo.easeOut ;
-						if(!!!options['time']) options['time'] = BASE_TIME ;
+						if(!!!options['time'] && options['time'] !== 0) options['time'] = BASE_TIME ;
 					},
 					detectTweenTypeFromOptions:function(options){
 						var method = '';
@@ -666,10 +783,11 @@
 					createBasic:function(options){
 
 						var tw = new Tween() ;
+						
 						return tw
 							.configure(options)
-							.setHandlers(options)
-							.assignUpdater(options) ;
+							.checkPhysical()
+							.setHandlers(options) ;
 					},
 					createAction:function(options){
 						var tw ;
@@ -716,9 +834,10 @@
 								tw = new (BetweenJS.$.DelayedTween)() ;
 							break ;
 						}
-
+						
 						return tw
 							.configure(t)
+							.checkPhysical()
 							.setHandlers(options)
 					},
 					createGroup:function(options){
@@ -736,6 +855,7 @@
 
 						return tw
 							.configure(t)
+							.checkPhysical()
 							.setHandlers(options)
 					}
 				}
@@ -751,6 +871,7 @@
 					startTime:NaN,
 					updater:undefined,
 					isPlaying:false,
+					isPhysical:false,
 					stopOnComplete:true,
 					archive:{},
 					constructor:AbstractTween = function AbstractTween(){
@@ -762,11 +883,21 @@
 						this.stopOnComplete = options['stopOnComplete'] || true ;
 						this.position = options['initposition'] || ZERO ;
 						
+						// UPDATER REQUIRED
+						if(this instanceof Tween){
+							var updater = BetweenJS.$.UpdaterFactory.create(options) ;
+							this.setUpdater(updater) ;
+						}
+						
 						return this ;
 					},
 					///////////
 					//// TWEEN METHODS
 					///////////
+					checkPhysical:function(){
+						if(this.updater.isPhysical) this.isPhysical = true ;
+						return this ;
+					},
 					setHandlers:function(options){//		EVENTS
 						this.copyHandlersFrom(options) ;
 						return this ;
@@ -776,11 +907,25 @@
 						var f = this['on'+type] ;
 						var p = this['on'+type+'Params'] || [] ;
 						if (!!f) f.apply(this, [].concat(p)) ;
-						return this;
+						return this ;
 					},
-					assignUpdater:function(options){//		SETTINGS
-						var updater = BetweenJS.$.UpdaterFactory.create(options) ;
-						this.setUpdater(updater) ;
+					bind:function(type, func){
+						type = type.replace(/^\w/, function($1){return $1.toUpperCase()}) ;
+						this['on'+type] = func ;
+						this['on'+type+'Params'] = [{type:type, target:this}] ;
+						
+						return this ;
+					},
+					unbind:function(type, func){
+						type = type.replace(/^\w/, function($1){return $1.toUpperCase()}) ;
+						
+						if(this['on'+type] == func){
+							this['on'+type] = undefined ;
+							this['on'+type+'Params'] = undefined ;
+							delete this['on'+type] ;
+							delete this['on'+type+'Params'] ;
+						}
+						
 						return this ;
 					},
 					/*
@@ -801,7 +946,7 @@
 					},
 					setStartTime:function(position){
 						var EFT = BetweenJS.$.EnterFrameTicker ;
-						this.startTime = SUB(EFT.time, position) ;
+						this.startTime = EFT.time - position ;
 						return this ;
 					},
 					setTime:function(time){
@@ -813,10 +958,13 @@
 						TWEEN LAUNCH SETUP
 
 					*/
-					register:function(){
+					register:function(p){
 						var EFT = BetweenJS.$.EnterFrameTicker ;
-						EFT.addTickerListener(this) ;
+						
 						if(!EFT.started) EFT.start() ;
+						
+						EFT.addTickerListener(this) ;
+						
 						return this ;
 					},
 					unregister:function(){
@@ -825,14 +973,38 @@
 					},
 					setup:function(){
 						this.isPlaying = true ;
+						
 						var p = this.position ;
 						p = isNaN(p) ? ZERO : p >= this.time ? ZERO : p ;
 						
-						this
-							.register()
-							.seek(p) ;
+						this.register() ;
+						
+						this.nextFrame(function(){
+							this.seek(p) ;
+						}) ;
+						
 						return this ;
 					},
+					
+					nextFrame:function(closure, params){
+						var args = __SLICE__.call(arguments) ;
+						
+						this.next = {
+							closure:args.shift(),
+							params:args
+						} ;
+						
+					},
+					
+					triggerNext:function(){
+						if(!!this.next){
+							this.next.closure.apply(this, this.next.params) ;
+							
+							this.next = undefined ;
+							delete this.next ;
+						}
+					},
+					
 					teardown:function(){
 						this.isPlaying = false ;
 						return this ;
@@ -843,11 +1015,10 @@
 
 					*/
 					seek:function(position, isPercent){
-						position = !!isPercent ? MUL(this.time, position) : position ;
-						
+						position = !!isPercent ? this.time * position : position ;
 						this.setPosition(position) ;
-						this.setStartTime(position) ;
-
+						this.setStartTime(this.position) ;
+						
 						return this ;
 					},
 					toggle:function(){
@@ -860,7 +1031,7 @@
 						return this.seek(ZERO) ;
 					},
 					gotoAndPlay:function(position, isPercent){
-						position = !!isPercent ? MUL(this.time, position) : position ;
+						position = !!isPercent ?this.time * position : position ;
 						
 						if(!this.isPlaying)
 							return this.seek(position).play() ;
@@ -870,10 +1041,11 @@
 						return this ;
 					},
 					gotoAndStop:function(position, isPercent){
-						position = !!isPercent ? MUL(this.time, position) : position ;
-						return this.isPlaying ?
-							this.stop().update(position) :
-							this.update(position) ;
+						position = !!isPercent ? this.time * position : position ;
+						this.update(position) ;
+						return this.isPlaying
+							? this.stop()
+							: this.draw() ;
 					},
 					play:function(){
 						if (!this.isPlaying) {
@@ -935,7 +1107,10 @@
 						
 						var r = this.setPositionAndFeedback(position) ;
 						
-						this.updater.update(this.position) ;
+						if(r.granted) {
+							// trace('GRANTED POS >', this, name, this.position, this.updater)
+							this.updater.update(this.position) ;
+						}
 						
 						return r ;
 					},
@@ -943,14 +1118,40 @@
 						
 						var started, 
 							decayed, 
-							reversed = (this.position >= position) ;
+							granted, 
+							reversed;
 						
-						if(reversed){
-							started = position <= ZERO ;
-							decayed = SUB(this.position, this.time) >= ZERO ;
+						if(position == this.position){
+							// 3 cases
+							// 1. position == 0
+							// 2. position == this.time ;
+							// 3. else = in the middle
+							
+								// 2 cases
+								// 1. ascending
+								// 1. descending
+								
+							// in any case set OriginStart to THAT value for later,
+							
+							this.lastRequest = position ;
+							// and return Blocking / Ignoring stuff
+							
+							granted = false ;
+							started = false ;
+							decayed = false ;
+							
 						}else{
-							started = this.position <= ZERO ;
-							decayed = SUB(position, this.time) >= ZERO ;
+							
+							granted = true ;
+							reversed = (this.position >= position) ;
+							
+							if(reversed){
+								started = position <= ZERO ;
+								decayed = (this.position - this.time) >= ZERO ;
+							}else{
+								started = this.position <= ZERO ;
+								decayed = (position - this.time) >= ZERO ;
+							}
 						}
 						
 						this.setPosition(position) ;
@@ -958,7 +1159,8 @@
 						return this.info = {
 							started:started,
 							decayed:decayed,
-							reversed:reversed
+							reversed:reversed,
+							granted:granted
 						} ;
 					},
 					update:function(position){
@@ -967,6 +1169,8 @@
 							return this.internalUpdate(position) ;
 						}
 						
+						this.oldtime = this.time ;
+						
 						var s = this.internalUpdate(position) ;
 						
 						/////////////////////////////////// EVENTS
@@ -974,14 +1178,23 @@
 						if(s.started) this.fire('start') ;
 						
 						// UPDATE
-						this.fire('update') ;
+						if(s.granted) this.fire('update') ;
 						
 						// COMPLETE
-						if(s.decayed) this.fire('complete') ;
+						if(s.decayed) this.endReached = true ;
 						
 						return s ;
 					},
 					draw:function(){
+						
+						// trace(this.name) ;
+						// trace('DRAWING', this.name)
+						
+						if(this.endReached){
+							this.fire('complete') ;
+							this.endReached = false ;
+						}
+						
 						this.internalDraw() ;
 						this.fire('draw') ;
 					},
@@ -1035,7 +1248,7 @@
 						if(this.isPlaying){
 							this.stop() ;
 						}
-
+						
 						AbstractTween.factory.destroy.call(this) ;
 					}
 				}) ;
@@ -1045,7 +1258,7 @@
 					domain:BetweenJSCore,
 					inherits:AbstractTween,
 					statics:{
-						SAFE_TIME:__EPSILON__,
+						SAFE_TIME:__SAFE_TIME__,
 						DEFAULT_TIME:__XXL__
 					},
 					constructor:Tween = function Tween(){
@@ -1065,6 +1278,7 @@
 						pkg:'::AbstractActionTween',
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
+						duration:Tween.SAFE_TIME,
 						constructor:AbstractActionTween = function AbstractActionTween(){
 							AbstractActionTween.base.call(this) ;
 						},
@@ -1075,7 +1289,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return Tween.SAFE_TIME ;
+								return this.duration ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1169,28 +1383,6 @@
 							
 							return this ;
 						},
-						internalUpdate:function(position){
-							
-							if(!isFinite(position)){
-								return this.duration ;
-							}
-							
-							if(this.time == __XXL__){
-								this.setTime(this.update(Infinity)) ;
-							}
-							
-							var r = this.setPositionAndFeedback(position) ;
-							
-							if(r.decayed){
-								if(r.reversed){
-									this.rollback() ;
-								} else{
-									this.action() ;
-								}
-							}
-							
-							return r ;
-						},
 						clear:function(){
 							return this.stop() ;
 						},
@@ -1248,9 +1440,10 @@
 							RemoveFromParentAction.base.call(this) ;
 						},
 						configure:function(options){
+							var PropertyMapper = BetweenJS.$.PropertyMapper ;
 							RemoveFromParentAction.factory.configure.apply(this, [options]) ;
 
-							this.target =  PropertyMapper.checkNode(options['target']) ;
+							this.target = PropertyMapper.checkNode(options['target']) ;
 
 							return this ;
 						},
@@ -1288,10 +1481,14 @@
 						constructor:TweenDecorator = function TweenDecorator(){
 							TweenDecorator.base.call(this) ;
 						},
+						checkPhysical:function(){
+							if(this.baseTween.isPhysical) this.isPhysical = true ;
+							
+							return this ;
+						},
 						configure:function(options){
 							TweenDecorator.factory.configure.apply(this, [options]) ;
 							this.baseTween = options['baseTween'] ;
-							
 							return this ;
 						},
 						play:function(){
@@ -1329,7 +1526,6 @@
 						},
 						copyFrom:function(source){
 							this.copyHandlersFrom(source) ;
-							
 							this.baseTween = source['baseTween'] ;
 						}
 					}) ;
@@ -1345,45 +1541,68 @@
 						},
 						configure:function(options){
 							SlicedTween.factory.configure.apply(this, [options]) ;
-							this.end = options['end'] || 1.0 ;
-							this.begin = options['begin'] || 0.0 ;
-
+							
+							this.begin = options['begin'] || ZERO ;
+							this.end = options['end'] || ONE ;
+							this.isPercent = options['isPercent'] || false ;
+							
 							return this ;
 						},
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.end - this.begin ;
+								
+								var time = this.basetime = this.baseTween.update(position) ;
+								
+								if(this.isPercent){
+									this.begin = time * this.begin ;
+									this.end = time * this.end ;
+									this.isPercent = undefined ;
+								}
+								
+								if(this.begin < 0) this.begin = time + this.begin ;
+								
+								var reqtime = this.end - this.begin ;
+								
+								if(reqtime < ZERO){
+									reqtime += this.basetime ;
+									this.negative = true ;
+								}
+								
+								if(reqtime == ZERO && this.begin !== ZERO){
+									reqtime = this.basetime ;
+									this.negative = true ;
+								}
+								// trace(this.end - this.begin)
+								// trace(reqtime == ZERO ? __SAFE_TIME__ : reqtime)
+								return reqtime == ZERO ? __SAFE_TIME__ : reqtime ;
 							}
 							
 							if(this.time == __XXL__){
 								
-								this.setTime(this.update(-Infinity)) ;
 								
-								if(SUB(this.end, this.begin) == 0) {
-									this.instantUpdate = true ;
-									this.baseTween.update(this.begin) ;
-									s.started = true ;
-									s.decayed = true ;
-									
-									return s ;
-								}
+								var reqtime = this.update(-Infinity) ; 
+								
+								
+								
+								this.setTime(reqtime) ;
 								
 							}
 							
 							var r = this.setPositionAndFeedback(position) ;
 							
-							var pos 	= this.position,
-								bt 		= this.baseTween ;
-							
-							if (pos > 0) {
-								if (pos < this.time) {
-									bt.update(ADD(pos , this.begin)) ;
-								} else {
-									bt.update(this.end) ;
+							if(r.granted) {
+								
+								var pos 	= this.position,
+									bt 		= this.baseTween ;
+								
+								// this.stopOnComplete = false ;
+								pos = this.begin + pos ;
+								if(this.negative && pos > this.basetime) {
+									pos = pos - this.basetime ;
 								}
-							} else {
-								bt.update(this.begin) ;
+								
+								bt.update(pos) ;
 							}
 							
 							return r ;
@@ -1415,18 +1634,36 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) ;
+								return this.baseTween.update(-Infinity) * this.scale ;
 							}
 							
 							if(this.time == __XXL__){
 								this.setTime(this.update(-Infinity)) ;
 							}
 							
-							var r = this.setPositionAndFeedback(DIV(position, this.scale)) ;
+							var isLonger = this.scale >= 1 ;
 							
-							this.baseTween.update(DIV(this.position, this.scale)) ;
+							var pos;
+							var uppos;
 							
-							return r ;
+							if(isLonger){
+								pos = position / this.scale ;
+							}else{
+								pos = position ;
+							}
+							
+							var s ;
+							var r = this.setPositionAndFeedback(pos) ;
+							
+							if(isLonger){
+								uppos = this.position ;
+							}else{
+								uppos = position / this.scale ;
+							}
+							
+							if(r.granted) s = this.baseTween.update(uppos) ;
+							
+							return s || r ;
 						},
 						newInstance:function(){
 							return new ScaledTween() ;
@@ -1460,7 +1697,7 @@
 							
 							var r = this.setPositionAndFeedback(position) ;
 							
-							this.baseTween.update(this.baseTween.time - this.position) ;
+							if(r.granted) this.baseTween.update( this.baseTween.time - this.position ) ;
 							
 							return r ;
 						},
@@ -1490,7 +1727,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return MUL((this.basetime = this.baseTween.update(position)), this.repeatCount) ;
+								return (this.basetime = this.baseTween.update(position)) * this.repeatCount ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1499,14 +1736,19 @@
 							
 							var r = this.setPositionAndFeedback(position) ;
 							
-							var childpos = this.position ;
-							if (childpos >= 0) {
-								childpos -= childpos < this.time
-									? MUL(this.basetime, parseInt(childpos / this.basetime))
-									: SUB(this.time, this.basetime) ;
+							if(r.granted) {
+								
+								
+								var childpos = this.position ;
+								if (childpos >= 0) {
+									childpos -= childpos < this.time
+										? (this.basetime * parseInt(childpos / this.basetime))
+										: (this.time - this.basetime) ;
+								}
+								
+								this.baseTween.update(childpos) ;
+								
 							}
-							
-							this.baseTween.update(childpos) ;
 							
 							return r ;
 						},
@@ -1524,23 +1766,23 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						basetime:undefined,
-						delay:0,
-						postDelay:0,
+						delay:ZERO,
+						postDelay:ZERO,
 						constructor:DelayedTween = function DelayedTween(){
 						   DelayedTween.base.call(this) ;
 						},
 						configure:function(options){
 							DelayedTween.factory.configure.apply(this, [options]) ;
 							
-							this.delay = options['delay'] || 0 ;
-							this.postDelay = options['postDelay'] || 0 ;
-
+							this.delay = options['delay'] || ZERO ;
+							this.postDelay = options['postDelay'] || ZERO ;
+							
 							return this ;
 						},
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return ADD(this.baseTween.update(position) , ADD(this.delay, this.postDelay)) ;
+								return this.baseTween.update(position) + (this.delay + this.postDelay) ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1549,8 +1791,7 @@
 							
 							var r = this.setPositionAndFeedback(position) ;
 							
-							
-							this.baseTween.update(this.position - this.delay) ;		
+							if(r.granted) this.baseTween.update(this.position - this.delay) ;		
 							
 							return r ;
 						},
@@ -1589,7 +1830,8 @@
 									if(!!!s) break ;
 									els[i] = s ;
 									ret[i] = f(s, i, els) ;
-									if(ret[i] === true) break ;
+									if(ret[i] === BREAK) break ;
+									if(ret[i] === CONTINUE) continue ;
 								}
 							}else{
 								var l = this.length ;
@@ -1599,7 +1841,8 @@
 									if(!!!s) break ;
 									els[i] = s ;
 									ret[i] = f(s, i, els) ;
-									if(ret[i] === true) break ;
+									if(ret[i] === BREAK) break ;
+									if(ret[i] === CONTINUE) continue ;
 								}
 							}
 							return ret ;
@@ -1679,6 +1922,21 @@
 						constructor:ParallelTween = function ParallelTween(){
 							ParallelTween.base.call(this) ;
 						},
+						checkPhysical:function(){
+							
+							var isPhysical = false ;
+							
+							this.bulkFunc(function(el, i){
+								if(el.isPhysical) {
+									isPhysical = el.isPhysical ;
+									return BREAK ;
+								}
+							}) ;
+							
+							this.isPhysical = isPhysical ;
+							
+							return this ;
+						},
 						configure:function(options){
 							ParallelTween.factory.configure.apply(this, [options]) ;
 							
@@ -1701,27 +1959,43 @@
 								this.setTime(this.update(-Infinity)) ;
 							}
 							
+							var drawables = [], duration ;
+							
 							var fff 	= this,
 								r		= this.setPositionAndFeedback(position) ;
 							
-							this.bulkFunc(function(el, i, arr){
+							if(r.granted){
 								
-								if(el.time == __XXL__){
-									el.setTime(el.update(Infinity)) ;
-								}
+								this.bulkFunc(function(el, i, arr){
+									
+									if(el.time == __XXL__){
+										el.setTime(el.update(Infinity)) ;
+									}
+									
+									var local = fff.position ;
+									
+									if(el.position <= el.time){
+										el.update(local) ;
+										drawables.push(el) ;
+									}
+								}) ;
 								
-								el.update(fff.position) ;
-								
-							}) ;
+								this.drawables = drawables ;
+							}
+							
+							// TODO PHYSICALTWEEN TTAEMUNAE
+							// this.recheckDuration() ;
 							
 							return r ;
 						},
 						internalDraw:function(){
+							var d = this.drawables ;
 							
-							this.bulkFunc(function(el){
-								el.draw() ;
-							}) ;
-							
+							if(!d) return ;
+							var i, l = d.length ;
+							for(i = 0 ; i < l ; i++){
+								d[i].draw() ;
+							}
 						},
 						newInstance:function(){
 							return new ParallelTween() ;
@@ -1738,10 +2012,25 @@
 						domain:BetweenJSCore,
 						inherits:GroupTween,
 						tweens:undefined,
-						drawable:undefined,
+						drawables:undefined,
 						durations:[],
 						constructor:SerialTween = function SerialTween(){
 							SerialTween.base.call(this) ;
+						},
+						checkPhysical:function(){
+							
+							var isPhysical = false ;
+							
+							this.bulkFunc(function(el, i){
+								if(el.isPhysical) {
+									isPhysical = el.isPhysical ;
+									return BREAK ;
+								}
+							}) ;
+							
+							this.isPhysical = isPhysical ;
+							
+							return this ;
 						},
 						configure:function(options){
 							SerialTween.factory.configure.apply(this, [options]) ;
@@ -1752,11 +2041,15 @@
 						},
 						internalUpdate:function(position){
 							
+							var isRight = this.name == 'SerialTween_1' ;
+							
 							if(!isFinite(position)){
 								
 								var t = 0 ;
 								this.bulkFunc(function(el, i, arr){
-									t = ADD(t, el.update(position)) ;
+									
+									t += el.update(position) ;
+									
 								}, true) ;
 								
 								return t ;
@@ -1766,7 +2059,7 @@
 								this.setTime(this.update(-Infinity)) ;
 							}
 							
-							var drawables = [], cur ;
+							var drawables = [] ;
 							
 							var fff 		= this,
 								d 			= 0, 
@@ -1776,67 +2069,87 @@
 								local 		= 0, 
 									
 								lf 			= this.position,
-								r 			= this.setPositionAndFeedback(position) ;
+								r 			= this.setPositionAndFeedback(position),
+								lr 			= this.lastRequest ;
 							
 							
-							if(r.reversed){
+							if(r.granted) {
 								
-								d = this.time ;
-								ld = d ;
+								var local, s ;
 								
-								extra = 0 ;
-								
-								this.bulkFunc(function(el, i, arr){
+								if(r.reversed){
 									
-									if(el.time == __XXL__){
-										el.setTime(el.update(-Infinity)) ;
-									}
+									d = this.time ;
+									ld = d ;
 									
-									oneframe = lf - fff.position ;
+									extra = 0 ;
 									
-									if(fff.position >= ((d-= el.time) - oneframe) && ld >= fff.position){
+									this.bulkFunc(function(el, i, arr){
 										
-										var local = (fff.position - d) + extra ;
-										
-										if(local < 0){
-											extra = local ;
-											local = 0 ;
-										}else{
-											extra = 0 ;
+										if(el.time == __XXL__){
+											el.setTime(el.update(-Infinity)) ;
 										}
 										
-										el.update(local) ;
-										drawables.push(el) ;
-									}
-									
-									ld = d ;
+										oneframe = lf - fff.position ;
 										
+										if(fff.position >= ((d-=el.time)- oneframe) && ld >= fff.position){
+											
+											local = (fff.position - d) + extra ;
+											
+											if(local < 0){
+												extra = local ;
+												local = 0 ;
+											}else{
+												extra = 0 ;
+											}
+											
+											s = el.update(local) ;
+											drawables.unshift(el) ;
+										}
+										
+										ld = d ;
+										
+									}, true) ;
 									
-								}, true) ;
+								}else{
+									
+									extra = 0 ;
+									d = 0 ;
+									
+									this.bulkFunc(function(el, i, arr){
+										
+										if(el.time == __XXL__){
+											el.setTime(el.update(Infinity)) ;
+										}
+										
+										
+										
+										if (lf <= (d+= el.time) && ld <= fff.position) {
+											
+											local = fff.position - (d - el.time) ;
+											
+											if(local > el.time){
+												extra = extra + (local - el.time) ;
+												local = el.time ;
+											}else{
+												extra = 0 ;
+											}
+											
+											s = el.update(local) ;
+											drawables.push(el) ;
+										}
+										
+										ld = d ;
+										
+									})
+									
+								}
 								
-							}else{
+								this.drawables = drawables ;
 								
-								this.bulkFunc(function(el, i, arr){
-									
-									if(el.time == __XXL__){
-										el.setTime(el.update(Infinity)) ;
-									}
-									
-									if (lf <= (d + el.time) && ld <= (fff.position)) {
-										
-										var local = fff.position - d ;
-										
-										el.update(local) ;
-										drawables.push(el) ;
-									}
-									
-									d += (el.time) ;
-									ld = d ;
-								})
 								
 							}
 							
-							this.drawables = drawables ;
 							
 							return r ;
 						},
@@ -1845,8 +2158,7 @@
 							
 							if(!d) return ;
 							var i, l = d.length ;
-							for(;l > 0; l--){
-								i = l - 1 ;
+							for(i = 0 ; i < l ; i++){
 								d[i].draw() ;
 							}
 						},
@@ -1954,15 +2266,14 @@
 						var target = options['target'] ;
 
 						desc = this.isofy(updater, desc) ;
-
-						updater.isPhysical = ease instanceof Physical ;
+						
 						updater.target = target ;
 						updater.time = time ;
 						updater.ease = ease ;
+						updater.isPhysical = ease instanceof Physical ;
 						updater.userData = desc ;
-
 						
-
+						
 						for(var type in desc){
 
 							var o = desc[type] ;
@@ -2130,7 +2441,13 @@
 							}
 						}else{
 							if(position > factor){
-								factor = position < this.time ? this.ease.calculate(position, ZERO, ONE, this.time) : ONE ;
+								var s ;
+								if(position < this.time){
+									s = this.ease.calculate(position, ZERO, ONE, this.time) ;
+								}else{
+									s = ONE ;
+								}
+								factor = s ;
 							}
 						}
 						
@@ -2150,13 +2467,9 @@
 							return this.checkTime(position) ;
 						}
 						
-						if(!this.isResolved){
-							this.resolveValues(true) ;
-							this.isResolved = true ;
-						}
+						this.resolveValues(true) ;
 						
 						this.setPosition(position) ;
-						
 						this.setFactor(this.position) ;
 						
 						this.updateObject() ;
@@ -2164,10 +2477,25 @@
 					},
 					checkTime:function(position){
 						var t = this.resolveValues() ;
-						return t > 0 ? t : -t ;
+						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
+						
+						if(forReal){
+							
+							if(this.once){
+								return this.time ;
+							}else{
+								this.once = true ;
+							}
+							
+						}else{
+							
+							if(this.isResolved){
+								return this.time ;
+							}
+						}
 						
 						var key,
 							target = this.target,
@@ -2187,7 +2515,6 @@
 							if (rMap['source.' + key]) {
 								source[key] += this.getIn(key) ;
 							}
-
 						}
 
 						for (key in dest) {
@@ -2195,6 +2522,7 @@
 							if (userdest[key] == PropertyMapper.REQUIRED) {
 								dest[key] = this.getIn(key) ;
 							}
+							
 							if (rMap['dest.' + key]) {
 								dest[key] += this.getIn(key) ;
 							}
@@ -2219,13 +2547,13 @@
 							cpVec = cuepoints[key] ;
 							l = cpVec.length ;
 							var cur ;
-							var cpduration = 0 ;
+							var cpduration = ZERO ;
 							for (i = 0 ; i < l ; ++i) {
 
 								var prev = cur || first ;
 
 								if (rMap['cuepoints.' + key + '.' + i]) {
-									(cpVec[i] += this.getInObject(key)) ;
+									(cpVec[i] += this.getIn(key)) ;
 								}
 
 								cur = cpVec[i] ;
@@ -2246,10 +2574,13 @@
 						}
 						
 						if(this.isPhysical){
+							
 							this.maxDuration = maxDuration ;
 							this.setTime(this.maxDuration) ;
+							
 						}
 						
+						this.isResolved = true ;
 						return this.time ;
 					},
 					updateObject:function(){
@@ -2266,13 +2597,34 @@
 							invert = ONE - factor,
 							cpVec, a, b, l, ip, it, p1, p2,
 							name, val ;
-
+						
+						
 						for (var name in d) {
 
 							a = s[name] ;
 							b = d[name] ;
-
+							
+							if(factor == ZERO){
+								this.store(name, a) ;
+								continue ;
+								
+							}else if(factor == ONE){
+								
+								this.store(name, b) ;
+								continue ;
+							}
+							
 							if(!!!cp[name]){
+								// if(this.isPhysical){
+									// if (position >= dur[name]) {
+										// val = b ;
+									// }else{
+										// val = e.calculate(position, a, b - a) ;
+									// }
+								// }else{
+									// val = a * invert + b * factor ;
+								// }
+								
 								val = a * invert + b * factor ;
 							}else{
 								if (factor != ONE && !!(cpVec = this.cuepoints[name])) {
@@ -2300,13 +2652,17 @@
 											p1 = (cpVec[ip - 1] + cpVec[ip]) >> 1 ;
 											p2 = (cpVec[ip] + cpVec[ip + 1]) >> 1 ;
 										}
-										val = p1 + it * (2 * (1 - it) * (cpVec[ip] - p1) + it * (p2 - p1)) ;
+										
+
+										
+
+										val = p1 + (it * (2 * (1 - it) * (cpVec[ip] - p1)) + it * ((p2 - p1))) ;
 									}
 								} else {
 									val = a * invert + b * factor ;
 								}
 							}
-							
+
 							this.store(name, val) ;
 						}
 					},
@@ -2375,8 +2731,9 @@
 					parent:undefined,
 					child:undefined,
 					propertyName:undefined,
-					time:0,
+					time:ZERO,
 					isResolved:false,
+					isPhysical:false,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
 						UpdaterProxy.base.call(this) ;
 
@@ -2384,51 +2741,63 @@
 						this.child = child ;
 						this.propertyName = propertyName ;
 						this.isPhysical = this.parent.isPhysical ;
-						this.setTime(this.parent.time) ;
 					},
 					setTime:function(time){
 						this.time = time ;
 					},
 					checkTime:function(position){
 						var t = this.resolveValues() ;
-						return t > 0 ? t : -t ;
+						return t > ZERO ? t : -t ;
 					},
-					resolveValues:function(){
-						var p = this.parent ;
-						var time = p.time ;
-						var isPhysical = p.isPhysical ;
+					resolveValues:function(forReal){
 						
-						if(isPhysical){
+						if(forReal){
+							if(this.once){
+								return this.time ;
+							}else{
+								this.once = true ;
+							}
+							
+						}else{
+							if(this.isResolved){
+								return this.time ;
+							}
+						}
+						
+						var p = this.parent ;
+						
+						if(!p.isResolved) p.resolveValues() ;
+						
+						var time = p.time ;
+						
+						if(this.isPhysical){
+							
 							var c = this.child ;
-							if(!c.isResolved){
-								c.resolveValues() ;
-								c.isResolved = true ;
-								
-								if(time > c.time) c.setTime(time) ;
-								else {
-									time = c.time ;
-									p.setTime(time) ;
-								}
+							if(!c.isResolved) c.resolveValues() ;
+							
+							if(time > c.time) c.setTime(time) ;
+							else {
+								time = c.time ;
+								if(time > p.time) p.setTime(time) ;
 							}
 						}
 						
 						this.setTime(time) ;
 						
+						this.isResolved = true ;
 						return this.time ;
 					},
 					update:function(position){
-						var Tween = BetweenJS.$.Tween ;
 						
 						if(!isFinite(position)){
 							return this.checkTime(position) ;
 						}
 						
-						if(!this.isResolved){
-							this.resolveValues() ;
-							this.isResolved = true ;
-						}
+						this.resolveValues(true) ;
 						
-						this.child.update(position) ;
+						var pos = this.isPhysical ? this.child.time * this.parent.factor : position ;
+						
+						this.child.update(pos) ;
 					},
 					draw:function(){
 						this.child.draw() ;
@@ -2447,7 +2816,7 @@
 					domain:BetweenJSCore,
 					inherits:Poly,
 					target:undefined,
-					time:0,
+					time:ZERO,
 					isResolved:false,
 					isPhysical:false,
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
@@ -2456,9 +2825,10 @@
 						this.target = target ;
 						
 						BulkUpdater.base.apply(this, [updaters, function(el){
-							isPhysical = isPhysical || el.isPhysical ;
+							if(el.isPhysical) isPhysical = true ;
 						}]) ;
 						
+						this.isPhysical = isPhysical ;
 						this.length = updaters.length ;
 					},
 					setTime:function(time){
@@ -2468,23 +2838,32 @@
 						var t = this.resolveValues() ;
 						return t > 0 ? t : -t ;
 					},
-					resolveValues:function(position){
+					resolveValues:function(forReal){
+						
+						if(forReal){
+							if(this.once){
+								return this.time ;
+							}else{
+								this.once = true ;
+							}
+						}else{
+							if(this.isResolved){
+								return this.time ;
+							}
+						}
+						
 						var time = this.time ;
-						var isPhysical = false ;
 						
 						this.bulkFunc(function(c){
-							isPhysical = isPhysical || c.isPhysical ;
-							
-							if(!c.isResolved){
-								c.resolveValues() ;
-								c.isResolved = true ;
-								
-								if(time > c.time) c.setTime(time) ;
-								else time = c.time ;
-							}
+							c.resolveValues() ;
+							time = c.time > time ? c.time : time ;
+							c.setTime(time) ;
+							time = c.time ;
 						}) ;
 						
 						this.setTime(time) ;
+						
+						this.isResolved = true ;
 						return this.time ;
 					},
 					update:function(position){
@@ -2494,17 +2873,16 @@
 							return this.checkTime(position) ;
 						}
 						
-						if(!this.isResolved){
-							this.resolveValues() ;
-							this.isResolved = true ;
-						}
+						this.resolveValues(true) ;
 						
+						var bulk = this ;
+						
+						var a = this.getElementAt(0) ;
 						this.bulkFunc(function(c){
 							c.update(position) ;
 						}) ;
 					},
 					draw:function(){
-						
 						this.bulkFunc(function(el){
 							el.draw() ;
 						})
@@ -2620,7 +2998,7 @@
 							var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
 							var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
 							var val = type[name] ;
-							var i, l, s, j, ll, custom, pattern ;
+							var i, l, j, ll, custom, pattern ;
 							
 							var customs = CustomMappers ;
 							var accurate ;
@@ -2636,45 +3014,45 @@
 								var tt = type[name] ;
 								
 								// KICK OUT UNDESIRABLES
-								if(!custom.pattern.test(name)) continue ;
 								
-								
-								s = custom.check(updater, typename, type, name, tt) ;
-								
-								accurate = custom ;
-								
-								// SET VALUE IS A START
-								if(tt !== s.value) type[name] = s.value ;
-								// IF NAME DIFFERENT PERFORM SMART REWRITE
-								if(localname != s.name){
-									// SET NEW NAME INSTEAD OF OLD
-									localname = s.name ;
-									// ERASE IN TARGET PROPS OBJ
-									delete type[name] ;
-								}
-								
-								// REWRITE VALUE WITH NEW NAME
-								type[localname] = s.value ;
-								
-								if(s.units){
-									units = s.units ;
-								}
-								
-								if(s.isRelative){
-									isRelative = s.isRelative ;
-								}
-								
-								if(s.block){
-									// FOUND !!!!!
-									break ;
+								if(custom.pattern.test(name)){
 									
-								} else {
-									// FOUND BUT MODIFED NOSAVE & SMART REWRITE !!!!!
-									continue ; // WILL RECHECK THINGS
+									(name, name && custom.pattern.test(name)) ;
+									
+									var s = custom.check(updater, typename, type, name, tt) ;
+									
+									accurate = custom ;
+									
+									// SET VALUE IS A START
+									if(tt !== s.value) type[name] = s.value ;
+									// IF NAME DIFFERENT PERFORM SMART REWRITE
+									if(localname != s.name){
+										// SET NEW NAME INSTEAD OF OLD
+										localname = s.name ;
+										// ERASE IN TARGET PROPS OBJ
+										type[name] = undefined ;
+										delete type[name] ;
+									}
+									
+									// REWRITE VALUE WITH NEW NAME
+									type[localname] = s.value ;
+									
+									if(s.units){
+										units = s.units ;
+									}
+									
+									if(s.isRelative){
+										isRelative = s.isRelative ;
+									}
+									
+									if(s.block){
+										// FOUND !!!!!
+										break ;
+									}
 								}
+								
 								
 							}
-							
 							// SET
 							if(!!units) updater.units[localname] = units ;
 							if(!!isRelative) updater.relativeMap[typename + '.' + localname] = isRelative ;
@@ -2824,14 +3202,15 @@
 							var val = '' ;
 							if(window.getComputedStyle){
 								var shortreg = /(border)(width|color)/gi ;
-								(shortreg.test(name) && (name = name.replace(shortreg, '$1Top$2'))) ;
+								name = shortreg.test(name) ? name.replace(shortreg, '$1Top$2') : name ;
 								val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
-
+								
 							}else if(tg.currentStyle){
 								try{
 									val = name == 'background-color' ? tg.currentStyle['backgroundColor'] : this.cssHackGet(tg, name) ;
 								}catch(e){}
 							}
+							
 							return val ;
 						},
 						setStyle:function(tg, name, val){
@@ -2913,20 +3292,22 @@
 						},
 						simpleDOMGet:function(tg, n, unit){
 							var str = this.getStyle(tg, n) ;
+							
 							str = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+							
 							return str ;
 						},
 						simpleDOMSet:function(tg, n, v, unit){
 							this.setStyle(tg, n, v + unit) ;
 						},
-						printCSSRules:function(selector, propertyname, max, min, str){
+						printCSSRules:function(selector, propertyname, min, max, units, str){
 							min = min == undefined ? 0 : min ;
 							str = str == undefined ? '' : str ;
 							for(var i = min ; i < max ; i ++){
 								str += '\n' +
 										selector + i +
 										'{' +
-											propertyName + ':' + i + 
+											propertyname + ':' + i + (units || '') +
 										'}'
 							}
 							return str ;
@@ -2951,7 +3332,27 @@
 
 			}) ;
 		}) ;
-
+		
+		
+		var LOGS = BetweenJSCore.LOGS = [] ;
+		var ADD_LOGS = BetweenJSCore.ADD_LOGS = function(logs){
+			var args = __SLICE__.call(arguments) ;
+			LOGS.push(args) ;
+		}
+		var TRACE_LOGS = BetweenJSCore.TRACE_LOGS = function(){
+			var i = 0, l = LOGS.length ;
+			for(;i < l ; i++){
+				var log = LOGS[i] ;
+				// var str = log.join(',') ;
+				 
+				trace.apply(trace, ['l.' + i + '\t\t\t', LOGS[i]].concat(log)) ;
+			}
+		}
+		var RESET_LOGS = BetweenJSCore.RESET_LOGS = function(){
+			LOGS = [] ;
+		}
+		
+		
 		// BETWEENJS MAIN CLASS
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
@@ -2995,7 +3396,7 @@
 
 								BetweenJS[ind] = function(target){
 									var tar , arr ;
-									var args = [].slice.call(arguments) ;
+									var args = __SLICE__.call(arguments) ;
 									// CREATE SPECIAL CASE
 									if(ind == 'create'){
 										var tg = target['target'] ;
@@ -3075,27 +3476,6 @@
 					return BetweenJS.$.TweenFactory.create(options) ;
 				},
 				/*
-					apply
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param time Float (default : 1.0)
-					@param applyTime Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
-				apply:function apply(target, to, from, time, ease, applyTime){
-					return this.create({
-						target: target,
-						to: to,
-						from: from,
-						time: time,
-						ease: ease
-					}).update(applyTime) ;
-				},
-				/*
 					tween
 
 					Creates a regular tween object.
@@ -3113,7 +3493,7 @@
 					@return TweenLike Object
 				*/
 				tween:function tween(target, to, from, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						from: from,
@@ -3132,7 +3512,7 @@
 					@return TweenLike Object
 				*/
 				to:function to(target, to, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						time: time,
@@ -3150,7 +3530,7 @@
 					@return TweenLike Object
 				*/
 				from:function from(target, from, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						from: from,
 						time: time,
@@ -3169,14 +3549,28 @@
 
 					@return TweenLike Object
 				*/
-				apply:function apply(target, to, from, time, ease, applyTime){
-					return this.create({
-						target: target,
-						to: to,
-						from: from,
-						time: time,
-						ease: ease
-					}).update(applyTime).draw() ;
+				apply:function apply(options, applyInBetweenContext){
+					
+					var applyTime = options['applyTime'] || __SAFE_TIME__ ;
+					options['time'] = options['time'] || __SAFE_TIME__ ;
+					
+					var tw = BetweenJS.create(options) ;
+					
+					if(!applyInBetweenContext) tw.gotoAndStop(applyTime) ;
+					
+					return tw ;
+				},
+				
+				instant:function instant(tg, properties){
+					
+					var tw = BetweenJS.apply({
+						target:tg,
+						to:properties,
+						time:__SAFE_TIME__,
+						ease:Linear.easeOut
+					}, true) ;
+					
+					return tw ;
 				},
 				/*
 					bezier
@@ -3191,7 +3585,7 @@
 					@return TweenLike Object
 				*/
 				bezier:function bezier(target, to, from, cuepoints, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						from: from,
@@ -3212,7 +3606,7 @@
 					@return TweenLike Object
 				*/
 				bezierTo:function bezierTo(target, to, cuepoints, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						cuepoints: cuepoints,
@@ -3232,7 +3626,7 @@
 					@return TweenLike Object
 				*/
 				bezierFrom:function bezierFrom(target, from, cuepoints, time, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						from: from,
 						cuepoints: cuepoints,
@@ -3251,7 +3645,7 @@
 					@return TweenLike Object
 				*/
 				physical:function physical(target, to, from, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						from: from,
@@ -3268,7 +3662,7 @@
 					@return TweenLike Object
 				*/
 				physicalTo:function physicalTo(target, to, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						ease: ease
@@ -3284,7 +3678,7 @@
 					@return TweenLike Object
 				*/
 				physicalFrom:function physicalFrom(target, from, ease){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						from: from,
 						ease: ease
@@ -3302,7 +3696,7 @@
 					@return TweenLike Object
 				*/
 				physicalApply:function physicalApply(target, to, from, ease, applyTime){
-					return this.create({
+					return BetweenJS.create({
 						target: target,
 						to: to,
 						from: from,
@@ -3317,7 +3711,7 @@
 					@return TweenLike Object
 				*/
 				parallel:function parallel(tween){
-					return BetweenJS.parallelTweens([].slice.call(arguments)) ;
+					return BetweenJS.parallelTweens(__SLICE__.call(arguments)) ;
 				},
 				/*
 					parallelTweens
@@ -3344,7 +3738,7 @@
 					@return TweenLike Object
 				*/
 				serial:function serial(tween){
-					return BetweenJS.serialTweens([].slice.call(arguments)) ;
+					return BetweenJS.serialTweens(__SLICE__.call(arguments)) ;
 				},
 				/*
 					serialTweens
@@ -3364,53 +3758,7 @@
 					return BetweenJS.$.TweenFactory.createGroup(options) ;
 				},
 				/*
-					reverse
-
-					@param tween TweenLike
-					@param reversePosition Float (default : 0.0)
-
-					@return TweenLike TweenDecorator Object
-				*/
-				reverse:function reverse(tween, reversePosition){
-					var position = !!reversePosition ? tween.time - tween.position : 0.0 ;
-
-					if(tween instanceof BetweenJS.$.ReversedTween && !!tween.baseTween){
-						return tween.baseTween.seek(position) ;
-					}
-
-					var options = {
-						decorators:{
-							reverse:{
-								baseTween:tween,
-								position:position
-							}
-						}
-					} ;
-
-					return BetweenJS.$.TweenFactory.createDecorator(options) ;
-				},
-				/*
-					repeat
-
-					@param tween TweenLike
-					@param repeatCount Integer (default : 2)
-
-					@return TweenLike TweenDecorator Object
-				*/
-				repeat:function repeat(tween, repeatCount){
-					var options = {
-						decorators:{
-							repeat:{
-								baseTween:tween,
-								repeatCount:repeatCount
-							}
-						}
-					} ;
-
-					return BetweenJS.$.TweenFactory.createDecorator(options) ;
-				},
-				/*
-					repeat
+					scale
 
 					@param tween TweenLike
 					@param scale Float (percent, default : 1)
@@ -3442,15 +3790,7 @@
 					@return TweenLike TweenDecorator Object
 				*/
 				slice:function slice(tween, begin, end, isPercent){
-					if(!!!isPercent) isPercent = false ;
-					if(!!!begin) begin = 0 ;
-					if(!!!end) end = isPercent ? 1 : tween.time ;
-
-					if(isPercent){
-						begin = tween.time * begin ;
-						end = tween.time * end ;
-					}
-
+					
 					var options = {
 						decorators:{
 							slice:{
@@ -3461,6 +3801,50 @@
 							}
 						}
 					} ;
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
+				},
+				/*
+					reverse
+
+					@param tween TweenLike
+					@param reversePosition Float (default : 0.0)
+
+					@return TweenLike TweenDecorator Object
+				*/
+				reverse:function reverse(tween){
+					
+					if(tween instanceof BetweenJS.$.ReversedTween && !!tween.baseTween){
+						return tween.baseTween ;//.seek(position) ;
+					}
+
+					var options = {
+						decorators:{
+							reverse:{
+								baseTween:tween
+							}
+						}
+					} ;
+
+					return BetweenJS.$.TweenFactory.createDecorator(options) ;
+				},
+				/*
+					repeat
+
+					@param tween TweenLike
+					@param repeatCount Integer (default : 2)
+
+					@return TweenLike TweenDecorator Object
+				*/
+				repeat:function repeat(tween, repeatCount){
+					var options = {
+						decorators:{
+							repeat:{
+								baseTween:tween,
+								repeatCount:repeatCount
+							}
+						}
+					} ;
+
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
 				/*
@@ -3477,8 +3861,8 @@
 						decorators:{
 							delay:{
 								baseTween:tween,
-								delay:delay || 0,
-								postDelay:postDelay || 0
+								delay:delay,
+								postDelay:postDelay
 							}
 						}
 					} ;
@@ -3541,7 +3925,7 @@
 					var options = {
 						actions:{
 							func:{
-								func:closure,
+								closure:closure,
 								params:params,
 								useRollback:useRollback,
 								rollbackClosure:rollbackClosure,
@@ -3597,447 +3981,11 @@
 				}
 			}
 		}) ;
-
-		// EASE
-		Pkg.write('ease', function(path){
-			/* EASINGS */
-			/* Thanks to Robert Penner & Yossi */
-			var Ease = Type.define({
-				pkg:'::Ease',
-				constructor:Ease = function Ease(calc){
-					this.calculate = calc || function calculate(t, b, c, d){
-						return c * t / d + b ;
-					}
-				}
-			})
-			// LINEAR
-			var Linear = Type.define({
-				pkg:'::Linear',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(),
-					easeOut:new Ease(),
-					easeInOut:new Ease(),
-					easeOutIn:new Ease()
-				}
-			})
-			// CIRC
-			var Circ = Type.define({
-				pkg:'::Circ',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
-						else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
-						else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
-					})
-				}
-			})
-			// CUBIC
-			var Cubic = Type.define({
-				pkg:'::Cubic',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * ((t = t / d - 1) * t * t + 1) + b;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
-					})
-				}
-			})
-			// EXPO
-			var Expo = Type.define({
-				pkg:'::Expo',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
-					}),
-					easeOut: new Ease(function(t, b, c, d){
-						return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if (t == 0) return b ;
-						if (t == d) return b + c ;
-						if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
-						return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
-						else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
-					})
-				}
-			})
-			// QUAD
-			var Quad = Type.define({
-				pkg:'::Quad',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return -c * (t /= d) * (t - 2) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
-						else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
-					})
-				}
-			})
-			// QUART
-			var Quart = Type.define({
-				pkg:'::Quart',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
-						else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
-					})
-				}
-			})
-			// QUINT
-			var Quint = Type.define({
-				pkg:'::Quint',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
-						else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
-					})
-				}
-			})
-			// SINE
-			var Sine = Type.define({
-				pkg:'::Sine',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function calculate(t, b, c, d){
-						return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
-					}),
-					easeOut:new Ease(function calculate(t, b, c, d){
-						return c * Math.sin(t / d * (Math.PI / 2)) + b ;
-					}),
-					easeInOut:new Ease(function calculate(t, b, c, d){
-						return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
-					}),
-					easeOutIn:new Ease(function calculate(t, b, c, d){
-						if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
-						else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
-					})
-				}
-			})
-			// BOUNCE
-			var Bounce = Type.define({
-				pkg:'::Bounce',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
-						if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
-						if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
-						else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
-						if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-						if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-						else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if (t < d / 2) {
-							if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
-							if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
-							if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
-							else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
-						} else {
-							if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
-							if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
-							if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
-							else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
-						}
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) {
-							if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
-							if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-							if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-							else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-						} else {
-							if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
-							if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
-							if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
-							else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
-						}
-					})
-				}
-			})
-			// ELASTIC
-			var ElasticEaseIn = function(a, p){
-				return new Ease(function(t, b, c, d){
-					a = a || 0 , p = p || 0 ;
-					if (t == 0) return b ;
-					if ((t /= d) == 1) return b + c ;
-					if (!p) p = d * 0.3 ;
-
-					var s ;// Number
-					if (!a || a < Math.abs(c)) {
-						a = c ;
-						s = p / 4 ;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a) ;
-					}
-					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-				})
-			}
-			var ElasticEaseOut = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					if (t == 0) return b ;
-					if ((t /= d) == 1) return b + c ;
-					if (!p) p = d * 0.3 ;
-
-					var s ;
-					if (!a || a < Math.abs(c)) {
-						a = c ;
-						s = p / 4 ;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a) ;
-					}
-					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-				})
-			}
-			var ElasticEaseInOut = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					if (t == 0) return b ;
-					if ((t /= d / 2) == 2) return b + c ;
-					if (!p) p = d * (0.3 * 1.5) ;
-
-					var s ;
-					if (!a || a < Math.abs(c)) {
-						a = c;
-						s = p / 4;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a);
-					}
-					if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-					else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
-				})
-			}
-			var ElasticEaseOutIn = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					var s ;
-					c /= 2 ;
-					if (t < d / 2) {
-						if ((t *= 2) == 0) return b ;
-						if ((t /= d) == 1) return b + c ;
-						if (!p) p = d * 0.3 ;
-						if (!a || a < Math.abs(c)) {
-							a = c ;
-							s = p / 4 ;
-						} else {
-							s = p / (2 * Math.PI) * Math.asin(c / a) ;
-						}
-						return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-					} else {
-						if ((t = t * 2 - d) == 0) return (b + c) ;
-						if ((t /= d) == 1) return (b + c) + c ;
-						if (!p) p = d * 0.3 ;
-						if (!a || a < Math.abs(c)) {
-							a = c ;
-							s = p / 4 ;
-						} else {
-							s = p / (2 * Math.PI) * Math.asin(c / a) ;
-						}
-						return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
-					}
-				})
-			}
-			var Elastic = Type.define({
-				pkg:'::Elastic',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new ElasticEaseIn(),
-					easeOut:new ElasticEaseOut(),
-					easeInOut:new ElasticEaseInOut(),
-					easeOutIn:new ElasticEaseOutIn(),
-					easeInWith:function(a, p){return new ElasticEaseIn(a || 0, p || 0)},
-					easeOutWith:function(a, p){return new ElasticEaseOut(a || 0, p || 0)},
-					easeInOutWith:function(a, p){return new ElasticEaseInOut(a || 0, p || 0)},
-					easeOutInWith:function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)}
-				}
-			})
-			// BACK
-			var BackEaseIn = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					return c * (t /= d) * t * ((s + 1) * t - s) + b;
-				})
-			}
-			var BackEaseOut = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-				})
-			}
-			var BackEaseInOut = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
-					else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
-				})
-			}
-			var BackEaseOutIn = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-					else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
-				})
-			}
-			var Back = Type.define({
-				pkg:'::Back',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new BackEaseIn(),
-					easeOut:new BackEaseOut(),
-					easeInOut:new BackEaseInOut(),
-					easeOutIn:new BackEaseOutIn(),
-					easeInWith:function(s){return new BackEaseIn(s || 1.70158)},
-					easeOutWith:function(s){return new BackEaseOut(s || 1.70158)},
-					easeInOutWith:function(s){return new BackEaseInOut(s || 1.70158)},
-					easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
-				}
-			})
-			// CUSTOM
-			var Custom = Type.define({
-				pkg:'::Custom',
-				domain:Type.appdomain,
-				statics:{
-					func:function func(f){
-						return new Ease(f) ;
-					}
-				}
-			}) ;
-			// PHYSICAL
-			var Physical = Type.define({
-				pkg:'physical::Physical',
-				domain:Type.appdomain,
-				inherits:Ease,
-				statics:{
-					defaultFrameRate:60.0,
-					uniform:function(velocity, frameRate){
-						return new PhysicalUniform(velocity || 10.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					},
-					accelerate:function(acceleration, initialVelocity, frameRate){
-						return new PhysicalAccelerate(initialVelocity || 0.0, acceleration || 1.0, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					},
-					exponential:function(factor, threshold, frameRate){
-						return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					}
-				}
-			}) ;
-			var PhysicalAccelerate = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				iv:undefined,
-				a:undefined,
-				fps:undefined,
-				constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){
-					this.iv = iv ;
-					this.a = a ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					var iv = c < 0 ? - this.iv : this.iv ;
-					var a = c < 0 ? - this.a : this.a ;
-
-					return ((-iv + Math.sqrt(iv * iv - 4 * (a / 2.0) * -c)) / (2 * (a / 2.0))) * (1.0 / this.fps);
-				},
-				calculate:function(t, b, c){
-					var f = c < 0 ? -1 : 1 ;
-					var n = t / (1.0 / this.fps) ;
-					return b + (f * this.iv) * n + ((f * this.a) * n) * n / 2.0 ;
-				}
-			}) ;
-			var PhysicalExponential = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				f:undefined,
-				th:undefined,
-				fps:undefined,
-				constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){
-					this.f = f ;
-					this.th = th ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (1.0 / this.fps) ;
-				},
-				calculate:function(t, b, c){
-					return -c * Math.pow(1 - this.f, (t / (1.0 / this.fps)) - 1) + (b + c) ;
-				}
-			}) ;
-			var PhysicalUniform = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				v:undefined,
-				fps:undefined,
-				constructor:PhysicalUniform = function PhysicalUniform(v, fps){
-					this.v = v ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					return (c / (c < 0 ? -this.v : this.v)) * (1.0 / this.fps) ;
-				},
-				calculate:function(t, b, c){
-					return b + (c < 0 ? -this.v : this.v) * (t / (1.0 / this.fps)) ;
-				}
-			});
-
-		}) ;
-
+		
+		// BJS Shortcut
+		Type.appdomain['BJS'] = BetweenJS ;
+		
+		
 		// CSS
 		Pkg.write('css', function(path){
 			//COLORS
@@ -4544,6 +4492,447 @@
 			}) ;
 
 		}) ;
+		
+		// EASE
+		Pkg.write('ease', function(path){
+			/* EASINGS */
+			/* Thanks to Robert Penner & Yossi */
+			var Ease = Type.define({
+				pkg:'::Ease',
+				constructor:Ease = function Ease(calc){
+					this.calculate = calc || function calculate(t, b, c, d){
+						return c * t / d + b ;
+					}
+				}
+			})
+			// LINEAR
+			var Linear = Type.define({
+				pkg:'::Linear',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(),
+					easeOut:new Ease(),
+					easeInOut:new Ease(),
+					easeOutIn:new Ease()
+				}
+			})
+			// CIRC
+			var Circ = Type.define({
+				pkg:'::Circ',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
+						else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
+						else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
+					})
+				}
+			})
+			// CUBIC
+			var Cubic = Type.define({
+				pkg:'::Cubic',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * ((t = t / d - 1) * t * t + 1) + b;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
+					})
+				}
+			})
+			// EXPO
+			var Expo = Type.define({
+				pkg:'::Expo',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
+					}),
+					easeOut: new Ease(function(t, b, c, d){
+						return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if (t == 0) return b ;
+						if (t == d) return b + c ;
+						if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
+						return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
+						else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
+					})
+				}
+			})
+			// QUAD
+			var Quad = Type.define({
+				pkg:'::Quad',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return -c * (t /= d) * (t - 2) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
+						else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
+					})
+				}
+			})
+			// QUART
+			var Quart = Type.define({
+				pkg:'::Quart',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
+						else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
+					})
+				}
+			})
+			// QUINT
+			var Quint = Type.define({
+				pkg:'::Quint',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
+						else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
+					})
+				}
+			})
+			// SINE
+			var Sine = Type.define({
+				pkg:'::Sine',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function calculate(t, b, c, d){
+						return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
+					}),
+					easeOut:new Ease(function calculate(t, b, c, d){
+						return c * Math.sin(t / d * (Math.PI / 2)) + b ;
+					}),
+					easeInOut:new Ease(function calculate(t, b, c, d){
+						return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
+					}),
+					easeOutIn:new Ease(function calculate(t, b, c, d){
+						if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
+						else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
+					})
+				}
+			})
+			// BOUNCE
+			var Bounce = Type.define({
+				pkg:'::Bounce',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
+						if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
+						if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
+						else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
+						if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+						if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+						else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if (t < d / 2) {
+							if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
+							if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
+							if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
+							else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
+						} else {
+							if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
+							if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
+							if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
+							else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
+						}
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) {
+							if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
+							if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+							if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+							else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+						} else {
+							if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
+							if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
+							if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
+							else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
+						}
+					})
+				}
+			})
+			// ELASTIC
+			var ElasticEaseIn = function(a, p){
+				return new Ease(function(t, b, c, d){
+					a = a || 0 , p = p || 0 ;
+					if (t == 0) return b ;
+					if ((t /= d) == 1) return b + c ;
+					if (!p) p = d * 0.3 ;
 
+					var s ;// Number
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+				})
+			}
+			var ElasticEaseOut = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					if (t == 0) return b ;
+					if ((t /= d) == 1) return b + c ;
+					if (!p) p = d * 0.3 ;
+
+					var s ;
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+				})
+			}
+			var ElasticEaseInOut = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					if (t == 0) return b ;
+					if ((t /= d / 2) == 2) return b + c ;
+					if (!p) p = d * (0.3 * 1.5) ;
+
+					var s ;
+					if (!a || a < Math.abs(c)) {
+						a = c;
+						s = p / 4;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a);
+					}
+					if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+					else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
+				})
+			}
+			var ElasticEaseOutIn = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					var s ;
+					c /= 2 ;
+					if (t < d / 2) {
+						if ((t *= 2) == 0) return b ;
+						if ((t /= d) == 1) return b + c ;
+						if (!p) p = d * 0.3 ;
+						if (!a || a < Math.abs(c)) {
+							a = c ;
+							s = p / 4 ;
+						} else {
+							s = p / (2 * Math.PI) * Math.asin(c / a) ;
+						}
+						return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+					} else {
+						if ((t = t * 2 - d) == 0) return (b + c) ;
+						if ((t /= d) == 1) return (b + c) + c ;
+						if (!p) p = d * 0.3 ;
+						if (!a || a < Math.abs(c)) {
+							a = c ;
+							s = p / 4 ;
+						} else {
+							s = p / (2 * Math.PI) * Math.asin(c / a) ;
+						}
+						return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
+					}
+				})
+			}
+			var Elastic = Type.define({
+				pkg:'::Elastic',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new ElasticEaseIn(),
+					easeOut:new ElasticEaseOut(),
+					easeInOut:new ElasticEaseInOut(),
+					easeOutIn:new ElasticEaseOutIn(),
+					easeInWith:function(a, p){return new ElasticEaseIn(a || 0, p || 0)},
+					easeOutWith:function(a, p){return new ElasticEaseOut(a || 0, p || 0)},
+					easeInOutWith:function(a, p){return new ElasticEaseInOut(a || 0, p || 0)},
+					easeOutInWith:function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)}
+				}
+			})
+			// BACK
+			var BackEaseIn = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					return c * (t /= d) * t * ((s + 1) * t - s) + b;
+				})
+			}
+			var BackEaseOut = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+				})
+			}
+			var BackEaseInOut = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
+					else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
+				})
+			}
+			var BackEaseOutIn = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+					else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
+				})
+			}
+			var Back = Type.define({
+				pkg:'::Back',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new BackEaseIn(),
+					easeOut:new BackEaseOut(),
+					easeInOut:new BackEaseInOut(),
+					easeOutIn:new BackEaseOutIn(),
+					easeInWith:function(s){return new BackEaseIn(s || 1.70158)},
+					easeOutWith:function(s){return new BackEaseOut(s || 1.70158)},
+					easeInOutWith:function(s){return new BackEaseInOut(s || 1.70158)},
+					easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
+				}
+			})
+			// CUSTOM
+			var Custom = Type.define({
+				pkg:'::Custom',
+				domain:Type.appdomain,
+				statics:{
+					func:function func(f){
+						return new Ease(f) ;
+					}
+				}
+			}) ;
+			// PHYSICAL
+			var Physical = Type.define({
+				pkg:'physical::Physical',
+				domain:Type.appdomain,
+				inherits:Ease,
+				statics:{
+					defaultFrameRate:__FPS__,
+					uniform:function(velocity, frameRate){
+						return new PhysicalUniform(velocity || TEN, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					},
+					accelerate:function(acceleration, initialVelocity, frameRate){
+						return new PhysicalAccelerate(initialVelocity || ZERO, acceleration || ONE, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					},
+					exponential:function(factor, threshold, frameRate){
+						return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					}
+				}
+			}) ;
+			var PhysicalAccelerate = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				iv:undefined,
+				a:undefined,
+				fps:undefined,
+				constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){
+					this.iv = iv ;
+					this.a = a ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					var iv = c < 0 ? - this.iv : this.iv ;
+					var a = c < 0 ? - this.a : this.a ;
+
+					return ((-iv + Math.sqrt(iv * iv - 4 * (a / TWO) * -c)) / (2 * (a / TWO))) * (ONE / this.fps);
+				},
+				calculate:function(t, b, c){
+					var f = c < 0 ? -1 : 1 ;
+					var n = t / (ONE / this.fps) ;
+					return b + (f * this.iv) * n + ((f * this.a) * n) * n / TWO ;
+				}
+			}) ;
+			var PhysicalExponential = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				f:undefined,
+				th:undefined,
+				fps:undefined,
+				constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){
+					this.f = f ;
+					this.th = th ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (ONE / this.fps) ;
+				},
+				calculate:function(t, b, c){
+					return -c * Math.pow(1 - this.f, (t / (ONE / this.fps)) - 1) + (b + c) ;
+				}
+			}) ;
+			var PhysicalUniform = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				v:undefined,
+				fps:undefined,
+				constructor:PhysicalUniform = function PhysicalUniform(v, fps){
+					this.v = v ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					return (c / (c < 0 ? -this.v : this.v)) * (ONE / this.fps) ;
+				},
+				calculate:function(t, b, c){
+					return b + (c < 0 ? -this.v : this.v) * (t / (ONE / this.fps)) ;
+				}
+			});
+
+		}) ;
+		
+		
 	})})()
 ) ;
