@@ -36,12 +36,13 @@
 	})()) ;
 
 	return Pkg.write('org.libspark.betweenjs', function(path){
+		
 		var NOOP 			= function(){} ;
 		var ZERO 			= 0.0 ;
 		var ZERO_ONE		= 0.1 ;
 		var ONE 			= 1.0 ;
 		var TWO 			= 2.0 ;
-		var TEN 			= 10 ;
+		var TEN 			= 10.0 ;
 		var XXL				= 1e10 ;
 		var MAX				= 19 ;
 		var BREAK			= 'BREAK' ;
@@ -53,75 +54,9 @@
 				update:NOOP,
 				draw:NOOP,
 				end:NOOP
-			},
-			Decimal:{
-				DECIMAL_CORRECT:false,
-				add:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 + n2 ;
-					
-					if(!this.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) + (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				sub:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 - n2 ;
-					
-					if(!this.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) - (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				mul:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 * n2 ;
-					
-					if(!this.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) * (n2 * XXL)) / XXL / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				div:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 / n2 ;
-					
-					if(!this.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) / (n2 * XXL)) ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				}
 			}
 		} ;
-		
+
 			// Animation Ticker Core
 		var getNow 			= function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
 			getTimer 		= function(){ return getNow() - __LIVE_TIME__ },
@@ -132,10 +67,6 @@
 			isJQ			= function(tg){ return 'jQuery' in tg || 'selector' in tg },
 			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c))) } ;
 		
-		var ADD 			= BetweenJSCore.Decimal.add,
-			SUB				= BetweenJSCore.Decimal.sub,
-			MUL				= BetweenJSCore.Decimal.mul,
-			DIV				= BetweenJSCore.Decimal.div ;
 		
 		
 			// Animation & TIcker Control
@@ -152,9 +83,11 @@
 			__LAST_FPS_UPDATE__ 	= ZERO,
 			__FRAMES_THIS_SECOND__ 	= ZERO,
 			__NUM_UPDATES_STEP__ 	= ZERO,
+			__UPDATE_PANIC_LIMIT__ 	= 240,
 			__MIN_FRAME_DELAY__ 	= ZERO,
 			__EFT_START_TIME__	 	= ZERO,
 			__SAFE_TIME__ 			= __EPSILON__ / 2,
+			__SAFE_HACK__	 		= .0001,
 			__XXL__ 				= XXL ;
 		
 		var BASE_TIME 				= .75 ;
@@ -166,11 +99,11 @@
 			CACHE_TIMEOUT 			= {},
 			// regexp
 			DOM_reg 				= /HTML[a-zA-Z]*Element/,
-			units_reg 				= /(px|em|pc|pt|%)$/,
-			relative_reg 			=/^\$/ ;
+			UNIT_reg 				= /(px|em|pc|pt|%)$/,
+			REL_reg 				=/^\$/ ;
 		
+		// REQUEST / CANCEL ANIMATIONFRAME
 		(function () {
-			// REQUEST / CANCEL ANIMATIONFRAME
 			var lastTime = getTimer(), now, timeout, vendors = ['ms', 'moz', 'webkit', 'o'] ;
 
 			if (!window.requestAnimationFrame)
@@ -193,6 +126,14 @@
 		// BETWEENJS CORE
 		Pkg.write('core', function(path){
 			
+			
+			/*	Destroyable - Class
+
+				inherit this class and the 'destroy' method becomes available
+				The 'destroy' method loops in the setted properties and erases their associated values,
+				erasing as well their named entry.
+
+			*/
 			var Destroyable =  Type.define({
 				pkg:'utils::Destroyable',
 				constructor:Destroyable = function Destroyable(){
@@ -212,7 +153,12 @@
 					}
 				}
 			}) ;
+			
+			/*	Traceable - Class
 
+				inherit this class to have a cleaner traced output on the global 'trace' method call.
+				
+			*/
 			var Traceable =  Type.define({
 				pkg:'utils::Traceable',
 				inherits:Destroyable,
@@ -231,6 +177,14 @@
 				}
 			}) ;
 			
+			/*	Poly - Class
+
+				inherit this class for bulk treatments,
+				the light way. According to how many items we want to loop through, 
+				it will not necessarily create an array.
+				a, b, c, and d are name-stored elements, if more items, then another 'elements' array will be created on top.
+				
+			*/
 			var Poly = Type.define({
 				pkg:'::Poly',
 				domain:BetweenJSCore,
@@ -323,7 +277,49 @@
 			
 			// CORE.LOOPS
 			Pkg.write('loops', function(){
+				
+				/*	LOOPS PACKAGE
+				
+					Contains classes that concerns Animation Control.
+					
+					Briefly, AnimationTicker is the Main Loop, calling requestAnimationFrame(), and provides interface
+					to add other sub-loops (Animation Class) to that main AnimationFrame call.
+					Contains Panic handling, ensuring the framerate is constantly optimized in order to avoid unsmooth peaks.
+					
+					One can as well handle panic externally and thus modify the framerate on the fly, via listeners.
+					
+					This system has one huge requirement :
+					Update and draw calls MUST be clearly separately written, i-e all calculations ('update') can happen to be summonned multiple times while one frame, 
+					but only once per frame will be called the renderings ('draw').
+					
+					This is the safest pattern for both accuracy and smoothness of our tweens, given the unaccuracy and unconsistency of 
+					elapsed time notion and approximacy of the framerate whithin the browsers.
 
+				*/
+				
+				/*	AnimationTicker - CLASS
+					
+					
+					!! Four Important Methods !!
+					
+					Begin -> starting frame settings (UNUSED here)
+					
+					Update -> triggers calculations of all attached Animations inner Updates (which will furtherly call attached tweens Updates/calculations) 
+					
+					Draw -> Trigger one final Draw once sub-calculations were done
+					
+					End -> after frame draw was called (UNUSED here)
+					
+					
+					After creating a new Animation and setting its update method, this Main AnimationTicker will loop through the registered Animations
+					and treat them consecutively.
+					
+					All tweens are behaving in this One Animation attached at a time, but externally from BetweenJS we can attach simultaneous animations 
+					through this AnimationTicker Singleton without any additional loops needed.
+					
+
+				*/
+				
 				var AnimationTicker = Type.define({
 					pkg:'::AnimationTicker',
 					domain:BetweenJSCore,
@@ -333,22 +329,33 @@
 						loops:[],
 						actions:[],
 						frames:-1,
-						createAnimation:function(func){
-							return new Animation(func) ;
+						HALT:false,
+						createAnimation:function(update, draw){
+							return new Animation(update, draw) ;
 						},
-						func:function(timestamp){
+						begin:function(timestamp, __FRAME_DELTA__){
+							// UNUSED
+							BetweenJSCore.settings.begin(timestamp, __FRAME_DELTA__) ;
+						},
+						update:function(timestamp){
+							// UNUSED
+							BetweenJSCore.settings.update(timestamp) ;
+							
 							var loops = this.loops ;
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
+								loop.update(timestamp) ;
 								
-								loop.func(timestamp) ;
 								if(loop.die){
-									this.detach(loop) ;
+									loop.stop() ;
 								}
 							}
 						},
 						draw:function(timestamp){
+							// UNUSED
+							BetweenJSCore.settings.draw(timestamp) ;
+							
 							var loops = this.loops ;
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
@@ -356,19 +363,9 @@
 								loop.draw(timestamp) ;
 							}
 						},
-						programActionFrames(frames, closure, params){
-							var args = __SLICE__.call(arguments) ;
-							
-							frames = args.shift() ;
-							closure = args.shift() ;
-							params = args ;
-							
-							this.actions.unshift({
-								closure:closure,
-								params:params,
-								frames:frames
-							}) ;
-							
+						end:function(__FPS__, panic){
+							// UNUSED
+							BetweenJSCore.settings.end(__FPS__, panic) ;
 						},
 						checkFrameActions:function(){
 							
@@ -423,51 +420,47 @@
 							
 							anim.checkFrameActions() ;
 							
-							if(anim.HALT) return anim.stop() ;
+							if(!!anim.HALT) {
+								anim.stop() ;
+								anim.started = true ;
+								return ;
+							}
 							
 							__TIME__= timestamp ;
+							__FRAME_DELTA__ += timestamp - __LAST_FRAME_TIME_MS__ ;
+							__LAST_FRAME_TIME_MS__ = timestamp ;
 							
 							anim.timestamp = faketimestamp * .001 ;
 							anim.ID = requestAnimationFrame(anim.innerFunc) ;
 
-							__FRAME_DELTA__ += timestamp - __LAST_FRAME_TIME_MS__ ;
-							__LAST_FRAME_TIME_MS__ = timestamp ;
 							
-							// UNUSED
-							//begin(timestamp, __FRAME_DELTA__) ;
-							
+							anim.begin(timestamp, __FRAME_DELTA__) ;
 							
 							if (timestamp > __LAST_FPS_UPDATE__ + 1000) {
 								__FPS__ = 0.25 * __FRAMES_THIS_SECOND__ + 0.75 * __FPS__ ;
 								__LAST_FPS_UPDATE__ = timestamp ;
-								__FRAMES_THIS_SECOND__ = 0 ;
+								__FRAMES_THIS_SECOND__ = ZERO ;
 							}
 
 							__FRAMES_THIS_SECOND__++ ;
-							__NUM_UPDATES_STEP__ = 0 ;
+							__NUM_UPDATES_STEP__ = ZERO ;
 
 							while (__FRAME_DELTA__ >= __SIM_TIMESTEP__) {
 								
-								// UNUSED
-								//update(__SIM_TIMESTEP__) ;
-								
-								// BETWEENJS TICKER
-								var s = anim.func(faketimestamp) ;
+								anim.update(faketimestamp) ;
 
 								__FRAME_DELTA__ -= __SIM_TIMESTEP__ ;
-								if (++__NUM_UPDATES_STEP__ >= 240) {
+								if (++__NUM_UPDATES_STEP__ >= __UPDATE_PANIC_LIMIT__) {
 									panic = true ;
 									break ;
 								}
 							}
 							
-							// UNUSED
-							//draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
 							// BETWEENJS TICKER
 							anim.draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
 							
-							// UNUSED
-							//end(__FPS__, panic) ;
+							anim.end(__FPS__, panic) ;
+							
 							panic = false ;
 						},
 						start:function(){
@@ -475,29 +468,29 @@
 							anim.started = true ;
 							
 							anim.ID = requestAnimationFrame(function(now){
-								__OFF_TIME__ += isNaN(__TIME__) ? 0 : now - __TIME__;
+								__OFF_TIME__ += isNaN(__TIME__) ? ZERO : now - __TIME__;
 								anim.innerFunc(now) ;
 							}) ;
 						},
 						stop:function(){
 							var anim = AnimationTicker ;
-							cancelAnimationFrame(this.ID) ;
+							cancelAnimationFrame(anim.ID) ;
 							
-							this.started = false ;
-							delete this.ID ;
+							anim.started = false ;
+							delete anim.ID ;
 						},
 						attach:function(loop){
-							var s = this.loops.push(loop) ;
-							if(s == 1) {
+							var lo = this.loops ;
+							lo[lo.length] = loop ;
+							if(lo.length == 1) {
 								this.start() ;
 							}
 						},
 						detach:function(loop){
 							this.reorder() ;
 							this.loops.splice(loop.index, 1) ;
-							if(this.loops.length == 0) {
-								this.stop() ;
-							}
+							
+							if(this.loops.length == 0) this.stop() ;
 						},
 						reorder:function(){
 							var l = this.loops.length ;
@@ -511,14 +504,17 @@
 				var Animation = Type.define({
 					pkg:'::Animation',
 					domain:BetweenJSCore,
+					inherits:Traceable,
 					index:undefined,
-					func:undefined,
-					dieNext:false,
-					constructor:Animation = function Animation(func, draw){
-						this.enable(func, draw) ;
+					update:undefined,
+					draw:undefined,
+					die:false,
+					constructor:Animation = function Animation(update, draw){
+						Animation.base.call(this) ;
+						this.enable(update, draw) ;
 					},
-					enable:function(func, draw){
-						this.func = func ;
+					enable:function(update, draw){
+						this.update = update ;
 						this.draw = draw ;
 					},
 					start:function(){
@@ -527,11 +523,8 @@
 					},
 					stop:function(){
 						AnimationTicker.detach(this) ;
+						this.destroy() ;
 						return this ;
-					},
-					destroy:function(){
-						delete this.func ;
-						return undefined ;
 					}
 				})
 			}) ;
@@ -560,16 +553,17 @@
 					}
 				}) ;
 				// ENTERFRAMETICKER
+				// ENTERFRAMETICKER
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
 					domain:BetweenJSCore,
 					statics:{
 						first:undefined,
+						last:undefined,
 						numListeners:0,
 						coreListenersMax: 0,
 						tickerListenerPaddings:undefined,
 						time:undefined,
-						archive:undefined,
 						initialize:function initialize(domain){
 
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
@@ -583,48 +577,62 @@
 
 							for (var i = 0; i < max; ++i) {
 								var listener = new TickerListener() ;
-								if (prevListener !== undefined) {
+								if (!!prevListener) {
 									prevListener.nextListener = listener ;
 									listener.prevListener = prevListener ;
 								}
-								this.tickerListenerPaddings[i] = listener ;
 								prevListener = listener ;
+								this.tickerListenerPaddings[i] = listener ;
 							}
 						},
 						addTickerListener:function(listener){
+
 							if(!!listener.nextListener || !!listener.prevListener) {
 								return ;
 							}
-							if (!!this.first) {
-								if (!!this.first.prevListener) {
-									this.first.prevListener.nextListener = listener ;
-									listener.prevListener = this.first.prevListener ;
+
+							if(!!this.last){
+								if(!!this.last.nextListener){
+									this.last.nextListener.prevListener = listener ;
+									listener.nextListener = this.last.nextListener ;
 								}
-								listener.nextListener = this.first ;
-								this.first.prevListener = listener ;
+								listener.prevListener = this.last ;
+								this.last.nextListener = listener ;
 							}
-							this.first = listener ;
+
+							this.last = listener ;
+
+							if(!!!this.first){
+								this.first = listener ;
+							}
+							
 							++ this.numListeners ;
+
 						},
 						removeTickerListener:function(listener){
+
 							var l = this.first ;
-							while (!!l) {
-								if (l == listener) {
-									if (!!l.prevListener) {
+
+							while(!!l){
+								if(l == listener){
+									if(!!l.prevListener){
 										l.prevListener.nextListener = l.nextListener ;
 										l.nextListener = undefined ;
+									}else{
+										this.first = l.nextListener ;
 									}
-									else {
-										this.first = l.nextListener;
-									}
-									if (!!l.nextListener) {
-										l.nextListener.prevListener = l.prevListener ;
+
+									if(!!l.nextListener){
+										l.nextListener.prevListener = l.prevListener;
 										l.prevListener = undefined ;
+									}else{
+										this.last = l.prevListener ;
 									}
-									--this.numListeners ;
+									-- this.numListeners ;
 								}
 								l = l.nextListener ;
 							}
+
 						},
 						start:function(){
 							
@@ -633,38 +641,21 @@
 							
 							var EFT = this ;
 							
-							this.archive = {} ;
-							
-							new Animation(
+							this.animation = AnimationTicker.createAnimation(
 								function(timestamp){
-									
-									__EFT_START_TIME__ = AnimationTicker.timestamp ;
-									this.die = true ;
-									
-									var a = new Animation(
-										function(timestamp){
-											EFT.update(AnimationTicker.timestamp) ;
-										},
-										function(timestamp){
-											EFT.draw(AnimationTicker.timestamp) ;
-										}
-									) ;
-									
-									EFT.animation = a.start() ;
-									EFT.started = true ;
+									if(__EFT_START_TIME__ == ZERO) {
+										__EFT_START_TIME__ = AnimationTicker.timestamp ;
+									}
+									EFT.update(AnimationTicker.timestamp) ;
 								},
 								function(timestamp){
+									EFT.draw(AnimationTicker.timestamp) ;
 								}
-								
 							).start() ;
+							
+							this.started = true ;
 						},
 						stop:function(){
-							var a = this.archive ;
-							for(var s in a){
-								delete a[s] ;
-							}
-							delete this.archive ;
-							
 							this.animation.stop() ;
 							this.started = false ;
 						},
@@ -673,75 +664,99 @@
 							var l = drawables.length ;
 							for(var i = 0 ; i < l ; i ++){
 								var drawable = drawables[i] ;
-								
 								drawable.draw(ts) ;
 							}
 						},
 						update:function(time){
 							
-							if(!!this.archive[time]) return ;
-							else{this.archive[time] = time}
-							
 							var EFT = this ;
 							
 							var min = 0 ;
 							var EFT = this ;
-							var total = EFT.coreListenersMax - 2 ;
+
+							// var total = EFT.coreListenersMax - 2 ;
 							EFT.time = time - __EFT_START_TIME__ ;
 							var t = EFT.time ;
 
-							var n = total - (EFT.numListeners % total) ;
-							var listener = EFT.tickerListenerPaddings[0] ;
-							var l = EFT.tickerListenerPaddings[n] ;
-							var ll ;
+							// var n = total - (EFT.numListeners % total) ;
+							// var listener = EFT.tickerListenerPaddings[0] ;
+							// var l = EFT.tickerListenerPaddings[n] ;
+							// var ll ;
 							var drawables = EFT.drawables = [] ;
 							
-							if (!!(l.nextListener = EFT.first)) {
-								EFT.first.prevListener = l ;
-							}
+							// リスナの数を 8 の倍数になるようにパディングして 8 個ずつ一気にループさせる
+			
+							var i = (this.numListeners / 8 + 1) | 0 ; 
+							var n = i * 8 - this.numListeners ;
+							var listener = this.tickerListenerPaddings[0] ; 
+							var l = this.tickerListenerPaddings[n] ;
+							var ll = undefined ;
 
-							while (!!listener.nextListener) {
-								var i = 0 ;
-								while (i < total) {
-									listener = listener.nextListener ;
-									var AbstractTween = BetweenJS.$.AbstractTween ;
-									if(listener instanceof AbstractTween){
-										
-										listener.triggerNext(t) ;
-										
-										t = t - listener.startTime ;
-											
-										min ++ ;
-										
-										drawables.push(listener) ;
-									}
-									
-									// THIS IS THE LISTENER REMOVAL CODE !!!!!!!!!!!!
-									if (listener.tick(t)) {
-										if (!!listener.prevListener) {
-											listener.prevListener.nextListener = listener.nextListener ;
-										}
-										if (!!listener.nextListener) {
-											listener.nextListener.prevListener = listener.prevListener ;
-										}
-										ll = listener.prevListener ;
-										listener.nextListener = undefined ;
-										listener.prevListener = undefined ;
-										listener = ll ;
-										--this.numListeners ;
-									}
-									i++ ;
-								}
+							// このようにつなぎかえることでパディングの数を変える
+							if (!!(l.nextListener = this.first)) {
+								this.first.prevListener = l ;
 							}
 							
+							var j = 8 ;
+
+							try {
+									
+								while (--i >= 0) {
+									
+									while(--j >= 0){
+										
+										var newt = t ;
+										listener = listener.nextListener ;
+										var AbstractTween = BetweenJS.$.AbstractTween ;
+										
+										if(listener instanceof AbstractTween){
+											listener.triggerNext(newt) ;
+											newt = newt - listener.startTime ;
+											min ++ ;
+											drawables.push(listener) ;
+										}
+		
+										if (listener.tick(newt)) {
+											if (!!listener.prevListener) {
+												listener.prevListener.nextListener = listener.nextListener ;
+											}
+											if (!!listener.nextListener) {
+												listener.nextListener.prevListener = listener.prevListener ;
+											}
+											if (listener == this.first) {
+												this.first = listener.nextListener ;
+											}
+											if (listener == this.last) {
+												this.last = listener.prevListener ;
+											}
+											ll = listener.prevListener ;
+											listener.nextListener = undefined ;
+											listener.prevListener = undefined ;
+											listener = ll ;
+											-- this.numListeners ;
+										}
+									}
+									
+								}
+							} catch (error) {
+								trace(error)
+								EFT.stop() ;
+							}
+							
+
 							if(min == 0){
+								// trace('stopping')
 								this.stop() ;
 							}
 
-							if (!!(this.first = l.nextListener))
+							if (!!(this.first = l.nextListener)) {
 								this.first.prevListener = undefined ;
-
+							}
+							else {
+								this.last = undefined ;
+							}
 							l.nextListener = this.tickerListenerPaddings[n + 1] ;
+
 						}
 					}
 
@@ -865,6 +880,7 @@
 					domain:BetweenJSCore,
 					inherits:Traceable,
 					isPlaying:false,
+					registered:false,
 					stopOnComplete:true,
 					position:ZERO,
 					time:NaN,
@@ -873,7 +889,6 @@
 					isPlaying:false,
 					isPhysical:false,
 					stopOnComplete:true,
-					archive:{},
 					constructor:AbstractTween = function AbstractTween(){
 						AbstractTween.base.call(this) ;
 						this.isPlaying = false ;
@@ -963,12 +978,19 @@
 						
 						if(!EFT.started) EFT.start() ;
 						
-						EFT.addTickerListener(this) ;
+						if(!this.registered){
+							EFT.addTickerListener(this) ;
+							this.registered = true ;
+						}
 						
 						return this ;
 					},
 					unregister:function(){
-						BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+						if(this.registered){
+							// BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+							this.registered = false ;
+						}
+						
 						return this ;
 					},
 					setup:function(){
@@ -986,6 +1008,14 @@
 						return this ;
 					},
 					
+					teardown:function(){
+						this.isPlaying = false ;
+
+						this.unregister() ;
+
+						return this ;
+					},
+
 					nextFrame:function(closure, params){
 						var args = __SLICE__.call(arguments) ;
 						
@@ -1005,10 +1035,6 @@
 						}
 					},
 					
-					teardown:function(){
-						this.isPlaying = false ;
-						return this ;
-					},
 					/*
 
 						TIMELINE SETTINGS
@@ -1051,7 +1077,6 @@
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
-
 						}
 						return this ;
 					},
@@ -1071,7 +1096,9 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
 					tick:function(position){
 						
-						if (!this.isPlaying) return true ;
+						if (!this.isPlaying) {
+							return true ;
+						}
 						
 						var r = this.update(position) ;
 						
@@ -1088,7 +1115,6 @@
 							} else {
 								
 								this.stop() ;
-								
 								return true ;
 							}
 						}
@@ -1108,7 +1134,6 @@
 						var r = this.setPositionAndFeedback(position) ;
 						
 						if(r.granted) {
-							// trace('GRANTED POS >', this, name, this.position, this.updater)
 							this.updater.update(this.position) ;
 						}
 						
@@ -1187,15 +1212,14 @@
 					},
 					draw:function(){
 						
-						// trace(this.name) ;
-						// trace('DRAWING', this.name)
+						this.internalDraw() ;
 						
 						if(this.endReached){
+							this.fire('update') ;
 							this.fire('complete') ;
 							this.endReached = false ;
 						}
 						
-						this.internalDraw() ;
 						this.fire('draw') ;
 					},
 					internalDraw:function(){
@@ -1234,13 +1258,18 @@
 							'complete'
 						]
 						var l = list.length ;
-
+						
 						for(var i = 0 ; i < l ; i ++){
 							var el = list[i] ;
 							var listener = 'on'+ (el.replace(/^(.)/, function($1){return $1.toUpperCase()})) ;
 							var listenerParams = listener + 'Params' ;
-							this[listener] = source[listener] ;
-							this[listenerParams] = source[listenerParams] ;
+							
+							if(!!source[listener]){
+								this[listener] = source[listener] ;
+								
+								if(!!source[listenerParams]) this[listenerParams] = source[listenerParams] ;
+							}
+							
 						}
 					},
 					destroy:function(){
@@ -1516,7 +1545,7 @@
 							}
 							
 							var r = this.setPositionAndFeedback(position) ;
-							
+
 							this.baseTween.update(this.position) ;
 							
 							return r ;
@@ -1551,7 +1580,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								
+
 								var time = this.basetime = this.baseTween.update(position) ;
 								
 								if(this.isPercent){
@@ -1573,18 +1602,13 @@
 									reqtime = this.basetime ;
 									this.negative = true ;
 								}
-								// trace(this.end - this.begin)
-								// trace(reqtime == ZERO ? __SAFE_TIME__ : reqtime)
-								return reqtime == ZERO ? __SAFE_TIME__ : reqtime ;
+								
+								return reqtime == ZERO ? __SAFE_TIME__ : reqtime + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
 								
-								
 								var reqtime = this.update(-Infinity) ; 
-								
-								
-								
 								this.setTime(reqtime) ;
 								
 							}
@@ -1592,14 +1616,13 @@
 							var r = this.setPositionAndFeedback(position) ;
 							
 							if(r.granted) {
-								
 								var pos 	= this.position,
 									bt 		= this.baseTween ;
 								
-								// this.stopOnComplete = false ;
 								pos = this.begin + pos ;
 								if(this.negative && pos > this.basetime) {
 									pos = pos - this.basetime ;
+									
 								}
 								
 								bt.update(pos) ;
@@ -1634,7 +1657,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) * this.scale ;
+								return this.baseTween.update(-Infinity) * this.scale + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1660,7 +1683,7 @@
 							}else{
 								uppos = position / this.scale ;
 							}
-							
+
 							if(r.granted) s = this.baseTween.update(uppos) ;
 							
 							return s || r ;
@@ -1688,7 +1711,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) ;
+								return this.baseTween.update(-Infinity) + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1696,7 +1719,7 @@
 							}
 							
 							var r = this.setPositionAndFeedback(position) ;
-							
+
 							if(r.granted) this.baseTween.update( this.baseTween.time - this.position ) ;
 							
 							return r ;
@@ -1782,7 +1805,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(position) + (this.delay + this.postDelay) ;
+								return this.baseTween.update(position) + (this.delay + this.postDelay + __SAFE_HACK__) ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1980,11 +2003,8 @@
 									}
 								}) ;
 								
-								this.drawables = drawables ;
 							}
-							
-							// TODO PHYSICALTWEEN TTAEMUNAE
-							// this.recheckDuration() ;
+							this.drawables = drawables ;
 							
 							return r ;
 						},
@@ -2013,7 +2033,6 @@
 						inherits:GroupTween,
 						tweens:undefined,
 						drawables:undefined,
-						durations:[],
 						constructor:SerialTween = function SerialTween(){
 							SerialTween.base.call(this) ;
 						},
@@ -2072,7 +2091,6 @@
 								r 			= this.setPositionAndFeedback(position),
 								lr 			= this.lastRequest ;
 							
-							
 							if(r.granted) {
 								
 								var local, s ;
@@ -2104,7 +2122,7 @@
 											}
 											
 											s = el.update(local) ;
-											drawables.unshift(el) ;
+											drawables.push(el) ;
 										}
 										
 										ld = d ;
@@ -2121,8 +2139,6 @@
 										if(el.time == __XXL__){
 											el.setTime(el.update(Infinity)) ;
 										}
-										
-										
 										
 										if (lf <= (d+= el.time) && ld <= fff.position) {
 											
@@ -2145,17 +2161,14 @@
 									
 								}
 								
-								this.drawables = drawables ;
-								
 								
 							}
-							
+							this.drawables = drawables ;
 							
 							return r ;
 						},
 						internalDraw:function(){
 							var d = this.drawables ;
-							
 							if(!d) return ;
 							var i, l = d.length ;
 							for(i = 0 ; i < l ; i++){
@@ -2240,10 +2253,43 @@
 							s = PropertyMapper.checkCustomMapper(updater, 'from', fr, s) ;
 							safeWriteIn(s, to) ;
 						}
-
+						
 						if(!props['from']) props['from'] = fr ;
 						if(!props['to']) props['to'] = to ;
-
+						
+						
+						// ONE LAST LOOP TO REMOVE UNNECCESSARY UPDATERS
+						for(s in fr){
+							var nodeuseless = false ;
+							var frval = fr[s] ;
+							var toval = to[s] ;
+							var n ;
+							
+							nodeuseless = frval == toval ;
+							
+							if(nodeuseless && !!cp){
+								for(n in cp){
+									if(n == s){
+										nodeuseless = nodeuseless && (cp[n] == toval) ;
+									}
+								}
+							}
+							
+							if(nodeuseless){
+								delete to[s] ;
+								delete fr[s] ;
+								
+								if(!!cp){
+									for(n in cp){
+										if(n == s){
+											delete cp[n] ;
+										}
+									}
+								}
+								
+							}
+						}
+						
 						return props ;
 					},
 					treat:function(map, updaters, options){
@@ -2295,14 +2341,14 @@
 									action = type == 'to' ? 'setDestinationValue' : 'setSourceValue' ;
 
 									for (var name in o) {
-
+										
 										value = o[name] ;
 										
 										if(value == PropertyMapper.REQUIRED){
 											updater[action](name, PropertyMapper.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
-										} else{
+										}else{
 											if (type == 'to') {
 												var cps = desc['cuepoints'] ;
 
@@ -2310,7 +2356,7 @@
 													cp = this.treatCuePoints(cps[name]) ;
 													delete cps[name] ;
 												}
-
+												
 												var childOptions = {
 													'target' : updater.getIn(name),
 													'to' : desc['to'][name],
@@ -2319,7 +2365,7 @@
 													'ease' : ease,
 													'time' : time
 												}
-
+												
 												child = UpdaterFactory.make(childOptions) ;
 												var proxy = new UpdaterProxy(updater, child, name) ;
 												updaters.push(proxy) ;
@@ -2400,7 +2446,6 @@
 						return ;
 					}
 				}
-
 				// UPDATER
 				var Updater = Type.define({
 					pkg:'::Updater',
@@ -2471,7 +2516,6 @@
 						
 						this.setPosition(position) ;
 						this.setFactor(this.position) ;
-						
 						this.updateObject() ;
 						
 					},
@@ -2609,7 +2653,6 @@
 								continue ;
 								
 							}else if(factor == ONE){
-								
 								this.store(name, b) ;
 								continue ;
 							}
@@ -2653,9 +2696,6 @@
 											p2 = (cpVec[ip] + cpVec[ip + 1]) >> 1 ;
 										}
 										
-
-										
-
 										val = p1 + (it * (2 * (1 - it) * (cpVec[ip] - p1)) + it * ((p2 - p1))) ;
 									}
 								} else {
@@ -2667,9 +2707,7 @@
 						}
 					},
 					store:function(name, val){
-						if(!this.value){
-							this.value = {} ;
-						}
+						this.value = this.value || {} ;
 						this.value[name] = val ;
 					},
 					draw:function(){
@@ -2680,19 +2718,19 @@
 						}
 					},
 					setSourceValue:function(name, value){
-						var isRelative = relative_reg.test(name) ;
+						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
 						this.source[name] = value ;
 						this.relativeMap['source.' + name] = isRelative ;
 					},
 					setDestinationValue:function(name, value){
-						var isRelative = relative_reg.test(name) ;
+						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
 						this.destination[name] = value ;
 						this.relativeMap['dest.' + name] = isRelative ;
 					},
 					addCuePoint:function(name, value){
-						var isRelative = relative_reg.test(name) ;
+						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
 
 						var cuepoints = this.cuepoints[name] ;
@@ -2940,9 +2978,6 @@
 			Pkg.write('mapping', function(path){
 				var CustomMapper = Type.define({
 					pkg:'::CustomMapper',
-					statics:{
-						ALL:/(.*)$/
-					},
 					constructor:CustomMapper = function CustomMapper(pattern, methods){
 						this.pattern = pattern || CustomMapper.ALL ;
 
@@ -2988,6 +3023,19 @@
 						}
 					}
 				}) ;
+				
+				var 
+					COLOR_reg						= /((border|background)?color|background)$/i,
+					ALPHA_reg						= /alpha|opacity/gi,
+					ALL_reg							= /(.*)$/,
+					NAMEUNIT_reg 					= /((::)(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?)))$/i,
+					VALUEUNIT_reg 					= /(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?))$/i,
+					CAPSTODASH_reg 					= /[A-Z](?=[a-z])/g,
+					CSS_SHORTCUT_reg 				= /(border)(width|color)/gi,
+					BACKGROUND_reg  				= /backgroundcolor/i,
+					MS_ALPHA_reg 					= /alpha\(opacity=|\)/g ;
+				
+				
 				var PropertyMapper = Type.define({
 					pkg:'::PropertyMapper',
 					domain:BetweenJSCore,
@@ -3065,7 +3113,8 @@
 							return localname ;
 						},
 						CustomMappers:[
-							new CustomMapper(CustomMapper.ALL, {
+							
+							new CustomMapper(ALL_reg, {
 								parseMethod:function(updater, typename, type, name, val){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
@@ -3098,7 +3147,8 @@
 									return BetweenJS.$.PropertyMapper.simpleSet(tg, n, val, unit || '') ;
 								}
 							}),
-							new CustomMapper(/((border|background)?color|background)$/i, {
+							
+							new CustomMapper(COLOR_reg, {
 								parseMethod:function(updater, typename, type, name, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
@@ -3130,7 +3180,8 @@
 									return BetweenJS.$.PropertyMapper.colorSet(tg, n, val) ;
 								}
 							}),
-							new CustomMapper(/alpha|opacity/gi, {
+							
+							new CustomMapper(ALPHA_reg, {
 								parseMethod:function(updater, typename, type, name, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
@@ -3154,9 +3205,9 @@
 							
 						],
 						detectNameUnits:function(name){
-							var nameunits_reg = /((::)(%|P(X|C|T)|EM))$/i ;
+							
 							var unit ;
-							var n = name.replace(nameunits_reg, function($1, $2){
+							var n = name.replace(NAMEUNIT_reg, function($1, $2){
 								unit = arguments[3] ;
 								return '' ;
 							}) ;
@@ -3165,11 +3216,10 @@
 						detectValueUnits:function(value){
 
 							if(typeof(value) != 'string') return {unit : ''} ;
-
-							var valueunits_reg = /(px|em|pc|pt|%)$/i ;
+							
 							var unit ;
 
-							value = value.replace(valueunits_reg, function($1, $2){
+							value = value.replace(VALUEUNIT_reg, function($1, $2){
 								unit = arguments[0] ;
 								return '' ;
 							}) ;
@@ -3189,20 +3239,21 @@
 							return {units:unit, name:name, value:value} ;
 						},
 						replaceCapitalToDash:function(name){
-							return name.replace(/[A-Z](?=[a-z])/g, function($1){
+							
+							return name.replace(CAPSTODASH_reg, function($1){
 								return '-' + $1.toLowerCase() ;
 							}) ;
 						},
 						replaceRelative:function(name){
-							var o = {isRelative:relative_reg.test(name)} ;
+							var o = {isRelative:REL_reg.test(name)} ;
 							o.name = o.isRelative ? name.substr(1) : name ;
 							return o ;
 						},
 						getStyle:function(tg, name){
 							var val = '' ;
 							if(window.getComputedStyle){
-								var shortreg = /(border)(width|color)/gi ;
-								name = shortreg.test(name) ? name.replace(shortreg, '$1Top$2') : name ;
+								
+								name = CSS_SHORTCUT_reg.test(name) ? name.replace(CSS_SHORTCUT_reg, '$1Top$2') : name ;
 								val = (tg.style[name] !== '') ? tg.style[name] : window.getComputedStyle (tg, '')[name] ;
 								
 							}else if(tg.currentStyle){
@@ -3218,7 +3269,8 @@
 						},
 						cssHackGet:function(el, name){
 							if (el.currentStyle) {
-								if (/backgroundcolor/i.test(name)) {
+								
+								if (BACKGROUND_reg.test(name)) {
 								  return (function (elm) { // get a rgb based color on IE
 									var oRG = document.body.createTextRange() ;
 									oRG.moveToElementText(elm) ;
@@ -3259,7 +3311,7 @@
 								val = val * 100 ;
 							} else{
 								val = this.getStyle(target, 'filter') ;
-								val = val == '' ? 100 : val.replace(/alpha\(opacity=|\)/g, '') ;
+								val = val == '' ? 100 : val.replace(MS_ALPHA_reg, '') ;
 							}
 							
 							return val ;
@@ -3271,14 +3323,24 @@
 								return target['style']['filter'] = 'alpha(opacity='+val+')' ;
 							}
 						},
+						
+						
+						
 						colorGet:function(target, pname){
 							var Color = BetweenJS.$.Color ;
 							return Color.toColorObj(this.getStyle(target, pname)) ;
 						},
+						
 						colorSet:function(target, pname, val){
 							var Color = BetweenJS.$.Color ;
 							this.setStyle(target, pname, Color.toColorString(Color.safe(val))) ;
 						},
+						
+						
+						
+						
+						
+						
 						simpleGet:function(tg, n, unit){
 							if(this.isDOM(tg))
 								return this.simpleDOMGet(tg, n, unit || 'px') ;
@@ -3334,6 +3396,7 @@
 		}) ;
 		
 		
+		/////// DEBUG LOGS
 		var LOGS = BetweenJSCore.LOGS = [] ;
 		var ADD_LOGS = BetweenJSCore.ADD_LOGS = function(logs){
 			var args = __SLICE__.call(arguments) ;
@@ -3551,26 +3614,24 @@
 				*/
 				apply:function apply(options, applyInBetweenContext){
 					
-					var applyTime = options['applyTime'] || __SAFE_TIME__ ;
-					options['time'] = options['time'] || __SAFE_TIME__ ;
+					var applyTime = options['applyTime'] || ZERO ;
+					options['time'] = options['time'] || ZERO ;
 					
 					var tw = BetweenJS.create(options) ;
 					
-					if(!applyInBetweenContext) tw.gotoAndStop(applyTime) ;
+					if(!applyInBetweenContext && applyTime) tw.gotoAndStop(applyTime) ;
 					
 					return tw ;
 				},
 				
 				instant:function instant(tg, properties){
 					
-					var tw = BetweenJS.apply({
+					return BetweenJS.apply({
 						target:tg,
 						to:properties,
 						time:__SAFE_TIME__,
 						ease:Linear.easeOut
 					}, true) ;
-					
-					return tw ;
 				},
 				/*
 					bezier
@@ -3886,7 +3947,7 @@
 							}
 						}
 					}
-
+					
 					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
 				/*
@@ -3921,7 +3982,6 @@
 					@return TweenLike AbstractActionTween Object
 				*/
 				func:function func(closure, params, useRollback, rollbackClosure, rollbackParams){
-
 					var options = {
 						actions:{
 							func:{
@@ -3985,251 +4045,274 @@
 		// BJS Shortcut
 		Type.appdomain['BJS'] = BetweenJS ;
 		
-		
 		// CSS
 		Pkg.write('css', function(path){
 			//COLORS
+			
+			var
+				RGB_SPLIT_reg 					= /(rgba?\(|\)| )/gi,
+				HSV_SPLIT_reg 					= /(hsva?\(|\)| )/gi,
+				RGB_HSV_SPLIT_reg 				= /((rgb|hsv)a?\(|\)| )/gi,
+				HEX_reg 						= /^(0x|#)/,
+				CSS_SHORT_reg 					= /^[a-z]+$/i ;
+
+			var 
+				
+				isDefined 						= function(val){ return val !== undefined },
+				isSTR 							= function(val){ return typeof val == 'string' },
+				isUINT		 					= function(val){ return typeof val == 'number' },
+				isHEX			 				= function(val){ return isSTR(val) && HEX_reg.test(val) },
+				isCSSSHORTCUT			 		= function(val){ return isSTR(val) && CSS_SHORT_reg.test(val) && val in BetweenJS.$.Color.css },
+				isRGBHSVSTR				 		= function(val){ return isSTR(val) && RGB_HSV_SPLIT_reg.test(val) },
+				isStringRGBAColor 				= function(val){ return isSTR(val) && RGB_SPLIT_reg.test(val) },
+				isStringHSVAColor 				= function(val){ return isSTR(val) && HSV_SPLIT_reg.test(val) },
+				isOBJ		 					= function(val){ return !isSTR(val) &&  (isDefined(val.r) || isDefined(val.h))  } ;
+			
+			var 
+				defaultRGB						= { r:0, 	g:0, 	b:0, 	a:1.0},
+				maxRGB 							= {	r:255, 	g:255, 	b:255, 	a:1.0},
+				minRGB 							= {	r:0, 	g:0, 	b:0, 	a:0.0},
+				
+				defaultHSV						= {	h:0, 	s:0, 	v:0, 	a:1.0},
+				maxHSV 							= {	h:360, 	s:100, 	v:100, 	a:1.0},
+				minHSV 							= {	h:0, 	s:0, 	v:0, 	a:0.0} ;
+				
+			var and								= function(v){ return v & 0xFF }
+			var base2							= function(v){ return v < 10 ? v = '0' + v : v }
+			var hexify							= function(v){ return base2(parseInt(v).toString(16)).toUpperCase() }
+			var splitSTR						= function(v){ return v.replace(RGB_HSV_SPLIT_reg, '').split(',') }
+			
+			var shorthandHEX					= function(h){
+													h = h.replace(HEX_reg, '') ;
+													if(h.length == 3) 
+														h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2) ;
+													return h.toUpperCase() ;
+												}
+			
+			
 			var Color = Type.define({
 				pkg:'::Color',
 				domain:BetweenJSCore,
 				statics:{
-					getRGBAObject:function(r, g, b, a){
-						return {r:r, g:g, b:b, a:a} ;
-					},
-					getHSBAObject:function(h, s, b, a){
-						return {h:h, s:s, b:b, a:a} ;
-					},
-					getHSLAObject:function(h, s, l, a){
-						return {h:h, s:s, l:l, a:a} ;
-					},
-					getHSVAObject:function(h, s, v, a){
-						return {h:h, s:s, v:v, a:a} ;
-					},
-					getRGBAString:function(r, g, b, a){
-						return this.getMODEString('rgb', r, g, b, a) ;
-					},
-					getHSBAString:function(h, s, b, a){
-						return this.getMODEString('hsb', h, s, b, a) ;
-					},
-					getHSLAString:function(h, s, l, a){
-						return this.getMODEString('hsl', h, s, l, a) ;
-					},
-					getHSVAString:function(h, s, v, a){
-						return this.getMODEString('hsv', h, s, v, a) ;
-					},
-					getMODEString:function(mode, r, g, b, a){
-						return a === undefined ?
-								mode +'('+r+','+g+','+b+')'
-							:	mode +'a('+r+','+g+','+b+','+a+')' ;
-					},
-					HEXto:function(hex, MODE){
-						var n, res ;
-						hex = hex.replace(/^(0x|#)/, '') ;
-						if(hex.length == 3)
-							hex = hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2) ;
-						n = parseInt('0x' + hex) ;
-
-						var o = this.UINTto(n) ;
-
-						switch(MODE){
-							case 'hsv':
-								o = this.RGBto(o.r, o.g, o.b, o.a, 'hsv') ;
-								res = this.getHSVAObject(o.h, o.s, o.v, o.a) ;
-							break ;
-							default:
-								res = this.getRGBAObject(o.r, o.g, o.b, o.a) ;
-							break;
-						}
-
-						return res ;
-					},
-					UINTto:function(val, MODE){
-						var v, r, g, b, a, s ;
-						v = val ;
-						var res ;
-						if(val > 0xFFFFFF){
-							if(MODE == 'hsv'){
-								res = this.RGBto(
-									(v & 0xFF000000) >>> 24,
-									(v & 0xFF0000) >> 16,
-									(v & 0xFF00) >> 8,
-									(v & 100) * .01 , 
-									'hsv') ;
-							}else{
-								res = this.getRGBAObject(
-									(v & 0xFF000000) >>> 24,
-									(v & 0xFF0000) >> 16,
-									(v & 0xFF00) >> 8,
-									(v & 100) * .01 ) ;
-							}
-						}else{
-							if(MODE == 'hsv'){
-								res = this.RGBto(
-									(v & 0xFF0000) >> 16,
-									(v & 0xFF00) >> 8,
-									(v & 0xFF),
-									1 , 
-									'hsv') ;
-							}else{
-								res = this.getRGBAObject(
-									(v & 0xFF0000) >> 16,
-									(v & 0xFF00) >> 8,
-									(v & 0xFF),
-									1) ;
-							}
-						}
-
-						return res ;
-					},
-					RGBto:function(r, g, b, a, MODE){
-						// HSV
+					
+					////////// RGBA HSVA CONVERSIONS
+					
+					RGBtoHSV:function(r, g, b, a){
+						
 						var m = {} ;
-						if(MODE == 'hsv'){
-							if( r != g || r != b ){
-								if ( g > b ) {
-									if ( r > g ) { //r>g>b
-										m.h = 60 * (g - b) / (r - b) ;
-										m.s = (r - b) / r * 100 ;
-										m.v = r / 255 * 100 ;
-									}else if( r < b ){ //g>b>r
-										m.v = g / 255 * 100 ;
-										m.s = (g - r) / g * 100 ;
-										m.h = 60 * (b - r) / (g - r) + 120 ;
-									}else { //g=>r=>b
-										m.v = g / 255 * 100 ;
-										m.s = (g - b) / g * 100 ;
-										m.h = 60 * (b - r) / (g - b) + 120 ;
-									}
-								}else{
-									if ( r > b ) { // r>b=>g
-										m.v = r / 255 * 100 ;
-										m.s = (r - g) / r * 100 ;
-										m.h = 60 * (g - b) / (r - g) ;
-										if ( m.h < 0 ) m.h += 360 ;
-									}else if ( r < g ){ //b=>g>r
-										m.v = b / 255 * 100 ;
-										m.s = (b - r) / b * 100 ;
-										m.h = 60 * (r - g) / (b - r) + 240 ;
-									}else { //b=>r=>g
-										m.v = b / 255 * 100 ;
-										m.s = (b - g) / b  * 100 ;
-										m.h = 60 * (r - g) / (b - g) + 240 ;
-									}
+						
+						if( r != g || r != b ){
+							if ( g > b ) {
+								if ( r > g ) { //r>g>b
+									m.h = 60 * (g - b) / (r - b) ;
+									m.s = (r - b) / r * 100 ;
+									m.v = r / 255 * 100 ;
+								}else if( r < b ){ //g>b>r
+									m.v = g / 255 * 100 ;
+									m.s = (g - r) / g * 100 ;
+									m.h = 60 * (b - r) / (g - r) + 120 ;
+								}else { //g=>r=>b
+									m.v = g / 255 * 100 ;
+									m.s = (g - b) / g * 100 ;
+									m.h = 60 * (b - r) / (g - b) + 120 ;
 								}
-							}else {
-								m.h = m.s = 0 ;
-								m.v = r / 255 * 100 ;
+							}else{
+								if ( r > b ) { // r>b=>g
+									m.v = r / 255 * 100 ;
+									m.s = (r - g) / r * 100 ;
+									m.h = 60 * (g - b) / (r - g) ;
+									if ( m.h < 0 ) m.h += 360 ;
+								}else if ( r < g ){ //b=>g>r
+									m.v = b / 255 * 100 ;
+									m.s = (b - r) / b * 100 ;
+									m.h = 60 * (r - g) / (b - r) + 240 ;
+								}else { //b=>r=>g
+									m.v = b / 255 * 100 ;
+									m.s = (b - g) / b  * 100 ;
+									m.h = 60 * (r - g) / (b - g) + 240 ;
+								}
 							}
-							m.h = Math.round(m.h) ;
-							m.s = Math.round(m.s) ;
-							m.v = Math.round(m.v) ;
-							m.a = a || 1 ;
-						}else if(MODE == 'rgb'){
-							m = this.getRGBAObject(r, g, b, a) ;
+						}else {
+							m.h = m.s = 0 ;
+							m.v = r / 255 * 100 ;
 						}
+						
+						m.h = Math.round(m.h) ;
+						m.s = Math.round(m.s) ;
+						m.v = Math.round(m.v) ;
+						
+						if(isDefined(a)) m.a = a ;
 
 						return m ;
 					},
-					HSVto:function(h, s, v, a, MODE){
+					HSVtoRGB:function(h, s, v, a){
 
 						var m = {} ;
-						if(MODE == 'rgb'){
-							h = h,
-							s = (s) * .01 ,
-							v = (v) * .01 ;
-							if ( s > 0 ) {
-								if(h > 360) h = h % 360 ;
-								else if(h < -360) h = h % -360 ;
-								h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
-								if ( h < 1 ) {
-									m.r = 255 * v ;
-									m.g = 255 * v * ( 1 - s * (1 - h) ) ;
-									m.b = 255 * v * ( 1 - s ) ;
-								}else if ( h < 2 ) {
-									m.r = 255 * v * ( 1 - s * (h - 1) ) ;
-									m.g = 255 * v ;
-									m.b = 255 * v * ( 1 - s ) ;
-								}else if ( h < 3 ) {
-									m.r = 255 * v * ( 1 - s ) ;
-									m.g = 255 * v ;
-									m.b = 255 * v * ( 1 - s * (3 - h) ) ;
-								}else if ( h < 4 ) {
-									m.r = 255 * v * ( 1 - s ) ;
-									m.g = 255 * v * ( 1 - s * (h - 3) ) ;
-									m.b = 255 * v ;
-								}else if ( h < 5 ) {
-									m.r = 255 * v * ( 1 - s * (5 - h) ) ;
-									m.g = 255 * v * ( 1 - s ) ;
-									m.b = 255 * v ;
-								}else{
-									m.r = 255 * v ;
-									m.g = 255 * v * ( 1 - s ) ;
-									m.b = 255 * v * ( 1 - s * (h - 5) ) ;
-								}
-							}else {
-								m.r = m.g = m.b = 255 * v ;
+						
+						h = h,
+						s = (s) * .01 ,
+						v = (v) * .01 ;
+						if ( s > 0 ) {
+							if(h > 360) h = h % 360 ;
+							else if(h < -360) h = h % -360 ;
+							h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
+							if ( h < 1 ) {
+								m.r = 255 * v ;
+								m.g = 255 * v * ( 1 - s * (1 - h) ) ;
+								m.b = 255 * v * ( 1 - s ) ;
+							}else if ( h < 2 ) {
+								m.r = 255 * v * ( 1 - s * (h - 1) ) ;
+								m.g = 255 * v ;
+								m.b = 255 * v * ( 1 - s ) ;
+							}else if ( h < 3 ) {
+								m.r = 255 * v * ( 1 - s ) ;
+								m.g = 255 * v ;
+								m.b = 255 * v * ( 1 - s * (3 - h) ) ;
+							}else if ( h < 4 ) {
+								m.r = 255 * v * ( 1 - s ) ;
+								m.g = 255 * v * ( 1 - s * (h - 3) ) ;
+								m.b = 255 * v ;
+							}else if ( h < 5 ) {
+								m.r = 255 * v * ( 1 - s * (5 - h) ) ;
+								m.g = 255 * v * ( 1 - s ) ;
+								m.b = 255 * v ;
+							}else{
+								m.r = 255 * v ;
+								m.g = 255 * v * ( 1 - s ) ;
+								m.b = 255 * v * ( 1 - s * (h - 5) ) ;
 							}
-							m.r = Math.round(m.r) ;
-							m.a = a || 1 ;
-
-						}else if(MODE == 'hsv'){
-							m = this.getHSVAObject(h, s, v, a) ;
+						}else {
+							m.r = m.g = m.b = 255 * v ;
 						}
+						
+						m.r = Math.round(m.r) ;
+						m.g = Math.round(m.g) ;
+						m.b = Math.round(m.b) ;
+						
+						if(isDefined(a)) m.a = a ;
 
 						return m ;
 					},
-					toColorString:function(val, mode){
+					
+					
+					////////// RGBA CONVERSIONS
+					
+					toUINT:function(val){
 						var res ;
-						var MODE = mode || 'rgb' ;
-
-						var isString = function(){
-							return typeof val == 'string' ;
-						}
+						
 						switch(true){
-							case !isString() && 'r' in val || 'h' in val :
-								var r = val['r'],
-									g = val['g'],
-									b = val['b'],
-									h = val['h'],
-									s = val['s'],
-									v = val['v'],
-									l = val['l'],
-									a = val['a'] || 1.0 ;
-
-								if('h' in val && 's' in val){
-									if('b' in val){ // HSB
-										val = this.getHSBAString(h, s, b, a) ;
-									}else if('v' in val){ // HSV
-										val = this.getHSVAString(h, s, v, a) ;
-									}else{ // HSL
-										val = this.getHSLAString(h, s, l, a) ;
-									}
-								}else if('r' in val){
-									val = this.getRGBAString(r, g, b, a) ;
-								}
-							// IMPORTANT !!!!!!!!!! NO BREAK HERE
-							// break ;
-							default :
-								var o = this.toColorObj(val) ;
-								switch(MODE){
-									case 'hsv':
-										o = this.RGBto(o.r, o.g, o.b, o.a, 'hsv') ;
-										res = this.getHSVAString(o.h, o.s, o.v, o.a) ;
-									break ;
-									default:
-										res = this.getRGBAString(o.r, o.g, o.b, o.a) ;
-									break;
-								}
+							case isUINT(val) :
+								res = val ;
+							break ;
+							case isHEX(val) :
+								res = parseInt(shorthandHEX(val), 16) ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								res = parseInt('0x'+ hexify(val[0]) + hexify(val[1]) + hexify(val[2]) + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
+							break ;
+							case isOBJ(val) :
+								res = parseInt('0x'+ hexify(val.r) + hexify(val.g) + hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '')) ;
 							break ;
 						}
-
+						
 						return res ;
+					},
+					toHEX:function(val){
+						var res ;
+						
+						switch(true){
+							case isUINT(val) :
+								res = '#' + hexify(val) ;
+							break ;
+							case isHEX(val) :
+								res = '#' + shorthandHEX(val) ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								res = '#' + hexify(val[0]) + hexify(val[1]) + hexify(val[2] + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
+							break ;
+							case isOBJ(val) :
+								res = '#' + hexify(val.r) +  hexify(val.g) +  hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '') ;
+							break ;
+						}
+						return res ;
+					},
+					toSTR:function(val){
+						var r, g, b, h, s, v, a ;
+						
+						switch(true){
+							case isUINT(val) :
+								return this.toSTR(this.toHEX(val)) ;
+							break ;
+							case isHEX(val) :
+								val = shorthandHEX(val).match(/.{1,2}/g) ;
+								r = parseInt(val[0], 16) ;
+								g = parseInt(val[1], 16) ;
+								b = parseInt(val[2], 16) ;
+								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
+							break ;
+							case isSTR(val) :
+								return val ;
+							break ;
+							case isOBJ(val) :
+								r = val.r ;
+								g = val.g ;
+								b = val.b ;
+								a = val.a ;
+							break ;
+						}
+						var isA = isDefined(a) ;
+						var app = isA ? 'rgba(' : 'rgb(', sep = ', ', end = ')' ;
+						return app + r + sep + g + sep + b + (isA ? sep + a : '' ) + end ;
+					},
+					toOBJ:function(val){
+						var r, g, b, h, s, v, a ;
+						
+						switch(true){
+							case isUINT(val) :
+								return this.toOBJ(this.toHEX(val)) ;
+							break ;
+							case isHEX(val) :
+								val = shorthandHEX(val).match(/.{1,2}/g) ;
+								r = parseInt(val[0], 16) ;
+								g = parseInt(val[1], 16) ;
+								b = parseInt(val[2], 16) ;
+								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								r = parseInt(val[0]) ;
+								g = parseInt(val[1]) ;
+								b = parseInt(val[2]) ;
+								a = val.length > 3 ? parseFloat(val[3])  : undefined ;
+							break ;
+							case isOBJ(val) :
+								return val ;
+							break ;
+						}
+						
+						var res = {r:r, g:g, b:b} ;
+						if(isDefined(a)) res.a = a ;
+						
+						return res ;
+					},
+					
+					toColorString:function(val, mode){
+						
+						return this.toSTR(val) ;
+					},
+					
+					toColorObj:function(val, mode){
+						
+						return this.toOBJ(val) ;
 					},
 					safe:function(val, mode){
+						
 						var MODE = mode || 'rgb' ;
 						
-						var max = {r:255, g:255, b:255, a:1.0} ;
-						var min = {r:0, g:0, b:0, a:0.0} ;
+						var max = MODE == 'HSV' ? maxHSV : maxRGB ;
+						var min = MODE == 'HSV' ? minHSV : minRGB ;
 						
 						for(var s in max){
 							var m = max[s] ;
@@ -4240,110 +4323,6 @@
 						}
 						
 						return val ;
-					},
-					toColorObj:function(val, mode){
-
-						var res ;
-						var MODE = mode || 'rgb' ;
-
-						var isString = function(){
-							return typeof val == 'string' ;
-						}
-						switch(true){
-							case isString() && /^[a-z]+$/i.test(val) && val in BetweenJS.$.Color.css :
-								val = BetweenJS.$.Color.css[val] ;
-								switch(MODE){
-									case 'hsv':
-										res = this.HEXto(val, 'hsv') ;
-									break;
-									default:
-										res = this.HEXto(val) ;
-									break;
-								}
-							break ;
-							case isString() && /^(0x|#)/.test(val) :
-								val = val.replace(/^(0x|#)/, '') ;
-
-								switch(MODE){
-									case 'hsv':
-										res = this.HEXto(val, 'hsv') ;
-									break;
-									default:
-										res = this.HEXto(val) ;
-									break;
-								}
-							break ;
-							case isString() && /rgba?/i.test(val) :
-
-								var str = val.replace(/(rgba?\(|\)| )/gi, '') ;
-								var p = str.split(',') ;
-								res = this.getRGBAObject(
-									(p[0] & 0xFF),
-									(p[1] & 0xFF),
-									(p[2] & 0xFF),
-									parseFloat(p[3] || 1.0 )
-								) ;
-							break ;
-							case isString() &&/hsva?/i.test(val) :
-								var str = val.replace(/(hsva?\(|\)| )/gi, '') ;
-								var p = str.split(',') ;
-
-								if(MODE == 'hsv'){
-									res = this.getHSVAObject(
-										(p[0] & 0xFF),
-										(p[1] & 0xFF),
-										(p[2] & 0xFF),
-										parseFloat(p[3] || 1.0 )
-									) ;
-									break ;
-								}
-								res = this.HSVto(
-									(p[0] & 0xFF),
-									(p[1] & 0xFF),
-									(p[2] & 0xFF),
-									parseFloat(p[3] || 1.0),
-								MODE) ;
-							break ;
-							case !isNaN(parseInt(val)) :
-
-								switch(MODE){
-									case 'hsv':
-										res = this.UINTto(val) ;
-										res = this.RGBto(res.r, res.g, res.b, res.a, 'hsv') ;
-									break ;
-									default :
-										res = this.UINTto(val) ;
-									break ;
-								}
-
-							break ;
-							case !isString() && 'r' in val || 'h' in val :
-
-								var r = val['r'],
-									g = val['g'],
-									b = val['b'],
-									h = val['h'],
-									s = val['s'],
-									v = val['v'],
-									l = val['l'],
-									a = val['a'] || 1.0 ;
-
-								if('h' in val && 's' in val){
-									if('b' in val){ // HSB
-										val = this.getHSBAObject(h, s, b, a) ;
-									}else if('v' in val){ // HSV
-										val = this.getHSVAObject(h, s, v, a) ;
-									}else{ // HSL
-										val = this.getHSLAObject(h, s, l, a) ;
-									}
-								}else if('r' in val){
-									val = this.getRGBAObject(r, g, b, a) ;
-								}
-								res = val ;
-							break ;
-						}
-
-						return res ;
 					},
 					css:{
 						"aliceblue" : "#F0F8FF",
