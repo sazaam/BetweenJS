@@ -17,8 +17,8 @@
  * 2011-2012
  *
  */
- // "use strict";
- (function(name, definition){
+ "use strict";
+(function(name, definition){
 
 	if ('function' === typeof define){ // AMD
 		define(definition) ;
@@ -54,75 +54,9 @@
 				update:NOOP,
 				draw:NOOP,
 				end:NOOP
-			},
-			Decimal:{
-				DECIMAL_CORRECT:false,
-				add:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 + n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) + (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				sub:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 - n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) - (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				mul:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 * n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) * (n2 * XXL)) / XXL / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				div:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 / n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) / (n2 * XXL)) ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				}
 			}
 		} ;
-		
+
 			// Animation Ticker Core
 		var getNow 			= function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
 			getTimer 		= function(){ return getNow() - __LIVE_TIME__ },
@@ -131,13 +65,8 @@
 			valueExists 	= function(o, val){ return !!o ? o[val] : undefined },
 			checkForEpsilon = function(p){return (p > ZERO && p < __EPSILON__) ? ZERO : p },
 			isJQ			= function(tg){ return 'jQuery' in tg || 'selector' in tg },
-			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c)) || 'appendChild' in tg) },
-			isNOTDOM		= function(tg){ return !(isDOM(tg || isJQ(tg))) } ;
+			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c))) } ;
 		
-		var ADD 			= BetweenJSCore.Decimal.add,
-			SUB				= BetweenJSCore.Decimal.sub,
-			MUL				= BetweenJSCore.Decimal.mul,
-			DIV				= BetweenJSCore.Decimal.div ;
 		
 		
 			// Animation & TIcker Control
@@ -158,6 +87,7 @@
 			__MIN_FRAME_DELAY__ 	= ZERO,
 			__EFT_START_TIME__	 	= ZERO,
 			__SAFE_TIME__ 			= __EPSILON__ / 2,
+			__SAFE_HACK__	 		= .0001,
 			__XXL__ 				= XXL ;
 		
 		var BASE_TIME 				= .75 ;
@@ -229,28 +159,6 @@
 				inherit this class to have a cleaner traced output on the global 'trace' method call.
 				
 			*/
-
-			var BetweenJSError = Type.define({
-				pkg:'errors::BetweenJSError',
-				inherits:Error,
-				// name:'BetweenJSError::',
-				constructor:function BetweenJSError(){
-					BetweenJSError.base.call(this) ;
-				}
-			})
-
-			var ThrowSystem =  Type.define({
-				pkg:'utils::ThrowSystem',
-				statics:{
-					throw:function(err){
-						throw err ;
-					}
-				},
-				constructor:ThrowSystem = function ThrowSystem(){
-					ThrowSystem.throw('should not be instanciated...') ;
-				}
-			}) ;
-
 			var Traceable =  Type.define({
 				pkg:'utils::Traceable',
 				inherits:Destroyable,
@@ -437,8 +345,7 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								if(!!!loop) return ;
-								if(!!loop.update) loop.update(timestamp) ;
+								loop.update(timestamp) ;
 								
 								if(loop.die){
 									loop.stop() ;
@@ -453,8 +360,7 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								if(!!!loop) return ;
-								if(!!loop.draw) loop.draw(timestamp) ;
+								loop.draw(timestamp) ;
 							}
 						},
 						end:function(__FPS__, panic){
@@ -647,6 +553,7 @@
 					}
 				}) ;
 				// ENTERFRAMETICKER
+				// ENTERFRAMETICKER
 				var EnterFrameTicker = Type.define({
 					pkg:'::EnterFrameTicker',
 					domain:BetweenJSCore,
@@ -657,7 +564,6 @@
 						coreListenersMax: 0,
 						tickerListenerPaddings:undefined,
 						time:undefined,
-						archive:undefined,
 						initialize:function initialize(domain){
 
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
@@ -680,10 +586,8 @@
 							}
 						},
 						addTickerListener:function(listener){
-							// trace('adding tickerListener')
-							
+
 							if(!!listener.nextListener || !!listener.prevListener) {
-								// trace('ALREADY')
 								return ;
 							}
 
@@ -708,7 +612,7 @@
 						removeTickerListener:function(listener){
 
 							var l = this.first ;
-							
+
 							while(!!l){
 								if(l == listener){
 									if(!!l.prevListener){
@@ -737,8 +641,6 @@
 							
 							var EFT = this ;
 							
-							this.archive = {} ;
-							
 							this.animation = AnimationTicker.createAnimation(
 								function(timestamp){
 									if(__EFT_START_TIME__ == ZERO) {
@@ -754,12 +656,6 @@
 							this.started = true ;
 						},
 						stop:function(){
-							var a = this.archive ;
-							for(var s in a){
-								delete a[s] ;
-							}
-							delete this.archive ;
-							
 							this.animation.stop() ;
 							this.started = false ;
 						},
@@ -773,13 +669,11 @@
 						},
 						update:function(time){
 							
-							if(!!this.archive[time]) return ;
-							else{this.archive[time] = time}
-							
 							var EFT = this ;
 							
 							var min = 0 ;
 							var EFT = this ;
+
 							// var total = EFT.coreListenersMax - 2 ;
 							EFT.time = time - __EFT_START_TIME__ ;
 							var t = EFT.time ;
@@ -790,10 +684,8 @@
 							// var ll ;
 							var drawables = EFT.drawables = [] ;
 							
-
 							// リスナの数を 8 の倍数になるようにパディングして 8 個ずつ一気にループさせる
 			
-
 							var i = (this.numListeners / 8 + 1) | 0 ; 
 							var n = i * 8 - this.numListeners ;
 							var listener = this.tickerListenerPaddings[0] ; 
@@ -847,9 +739,8 @@
 									
 								}
 							} catch (error) {
-								// trace(error)
+								trace(error)
 								EFT.stop() ;
-
 							}
 							
 
@@ -901,56 +792,8 @@
 						}
 						return this[method](options) ;
 					},
-					checkMultipleTargets:function(options){
-
-						var n, t = options.target ;
-						var isMulti = false ;
-						if(!!t){
-							if(isJQ(t)){
-								n = t.size() ;
-								if(n <= 0){
-									throw new Error('Seems your jquery Object is empty : '+ t)
-								}else if(n == 1){
-									t = t[0] ;
-								}else{
-									t = t.toArray() ;
-								}
-							}
-							if(t.constructor == Array){
-								n = t.length ;
-								if(n <= 0){
-									throw new Error('Seems your Array Object is empty : '+ t)
-								}else if(n == 1){
-									t = t[0] ;
-								}else{
-									isMulti = true ;
-								}
-							}
-							
-							options.target = t ;
-
-							if(isMulti){
-								return this.bulkcreate(options) ;
-							}
-						}
-
-						return this.detectTweenTypeFromOptions(options) ;
-					},
-					bulkcreate:function(options){
-						var targets = [].concat(options.target) ;
-						var l = targets.length ;
-						var arr = [] ;
-						for(var i = 0 ; i < l ; i ++){
-							var target = targets[i] ;
-							options.target = target ;
-							arr[i] = BetweenJS.create(options) ;
-						}
-
-						return BetweenJS.parallelTweens(arr) ;
-					},
 					create:function(options){
-
-						return this.checkMultipleTargets(options) ;
+						return this.detectTweenTypeFromOptions(options) ;
 					},
 					createBasic:function(options){
 
@@ -977,9 +820,6 @@
 							break ;
 							case !!(t = actions.timeout) :
 								tw = new (BetweenJS.$.TimeoutAction)() ;
-							break ;
-							case !!(t = actions.animationframe) :
-								tw = new (BetweenJS.$.AnimationFrameAction)() ;
 							break ;
 						}
 
@@ -1040,6 +880,7 @@
 					domain:BetweenJSCore,
 					inherits:Traceable,
 					isPlaying:false,
+					registered:false,
 					stopOnComplete:true,
 					position:ZERO,
 					time:NaN,
@@ -1048,7 +889,6 @@
 					isPlaying:false,
 					isPhysical:false,
 					stopOnComplete:true,
-					archive:{},
 					constructor:AbstractTween = function AbstractTween(){
 						AbstractTween.base.call(this) ;
 						this.isPlaying = false ;
@@ -1138,12 +978,19 @@
 						
 						if(!EFT.started) EFT.start() ;
 						
-						EFT.addTickerListener(this) ;
+						if(!this.registered){
+							EFT.addTickerListener(this) ;
+							this.registered = true ;
+						}
 						
 						return this ;
 					},
 					unregister:function(){
-						BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+						if(this.registered){
+							// BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+							this.registered = false ;
+						}
+						
 						return this ;
 					},
 					setup:function(){
@@ -1161,6 +1008,14 @@
 						return this ;
 					},
 					
+					teardown:function(){
+						this.isPlaying = false ;
+
+						this.unregister() ;
+
+						return this ;
+					},
+
 					nextFrame:function(closure, params){
 						var args = __SLICE__.call(arguments) ;
 						
@@ -1180,10 +1035,6 @@
 						}
 					},
 					
-					teardown:function(){
-						this.isPlaying = false ;
-						return this ;
-					},
 					/*
 
 						TIMELINE SETTINGS
@@ -1226,7 +1077,6 @@
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
-
 						}
 						return this ;
 					},
@@ -1246,7 +1096,9 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
 					tick:function(position){
 						
-						if (!this.isPlaying) return true ;
+						if (!this.isPlaying) {
+							return true ;
+						}
 						
 						var r = this.update(position) ;
 						
@@ -1263,7 +1115,6 @@
 							} else {
 								
 								this.stop() ;
-								
 								return true ;
 							}
 						}
@@ -1556,7 +1407,9 @@
 						},
 						configure:function(options){
 							TimeoutAction.factory.configure.apply(this, [options]) ;
+							
 							this.duration = options['duration'] || options['time'] || Tween.SAFE_TIME ;
+							
 							return this ;
 						},
 						clear:function(){
@@ -1567,42 +1420,6 @@
 						},
 						copyFrom:function(source){
 							TimeoutAction.factory.copyFrom.apply(this, [source]) ;
-						}
-					}) ;
-					var AnimationFrameAction = Type.define({
-						pkg:'::AnimationFrameAction',
-						domain:BetweenJSCore,
-						inherits:FunctionAction,
-						constructor:AnimationFrameAction = function AnimationFrameAction(){
-							AnimationFrameAction.base.call(this) ;
-						},
-						configure:function(options){
-							var Animation = BetweenJS.$.Animation ;
-							AnimationFrameAction.factory.configure.apply(this, [options]) ;
-							
-							this.duration = Tween.SAFE_TIME ;
-							var tt = this ;
-							var func = this.func ;
-							var params = this.params ;
-							
-							this.anim = new Animation(function(){
-								func.apply(tt, [].concat(params)) ;
-							}) ;
-
-							return this ;
-						},
-						action:function(){
-							this.anim.start() ;
-						},
-						clear:function(){
-							this.anim.stop() ;
-							return this.stop() ;
-						},
-						newInstance:function(){
-							return new AnimationFrameAction() ;
-						},
-						copyFrom:function(source){
-							AnimationFrameAction.factory.copyFrom.apply(this, [source]) ;
 						}
 					}) ;
 					var AddChildAction = Type.define({
@@ -1786,7 +1603,7 @@
 									this.negative = true ;
 								}
 								
-								return reqtime == ZERO ? __SAFE_TIME__ : reqtime ;
+								return reqtime == ZERO ? __SAFE_TIME__ : reqtime + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1840,7 +1657,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) * this.scale ;
+								return this.baseTween.update(-Infinity) * this.scale + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1894,7 +1711,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) ;
+								return this.baseTween.update(-Infinity) + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1988,7 +1805,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(position) + (this.delay + this.postDelay) ;
+								return this.baseTween.update(position) + (this.delay + this.postDelay + __SAFE_HACK__) ;
 							}
 							
 							if(this.time == __XXL__){
@@ -2412,154 +2229,66 @@
 
 						var s, r ;
 
-						var isValue = function(val){
-							return !isNaN(val) ;
+						var safeWriteIn = function(s, o){
+							if(!(s in o)) o[s] = PropertyMapper.REQUIRED ;
 						}
 
-						var declareRequired = function(outputname, o, val){
-							var s ;
-							var n = outputname ;
-
-							if(!(n in o)) {
-								
-								if(isValue(val)) {
-									o[n] = PropertyMapper.REQUIRED ;
-								}else{
-									o[n] = {} ;
-									for(t in val){
-										declareRequired(t, o[n], val[t]) ;
-									}
-								}
-							}
-						}
-						 
-						
-						var mappers = {} ;
-						var val ;
-						
-						
-						// cuepoints no need REQUIREDSTUFF to be written but needs to write
+						// cuepoints no need REQUIREDSTUFF to be written bur needs to write
 						if(!!cp){
-							mappers['cp'] = {} ;
-							
 							for(s in cp){
-								r = PropertyMapper.checkCustomMapper(cp, s) ;
-								mappers['cp'][r.outputname] = r ;
-
-								val = cp[s] ;
-								// Name conflict -> OVERWRITE DEST WITH CHOSEN CONVENTION
-								if(r.outputname != s){
-									delete cp[s] ;
-									cp[r.outputname] = r.value ;
-									s = r.outputname ;
-								}
-								if(val != r.value){
-									cp[s] = r.value ;
-								}
-								// Units ? -> set units in updater cache
-								if(!!r.units){
-									if(!updater.units[s]) updater.units[s] = r.units ;
-								}
-								// isRelative ? -> set relative in updater cache
-								if(!!r.isRelative){
-									if(updater.relativeMap['cp' + '.' + s] === undefined) updater.relativeMap['cp' + '.' + s] = r.isRelative ;
-								}
+								s = PropertyMapper.checkCustomMapper(updater, 'cuepoints', cp, s) ;
+								safeWriteIn(s, to) ;
+								safeWriteIn(s, fr) ;
 							}
 						}
 
-
-						
-
-						if(!!to){
-
-							mappers['to'] = {} ;
-							
-							for(s in to){
-								r = PropertyMapper.checkCustomMapper(to, s) ;
-								mappers['to'][r.outputname] = r ;
-								val = to[s] ;
-								// Name conflict -> OVERWRITE DEST WITH CHOSEN CONVENTION
-								if(r.outputname != s){
-									delete to[s] ;
-									to[r.outputname] = r.value ;
-									s = r.outputname ;
-								}
-								
-								// treat value
-								if(val != r.value){
-									to[s] = r.value ;
-								}
-								// Units ? -> set units in updater cache
-								if(!!r.units){
-									if(!updater.units[s]) updater.units[s] = r.units ;
-								}
-								// isRelative ? -> set relative in updater cache
-								if(!!r.isRelative){
-									if(updater.relativeMap['to' + '.' + s] === undefined) updater.relativeMap['to' + '.' + s] = r.isRelative ;
-								}
-
-							}
-						}
-
-
-						if(!!fr){
-							
-							mappers['from'] = {} ;
-
-							for(s in fr){
-								r = PropertyMapper.checkCustomMapper(fr, s) ;
-								mappers['from'][r.outputname] = r ;
-								val = fr[s] ;
-								// Name conflict -> OVERWRITE DEST WITH CHOSEN CONVENTION
-								if(r.outputname != s){
-									delete fr[s] ;
-									fr[r.outputname] = r.value ;
-									s = r.outputname ;
-								}
-								if(val != r.value){
-									fr[s] = r.value ;
-								}
-								// Units ? -> set units in updater cache
-								if(!!r.units){
-									if(!updater.units[s]) updater.units[s] = r.units ;
-								}
-								// isRelative ? -> set relative in updater cache
-								if(!!r.isRelative){
-									if(updater.relativeMap['fr' + '.' + s] === undefined) updater.relativeMap['fr' + '.' + s] = r.isRelative ;
-								}
-							}
-						}
-						
-						
 						// Write back SOURCE from DEST
 						for(s in to){
-
-							r = mappers['to'][s] || PropertyMapper.checkCustomMapper(to, s) ;
-							out = r.outputname ;
-							declareRequired(out, fr, to[out]) ;
-							
+							s = PropertyMapper.checkCustomMapper(updater, 'to', to, s) ;
+							safeWriteIn(s, fr) ;
 						}
+
 						// Write back DEST from SOURCE
 						for(s in fr){
-							
-							r = mappers['from'][s] || PropertyMapper.checkCustomMapper(fr, s) ;
-							out = r.outputname ;
-							declareRequired(out, to, fr[out]) ;
-						}
-
-						if(!!cp){
-							for(s in cp){
-								r = mappers['cp'][s] || PropertyMapper.checkCustomMapper(cp, s) ;
-								out = r.outputname ;
-								declareRequired(out, to, cp[out]) ;
-								declareRequired(out, fr, cp[out]) ;
-							}
+							s = PropertyMapper.checkCustomMapper(updater, 'from', fr, s) ;
+							safeWriteIn(s, to) ;
 						}
 						
-
 						if(!props['from']) props['from'] = fr ;
 						if(!props['to']) props['to'] = to ;
 						
+						
+						// ONE LAST LOOP TO REMOVE UNNECCESSARY UPDATERS
+						for(s in fr){
+							var nodeuseless = false ;
+							var frval = fr[s] ;
+							var toval = to[s] ;
+							var n ;
+							
+							nodeuseless = frval == toval ;
+							
+							if(nodeuseless && !!cp){
+								for(n in cp){
+									if(n == s){
+										nodeuseless = nodeuseless && (cp[n] == toval) ;
+									}
+								}
+							}
+							
+							if(nodeuseless){
+								delete to[s] ;
+								delete fr[s] ;
+								
+								if(!!cp){
+									for(n in cp){
+										if(n == s){
+											delete cp[n] ;
+										}
+									}
+								}
+								
+							}
+						}
 						
 						return props ;
 					},
@@ -2575,24 +2304,21 @@
 						var desc = {
 							'to':options['to'] || {},
 							'from':options['from'] || {},
-							'cuepoints':options['cuepoints'] || {}
+							'cuepoints':options['cuepoints']
 						}
-						
+
 						var ease = options['ease'] ;
 						var time = ease instanceof Physical ? BetweenJS.$.Tween.SAFE_TIME : options['time'] ;
 						var target = options['target'] ;
+
+						desc = this.isofy(updater, desc) ;
 						
 						updater.target = target ;
-						
-						desc = this.isofy(updater, desc) ;
-
 						updater.time = time ;
 						updater.ease = ease ;
 						updater.isPhysical = ease instanceof Physical ;
-
-						updater.source = desc['from'] ;
-						updater.destination = desc['to'] ;
-						updater.cuepoints = desc['cuepoints'] ;
+						updater.userData = desc ;
+						
 						
 						for(var type in desc){
 
@@ -2622,7 +2348,7 @@
 											updater[action](name, PropertyMapper.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
-										}else if(value.length){
+										}else{
 											if (type == 'to') {
 												var cps = desc['cuepoints'] ;
 
@@ -2665,7 +2391,7 @@
 								break ;
 							}
 						}
-
+						
 						return desc ;
 					},
 					make:function(options){
@@ -2676,7 +2402,7 @@
 
 						map = r.map,
 						updaters = r.updaters ;
-						
+
 						this.treat(map, updaters, options) ;
 						
 						l = updaters.length ;
@@ -2771,7 +2497,7 @@
 						}
 						
 						this.factor = factor ;
-
+						
 						return this ;
 					},
 					setTime:function(time){
@@ -2790,7 +2516,6 @@
 						
 						this.setPosition(position) ;
 						this.setFactor(this.position) ;
-						
 						this.updateObject() ;
 						
 					},
@@ -2799,7 +2524,6 @@
 						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
-
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						
 						if(forReal){
@@ -2823,29 +2547,30 @@
 							dest = this.destination,
 							rMap = this.relativeMap,
 							d = this.duration,
+							usersource = this.userData['from'],
+							userdest = this.userData['to'],
 							duration,
 							maxDuration = ZERO ;
 						
 						for (key in source) {
-							
-							if (source[key] == PropertyMapper.REQUIRED) {
+							if (usersource[key] == PropertyMapper.REQUIRED) {
 								source[key] = this.getIn(key) ;
 							}
 							if (rMap['source.' + key]) {
 								source[key] += this.getIn(key) ;
 							}
 						}
-						
+
 						for (key in dest) {
-							
-							if (dest[key] == PropertyMapper.REQUIRED) {
+
+							if (userdest[key] == PropertyMapper.REQUIRED) {
 								dest[key] = this.getIn(key) ;
 							}
 							
 							if (rMap['dest.' + key]) {
 								dest[key] += this.getIn(key) ;
 							}
-							
+
 							if(this.isPhysical){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
@@ -2855,7 +2580,7 @@
 								}
 							}
 						}
-						
+
 						var cuepoints = this.cuepoints, cpVec, l, i ;
 
 						for (key in cuepoints) {
@@ -2903,7 +2628,7 @@
 						return this.time ;
 					},
 					updateObject:function(){
-						
+
 						var factor = this.factor ;
 						
 						var t = this.target,
@@ -2928,7 +2653,6 @@
 								continue ;
 								
 							}else if(factor == ONE){
-								
 								this.store(name, b) ;
 								continue ;
 							}
@@ -2971,22 +2695,19 @@
 											p1 = (cpVec[ip - 1] + cpVec[ip]) >> 1 ;
 											p2 = (cpVec[ip] + cpVec[ip + 1]) >> 1 ;
 										}
-
+										
 										val = p1 + (it * (2 * (1 - it) * (cpVec[ip] - p1)) + it * ((p2 - p1))) ;
 									}
 								} else {
 									val = a * invert + b * factor ;
 								}
 							}
-							
-							
+
 							this.store(name, val) ;
 						}
 					},
 					store:function(name, val){
-						if(!this.value){
-							this.value = {} ;
-						}
+						this.value = this.value || {} ;
 						this.value[name] = val ;
 					},
 					draw:function(){
@@ -3018,16 +2739,9 @@
 						this.relativeMap['cuepoints.' + name + '.' + cuepoints.length] = isRelative ;
 					},
 					getIn:function(name){
-						if(isNOTDOM(this.target)) return this.target[name] ;
-						var ss = BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name, this.units[name]) ;
-						return ss ;
+						return BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name, this.units[name]) ;
 					},
 					setIn:function(name, value){
-						
-						if(isNOTDOM(this.target)) {
-							this.target[name] = value ;
-							return ;
-						}
 						BetweenJS.$.PropertyMapper.cache[name]['setMethod'](this.target, name, value, this.units[name]) ;
 					},
 					newInstance:function(){
@@ -3060,6 +2774,7 @@
 					isPhysical:false,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
 						UpdaterProxy.base.call(this) ;
+
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
@@ -3073,6 +2788,7 @@
 						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
+						
 						if(forReal){
 							if(this.once){
 								return this.time ;
@@ -3149,7 +2865,7 @@
 						BulkUpdater.base.apply(this, [updaters, function(el){
 							if(el.isPhysical) isPhysical = true ;
 						}]) ;
-
+						
 						this.isPhysical = isPhysical ;
 						this.length = updaters.length ;
 					},
@@ -3198,7 +2914,7 @@
 						this.resolveValues(true) ;
 						
 						var bulk = this ;
-
+						
 						var a = this.getElementAt(0) ;
 						this.bulkFunc(function(c){
 							c.update(position) ;
@@ -3270,24 +2986,22 @@
 						this.setMethod = methods['setMethod'] ;
 
 					},
-					check:function(type, inputname, val){
-						var val = type[inputname] || val ;
+					check:function(updater, typename, type, name, val){
+						var val = type[name] || val ;
+						var units, isRelative ;
 						
 						if(val.constructor == Array){ // CUEPOINTS
 							var bb = false ;
 							var l = val.length ;
-							var units, isRelative ;
-							var outputname ;
 							for(var i = 0 ; i < l ; i++){
 								
 								var vv = val[i] ;
-								var r = this.parseMethod(type, inputname, vv, vv == '__REQUIRED__') ;
-								
+								var r = this.parseMethod(updater, typename, type, name, vv) ;
 								val[i] = r.value ;
-								outputname = r.outputname ;
+								name = r.name ;
 								
 								if(r.units !=='') units = r.units ;
-
+								
 								isRelative = r.isRelative ;
 								
 								bb = Boolean(bb || r.block) ;
@@ -3296,18 +3010,16 @@
 							}
 							
 							return {
-								outputname:outputname,
-								inputname:inputname,
+								name:name,
 								value:val,
 								units:units,
 								isRelative:isRelative,
-								custom:this,
 								block:bb
 							} ;
 
-
 						}else{
-							return this.parseMethod(type, inputname, val, val == '__REQUIRED__') ;
+							
+							return this.parseMethod(updater, typename, type, name, val, val == '__REQUIRED__') ;
 						}
 					}
 				}) ;
@@ -3315,7 +3027,6 @@
 				var 
 					COLOR_reg						= /((border|background)?color|background)$/i,
 					ALPHA_reg						= /alpha|opacity/gi,
-					SCROLL_reg 						= /scroll-?(left|top)?/gi ;
 					ALL_reg							= /(.*)$/,
 					NAMEUNIT_reg 					= /((::)(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?)))$/i,
 					VALUEUNIT_reg 					= /(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?))$/i,
@@ -3331,84 +3042,103 @@
 					statics:{
 						REQUIRED:'__REQUIRED__',
 						cache:{},
-						checkCustomMapper:function(type, name){
-
+						checkCustomMapper:function(updater, typename, type, name){
+							var UpdaterFactory = BetweenJS.$.UpdaterFactory ;
 							var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
 							var val = type[name] ;
-							var i, l, custom ;
-							
-							var inputname, outputname, units, isRelative ;
+							var i, l, j, ll, custom, pattern ;
 							
 							var customs = CustomMappers ;
+							var accurate ;
 							l = customs.length ;
+							var units, isRelative ;
 							
-							var s ; 
+							var localname = name ;
+							
 							for(i = 0 ; i < l ; i ++){
 								
 								custom = customs[i] ;
 								
 								var tt = type[name] ;
-								// trace(custom.pattern)
+								
 								// KICK OUT UNDESIRABLES
+								
 								if(custom.pattern.test(name)){
-									// trace('HELLO', custom.pattern)
-									var s = custom.check(type, name, tt) ;
+									
+									(name, name && custom.pattern.test(name)) ;
+									
+									var s = custom.check(updater, typename, type, name, tt) ;
+									
+									accurate = custom ;
+									
+									// SET VALUE IS A START
+									if(tt !== s.value) type[name] = s.value ;
+									// IF NAME DIFFERENT PERFORM SMART REWRITE
+									if(localname != s.name){
+										// SET NEW NAME INSTEAD OF OLD
+										localname = s.name ;
+										// ERASE IN TARGET PROPS OBJ
+										type[name] = undefined ;
+										delete type[name] ;
+									}
+									
+									// REWRITE VALUE WITH NEW NAME
+									type[localname] = s.value ;
+									
+									if(s.units){
+										units = s.units ;
+									}
+									
+									if(s.isRelative){
+										isRelative = s.isRelative ;
+									}
+									
 									if(s.block){
 										// FOUND !!!!!
-										s0 = s ;
 										break ;
-									}else{
-										s0 = s ;
 									}
 								}
 								
+								
 							}
-
-							/// REFERENCING CUSTOM AS A PARSER FOR THIS OUTPUTNAME
-							var cached = PropertyMapper.cache[s.outputname] ;
-							if(!cached) PropertyMapper.cache[s.outputname] = s.custom ;
-							/// REFERENCING CUSTOM AS A PARSER FOR THIS OUTPUTNAME
-
-							return s ;
+							// SET
+							if(!!units) updater.units[localname] = units ;
+							if(!!isRelative) updater.relativeMap[typename + '.' + localname] = isRelative ;
+							
+							// ONLY ONCE AT FINAL
+							if(!(localname in PropertyMapper.cache) || PropertyMapper.cache[localname] !== accurate){
+								PropertyMapper.cache[localname] = accurate ;								
+							}
+							
+							return localname ;
 						},
 						CustomMappers:[
 							
 							new CustomMapper(ALL_reg, {
-								parseMethod:function(type, inputname, val, required){
-
+								parseMethod:function(updater, typename, type, name, val){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
 									val = val === undefined ? type[name] : val ;
 									
-
-									var name = PropertyMapper.replaceCapitalToDash(inputname) ;
-									var outputname = name ;
 									var units ;
-									var isRelative ;
-
-									// UNITS FIRST
 									var un = PropertyMapper.checkForUnits(name, val) ;
-									units = un.units ;
 									
-									outputname = un.name ;
+									name = un.name ;
 									val = un.value ;
-									
-									// THEN ISRELATIVE
-									var relative = PropertyMapper.replaceRelative(outputname) ;
-									var isRelative = relative.isRelative ;
-									outputname = relative.name ;
+									units = un.units ;
 
-									// ANYWAY RETURNING THIS
-									var config = {
-										inputname:inputname,
-										outputname:outputname,
-										units:units,
+									var relative = PropertyMapper.replaceRelative(name) ;
+									var isRelative = relative.isRelative ;
+									name = relative.name ;
+
+									name = PropertyMapper.replaceCapitalToDash(name) ;
+									
+									return {
+										name:name,
 										value:val,
+										units:units,
 										isRelative:isRelative,
-										custom:this,
 										block:false
 									}
-									
-									return config ;
 								},
 								getMethod:function getMethodAll(tg, n, unit){
 									return BetweenJS.$.PropertyMapper.simpleGet(tg, n, unit || '') ;
@@ -3419,19 +3149,12 @@
 							}),
 							
 							new CustomMapper(COLOR_reg, {
-								parseMethod:function(type, inputname, val, required){
+								parseMethod:function(updater, typename, type, name, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
-									val = val === undefined ? type[inputname] : val ;
-									var name = PropertyMapper.replaceCapitalToDash(inputname) ;
-									var outputname = name ;
-									
-									// REPLACE IN CASE OF 'background' shorthand -> to 'background-color'
-									outputname = outputname == 'background' ? outputname + '-color' : outputname ;
-									
-									// THEN ISRELATIVE
-									var relative = PropertyMapper.replaceRelative(outputname) ;
-									var isRelative = relative.isRelative ;
-									outputname = relative.name ;
+									val = val === undefined ? type[name] : val ;
+
+									name = name == 'background' ? name + '-color' : name ;
+									name = PropertyMapper.replaceCapitalToDash(name) ;
 									
 									if(required){
 										val = {
@@ -3444,17 +3167,11 @@
 										val = BetweenJS.$.Color.toColorObj(val) ;
 									}
 
-									var config = {
-										inputname:inputname,
-										outputname:outputname,
+									return {
+										name:name,
 										value:val,
-										units:'',
-										isRelative:isRelative,
-										custom:this,
 										block:true
 									}
-
-									return config ;
 								},
 								getMethod:function getMethodColor(tg, n){
 									return BetweenJS.$.PropertyMapper.colorGet(tg, n) ;
@@ -3465,29 +3182,18 @@
 							}),
 							
 							new CustomMapper(ALPHA_reg, {
-								parseMethod:function(type, inputname, val, required){
+								parseMethod:function(updater, typename, type, name, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
-									val = val === undefined ? type[inputname] : val ;
+									val = val === undefined ? type[name] : val ;
 									
-									var outputname = inputname ;
-
-									var relative = PropertyMapper.replaceRelative(outputname) ;
-									var isRelative = relative.isRelative ;
+									// TODO CSSPROPERTY-OPACITY-MISSING BROWSERS OPACITY TO WORK
+									name = 'opacity' ;
 									
-									outputname = 'opacity' ;
-									
-									
-									var config = {
-										inputname:inputname,
-										outputname:outputname,
+									return {
+										name:name,
 										value:val,
-										units:'',
-										isRelative:isRelative,
-										custom:this,
 										block:true
 									}
-									
-									return config ;
 								},
 								getMethod:function getMethodAlpha(tg, n){
 									return BetweenJS.$.PropertyMapper.alphaGet(tg, n) ;
@@ -3495,38 +3201,8 @@
 								setMethod:function setMethodAlpha(tg, n, val){
 									return BetweenJS.$.PropertyMapper.alphaSet(tg, n, val) ;
 								}
-							}),
-							new CustomMapper(SCROLL_reg, {
-								parseMethod:function(type, inputname, val, required){
-									var PropertyMapper = BetweenJS.$.PropertyMapper ;
-									val = val === undefined ? type[inputname] : val ;
-									
-									var outputname = inputname ;
-
-									var relative = PropertyMapper.replaceRelative(outputname) ;
-									var isRelative = relative.isRelative ;
-									
-									outputname = relative.name ;
-
-									var config = {
-										inputname:inputname,
-										outputname:outputname,
-										value:val,
-										units:'',
-										isRelative:isRelative,
-										custom:this,
-										block:true
-									}
-									
-									return config ;
-								},
-								getMethod:function getMethodScroll(tg, n){
-									return BetweenJS.$.PropertyMapper.scrollGet(tg, n) ;
-								},
-								setMethod:function setMethodScroll(tg, n, val){
-									return BetweenJS.$.PropertyMapper.scrollSet(tg, n, val) ;
-								}
 							})
+							
 						],
 						detectNameUnits:function(name){
 							
@@ -3661,29 +3337,29 @@
 						},
 						
 						
+						
+						
+						
+						
 						simpleGet:function(tg, n, unit){
-							if(isDOM(tg))
-								return this.simpleDOMGet(tg, n, unit) ;
+							if(this.isDOM(tg))
+								return this.simpleDOMGet(tg, n, unit || 'px') ;
 							var str = String(tg[n]) ;
 							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
 						},
 						simpleSet:function(tg, n, v, unit){
-							if(isDOM(tg))
-								return this.simpleDOMSet(tg, n, v, unit) ;
+							if(this.isDOM(tg))
+								return this.simpleDOMSet(tg, n, v, unit || 'px') ;
 							tg[n] = unit == '' ? v : v + unit ;
 						},
 						simpleDOMGet:function(tg, n, unit){
 							var str = this.getStyle(tg, n) ;
-
 							
 							str = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+							
 							return str ;
 						},
 						simpleDOMSet:function(tg, n, v, unit){
-							var  str = v + unit ;
-							
-							// if(isNaN(v)) throw new Error("Better check your DOM Element's, style attr -- conflict >> " + v + ' : ' +  unit) ;
-
 							this.setStyle(tg, n, v + unit) ;
 						},
 						printCSSRules:function(selector, propertyname, min, max, units, str){
@@ -3700,7 +3376,7 @@
 						},
 						checkNode:function(tg){
 							var n ;
-							if(isDOM(tg))
+							if(isDOM(tg) || 'appendChild' in tg)
 								n = tg ;
 							else if(isJQ(tg)) // jQuery
 								n = tg.get(0) ;
@@ -3711,9 +3387,6 @@
 						},
 						isDOM:function(tg){
 							return isDOM(tg) ;
-						},
-						isNOTDOM:function(tg){
-							return isNOTDOM(tg) ;
 						}
 					}
 
@@ -3759,6 +3432,97 @@
 				*/
 				initialize:function initialize(domain){
 
+					var exclude = {
+						'getTimer':undefined,
+						'toString':undefined,
+						'core':undefined,
+						'parallel':undefined,
+						'parallelTweens':undefined,
+						'serial':undefined,
+						'serialTweens':undefined,
+						'reverse':undefined,
+						'repeat':undefined,
+						'scale':undefined,
+						'slice':undefined,
+						'delay':undefined,
+						'func':undefined,
+						'interval':undefined,
+						'clearInterval':undefined,
+						'timeout':undefined,
+						'clearTimeout':undefined
+					}
+
+					for(var n in BetweenJS){
+						(function(ind){
+							if(typeof(BetweenJS[ind]) == 'function' && !(ind in exclude)){
+								var ff = BetweenJS[ind] ;
+
+								BetweenJS[ind] = function(target){
+									var tar , arr ;
+									var args = __SLICE__.call(arguments) ;
+									// CREATE SPECIAL CASE
+									if(ind == 'create'){
+										var tg = target['target'] ;
+										if(!!tg && isJQ(tg)) {
+											var s = tg.size() ;
+											if(s > 1){
+												target['target'] = tg.toArray() ;
+												return ff.apply(null, [].concat(args)) ;
+											}else if(s == 1){
+												target['target'] = tg.get(0) ;
+												return ff.apply(null, [].concat(args)) ;
+
+											}else{
+												return false ;
+											}
+										}
+									}
+
+									if(isJQ(target)) { // is jquery element
+
+										var s = target.size() ;
+
+										if(s > 1){
+											tar = args.shift() ;
+											arr = tar.map(function(i, el){
+												return ff.apply(null, [el].concat(args)) ;
+											}).toArray() ;
+
+											return ff.apply(null, [arr].concat(args)) ;
+										}else if(s == 1){
+											tar = args.shift() ;
+											return ff.apply(null, [tar[0]].concat(args)) ;
+
+										}else{
+											return false ;
+										}
+
+									}else if(('length' in target) && !isNaN(target['length'])){
+
+										if(target.length > 1){
+
+											tar = args.shift() ;
+											var l = tar.length , arr = [] ;
+											for(var i = 0 ; i < l ; i++)
+												arr[arr.length] = ff.apply(null, [tar[i]].concat(args)) ;
+											return BetweenJS.parallelTweens(arr) ;
+
+										}else if(target.length == 1){
+
+											var tar = args.shift() ;
+											return ff.apply(null, [tar[0]].concat(args)) ;
+
+										}else{
+											return false ;
+										}
+									}else{
+										return ff.apply(null, args) ;
+									}
+									return true ;
+								}
+							}
+						})(n) ;
+					}
 				},
 				/*
 					create
@@ -4248,7 +4012,7 @@
 						actions:{
 							timeout:{
 								duration:duration,
-								closure:closure,
+								func:closure,
 								params:params,
 								useRollback:useRollback,
 								rollbackClosure:rollbackClosure,
@@ -4257,8 +4021,8 @@
 							}
 						}
 					}
-					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 
+					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 					tw.uid = uid ;
 					return (CACHE_TIMEOUT[uid] = tw) ;
 				},
@@ -4274,55 +4038,12 @@
 					uid = cc.uid ;
 					delete CACHE_TIMEOUT[uid] ;
 					return cc.stop() ;
-				},
-				/*
-					animationframe
-
-					@param func Function
-					@param params Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
-				animationframe:function(closure, params, useRollback, rollbackClosure, rollbackParams, force){
-					var uid = getTimer() ;
-					
-					var options = {
-						actions:{
-							animationframe:{
-								closure:closure,
-								params:params,
-								useRollback:useRollback,
-								rollbackClosure:rollbackClosure,
-								rollbackParams:rollbackParams,
-								force:force
-							}
-						}
-					}
-
-					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
-					tw.uid = uid ;
-
-					return (CACHE_TIMEOUT[uid] = tw) ;
-				},
-				/*
-					cancelanimationframe
-
-					@param uid Integer
-
-					@return TweenLike AbstractActionTween Object
-				*/
-				cancelanimationframe:function(uid){
-					var cc = isNaN(uid)? uid : CACHE_TIMEOUT[uid] ;
-					uid = cc.uid ;
-					delete CACHE_TIMEOUT[uid] ;
-					return cc.clear() ;
 				}
 			}
 		}) ;
 		
 		// BJS Shortcut
 		Type.appdomain['BJS'] = BetweenJS ;
-		
 		
 		// CSS
 		Pkg.write('css', function(path){
@@ -4345,7 +4066,7 @@
 				isRGBHSVSTR				 		= function(val){ return isSTR(val) && RGB_HSV_SPLIT_reg.test(val) },
 				isStringRGBAColor 				= function(val){ return isSTR(val) && RGB_SPLIT_reg.test(val) },
 				isStringHSVAColor 				= function(val){ return isSTR(val) && HSV_SPLIT_reg.test(val) },
-				isColorOBJ		 					= function(val){ return !isSTR(val) && (isDefined(val.r) || isDefined(val.h)) } ;
+				isOBJ		 					= function(val){ return !isSTR(val) &&  (isDefined(val.r) || isDefined(val.h))  } ;
 			
 			var 
 				defaultRGB						= { r:0, 	g:0, 	b:0, 	a:1.0},
@@ -4490,7 +4211,7 @@
 								val = splitSTR(val) ;
 								res = parseInt('0x'+ hexify(val[0]) + hexify(val[1]) + hexify(val[2]) + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
 							break ;
-							case isColorOBJ(val) :
+							case isOBJ(val) :
 								res = parseInt('0x'+ hexify(val.r) + hexify(val.g) + hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '')) ;
 							break ;
 						}
@@ -4511,7 +4232,7 @@
 								val = splitSTR(val) ;
 								res = '#' + hexify(val[0]) + hexify(val[1]) + hexify(val[2] + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
 							break ;
-							case isColorOBJ(val) :
+							case isOBJ(val) :
 								res = '#' + hexify(val.r) +  hexify(val.g) +  hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '') ;
 							break ;
 						}
@@ -4534,7 +4255,7 @@
 							case isSTR(val) :
 								return val ;
 							break ;
-							case isColorOBJ(val) :
+							case isOBJ(val) :
 								r = val.r ;
 								g = val.g ;
 								b = val.b ;
@@ -4566,7 +4287,7 @@
 								b = parseInt(val[2]) ;
 								a = val.length > 3 ? parseFloat(val[3])  : undefined ;
 							break ;
-							case isColorOBJ(val) :
+							case isOBJ(val) :
 								return val ;
 							break ;
 						}
