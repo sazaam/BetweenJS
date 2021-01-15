@@ -17,8 +17,8 @@
  * 2011-2012
  *
  */
- // "use strict";
- (function(name, definition){
+"use strict";
+(function(name, definition){
 
 	if ('function' === typeof define){ // AMD
 		define(definition) ;
@@ -54,75 +54,9 @@
 				update:NOOP,
 				draw:NOOP,
 				end:NOOP
-			},
-			Decimal:{
-				DECIMAL_CORRECT:false,
-				add:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 + n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) + (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				sub:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 - n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) - (n2 * XXL)) / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				mul:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 * n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) * (n2 * XXL)) / XXL / XXL ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				},
-				div:function(n1, n2){
-					var s1, s2, l1, l2 ;
-					
-					s1 = n1 / n2 ;
-					
-					if(!BetweenJSCore.Decimal.DECIMAL_CORRECT) return s1 ;
-					
-					l1 = (''+s1).length ;
-					
-					if(l1 < MAX) return s1 ;
-					
-					s2 = ((n1 * XXL) / (n2 * XXL)) ;
-					l2 = (''+s2).length ;
-					
-					return l1 < l2 ? s1 : s2 ;
-				}
 			}
 		} ;
-		
+
 			// Animation Ticker Core
 		var getNow 			= function(){ return ('performance' in window) && ('now' in window.performance) ? performance.now() : new Date().getTime() },
 			getTimer 		= function(){ return getNow() - __LIVE_TIME__ },
@@ -134,10 +68,6 @@
 			isDOM 			= function(tg, c){ return ((c = tg.constructor) === undefined || (DOM_reg.test(c)) || 'appendChild' in tg) },
 			isNOTDOM		= function(tg){ return !(isDOM(tg || isJQ(tg))) } ;
 		
-		var ADD 			= BetweenJSCore.Decimal.add,
-			SUB				= BetweenJSCore.Decimal.sub,
-			MUL				= BetweenJSCore.Decimal.mul,
-			DIV				= BetweenJSCore.Decimal.div ;
 		
 		
 			// Animation & TIcker Control
@@ -158,6 +88,7 @@
 			__MIN_FRAME_DELAY__ 	= ZERO,
 			__EFT_START_TIME__	 	= ZERO,
 			__SAFE_TIME__ 			= __EPSILON__ / 2,
+			__SAFE_HACK__	 		= .0001,
 			__XXL__ 				= XXL ;
 		
 		var BASE_TIME 				= .75 ;
@@ -229,28 +160,6 @@
 				inherit this class to have a cleaner traced output on the global 'trace' method call.
 				
 			*/
-
-			var BetweenJSError = Type.define({
-				pkg:'errors::BetweenJSError',
-				inherits:Error,
-				// name:'BetweenJSError::',
-				constructor:function BetweenJSError(){
-					BetweenJSError.base.call(this) ;
-				}
-			})
-
-			var ThrowSystem =  Type.define({
-				pkg:'utils::ThrowSystem',
-				statics:{
-					throw:function(err){
-						throw err ;
-					}
-				},
-				constructor:ThrowSystem = function ThrowSystem(){
-					ThrowSystem.throw('should not be instanciated...') ;
-				}
-			}) ;
-
 			var Traceable =  Type.define({
 				pkg:'utils::Traceable',
 				inherits:Destroyable,
@@ -437,8 +346,7 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								if(!!!loop) return ;
-								if(!!loop.update) loop.update(timestamp) ;
+								loop.update(timestamp) ;
 								
 								if(loop.die){
 									loop.stop() ;
@@ -453,8 +361,7 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								if(!!!loop) return ;
-								if(!!loop.draw) loop.draw(timestamp) ;
+								loop.draw(timestamp) ;
 							}
 						},
 						end:function(__FPS__, panic){
@@ -657,7 +564,6 @@
 						coreListenersMax: 0,
 						tickerListenerPaddings:undefined,
 						time:undefined,
-						archive:undefined,
 						initialize:function initialize(domain){
 
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
@@ -680,10 +586,8 @@
 							}
 						},
 						addTickerListener:function(listener){
-							// trace('adding tickerListener')
-							
+
 							if(!!listener.nextListener || !!listener.prevListener) {
-								// trace('ALREADY')
 								return ;
 							}
 
@@ -708,7 +612,7 @@
 						removeTickerListener:function(listener){
 
 							var l = this.first ;
-							
+
 							while(!!l){
 								if(l == listener){
 									if(!!l.prevListener){
@@ -737,8 +641,6 @@
 							
 							var EFT = this ;
 							
-							this.archive = {} ;
-							
 							this.animation = AnimationTicker.createAnimation(
 								function(timestamp){
 									if(__EFT_START_TIME__ == ZERO) {
@@ -754,12 +656,6 @@
 							this.started = true ;
 						},
 						stop:function(){
-							var a = this.archive ;
-							for(var s in a){
-								delete a[s] ;
-							}
-							delete this.archive ;
-							
 							this.animation.stop() ;
 							this.started = false ;
 						},
@@ -773,34 +669,23 @@
 						},
 						update:function(time){
 							
-							if(!!this.archive[time]) return ;
-							else{this.archive[time] = time}
-							
 							var EFT = this ;
 							
 							var min = 0 ;
 							var EFT = this ;
-							// var total = EFT.coreListenersMax - 2 ;
+
+							
 							EFT.time = time - __EFT_START_TIME__ ;
 							var t = EFT.time ;
-
-							// var n = total - (EFT.numListeners % total) ;
-							// var listener = EFT.tickerListenerPaddings[0] ;
-							// var l = EFT.tickerListenerPaddings[n] ;
-							// var ll ;
+							
 							var drawables = EFT.drawables = [] ;
 							
-
-							// リスナの数を 8 の倍数になるようにパディングして 8 個ずつ一気にループさせる
-			
-
 							var i = (this.numListeners / 8 + 1) | 0 ; 
 							var n = i * 8 - this.numListeners ;
 							var listener = this.tickerListenerPaddings[0] ; 
 							var l = this.tickerListenerPaddings[n] ;
 							var ll = undefined ;
-
-							// このようにつなぎかえることでパディングの数を変える
+							
 							if (!!(l.nextListener = this.first)) {
 								this.first.prevListener = l ;
 							}
@@ -847,9 +732,8 @@
 									
 								}
 							} catch (error) {
-								// trace(error)
+								trace(error)
 								EFT.stop() ;
-
 							}
 							
 
@@ -1039,7 +923,7 @@
 					pkg:'::AbstractTween',
 					domain:BetweenJSCore,
 					inherits:Traceable,
-					isPlaying:false,
+					registered:false,
 					stopOnComplete:true,
 					position:ZERO,
 					time:NaN,
@@ -1047,8 +931,6 @@
 					updater:undefined,
 					isPlaying:false,
 					isPhysical:false,
-					stopOnComplete:true,
-					archive:{},
 					constructor:AbstractTween = function AbstractTween(){
 						AbstractTween.base.call(this) ;
 						this.isPlaying = false ;
@@ -1138,12 +1020,19 @@
 						
 						if(!EFT.started) EFT.start() ;
 						
-						EFT.addTickerListener(this) ;
+						if(!this.registered){
+							EFT.addTickerListener(this) ;
+							this.registered = true ;
+						}
 						
 						return this ;
 					},
 					unregister:function(){
-						BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+						if(this.registered){
+							// BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+							this.registered = false ;
+						}
+						
 						return this ;
 					},
 					setup:function(){
@@ -1161,6 +1050,14 @@
 						return this ;
 					},
 					
+					teardown:function(){
+						this.isPlaying = false ;
+
+						this.unregister() ;
+
+						return this ;
+					},
+
 					nextFrame:function(closure, params){
 						var args = __SLICE__.call(arguments) ;
 						
@@ -1180,10 +1077,6 @@
 						}
 					},
 					
-					teardown:function(){
-						this.isPlaying = false ;
-						return this ;
-					},
 					/*
 
 						TIMELINE SETTINGS
@@ -1226,7 +1119,6 @@
 						if (!this.isPlaying) {
 							this.setup()
 								.fire('play') ;
-
 						}
 						return this ;
 					},
@@ -1246,7 +1138,9 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
 					tick:function(position){
 						
-						if (!this.isPlaying) return true ;
+						if (!this.isPlaying) {
+							return true ;
+						}
 						
 						var r = this.update(position) ;
 						
@@ -1262,8 +1156,7 @@
 								
 							} else {
 								
-								this.stop() ;
-								
+								// this.stop() ;
 								return true ;
 							}
 						}
@@ -1556,7 +1449,9 @@
 						},
 						configure:function(options){
 							TimeoutAction.factory.configure.apply(this, [options]) ;
+							
 							this.duration = options['duration'] || options['time'] || Tween.SAFE_TIME ;
+							
 							return this ;
 						},
 						clear:function(){
@@ -1786,7 +1681,7 @@
 									this.negative = true ;
 								}
 								
-								return reqtime == ZERO ? __SAFE_TIME__ : reqtime ;
+								return reqtime == ZERO ? __SAFE_TIME__ : reqtime + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1840,7 +1735,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) * this.scale ;
+								return this.baseTween.update(-Infinity) * this.scale + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1894,7 +1789,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(-Infinity) ;
+								return this.baseTween.update(-Infinity) + __SAFE_HACK__ ;
 							}
 							
 							if(this.time == __XXL__){
@@ -1988,7 +1883,7 @@
 						internalUpdate:function(position){
 							
 							if(!isFinite(position)){
-								return this.baseTween.update(position) + (this.delay + this.postDelay) ;
+								return this.baseTween.update(position) + (this.delay + this.postDelay + __SAFE_HACK__) ;
 							}
 							
 							if(this.time == __XXL__){
@@ -2530,7 +2425,7 @@
 							}
 						}
 						
-						
+						var out ;
 						// Write back SOURCE from DEST
 						for(s in to){
 
@@ -2577,22 +2472,22 @@
 							'from':options['from'] || {},
 							'cuepoints':options['cuepoints'] || {}
 						}
-						
+
 						var ease = options['ease'] ;
 						var time = ease instanceof Physical ? BetweenJS.$.Tween.SAFE_TIME : options['time'] ;
 						var target = options['target'] ;
-						
 						updater.target = target ;
-						
 						desc = this.isofy(updater, desc) ;
-
+						
+						
 						updater.time = time ;
 						updater.ease = ease ;
 						updater.isPhysical = ease instanceof Physical ;
-
-						updater.source = desc['from'] ;
-						updater.destination = desc['to'] ;
-						updater.cuepoints = desc['cuepoints'] ;
+						updater.userData = desc ;
+						
+						// updater.source = desc['from'] ;
+						// updater.destination = desc['to'] ;
+						// updater.cuepoints = desc['cuepoints'] ;
 						
 						for(var type in desc){
 
@@ -2622,7 +2517,7 @@
 											updater[action](name, PropertyMapper.REQUIRED) ;
 										}else if (typeof value == "number") {
 											updater[action](name, parseFloat(value)) ;
-										}else if(value.length){
+										}else{
 											if (type == 'to') {
 												var cps = desc['cuepoints'] ;
 
@@ -2665,7 +2560,7 @@
 								break ;
 							}
 						}
-
+						
 						return desc ;
 					},
 					make:function(options){
@@ -2676,7 +2571,7 @@
 
 						map = r.map,
 						updaters = r.updaters ;
-						
+
 						this.treat(map, updaters, options) ;
 						
 						l = updaters.length ;
@@ -2771,7 +2666,7 @@
 						}
 						
 						this.factor = factor ;
-
+						
 						return this ;
 					},
 					setTime:function(time){
@@ -2790,7 +2685,6 @@
 						
 						this.setPosition(position) ;
 						this.setFactor(this.position) ;
-						
 						this.updateObject() ;
 						
 					},
@@ -2799,7 +2693,6 @@
 						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
-
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						
 						if(forReal){
@@ -2823,29 +2716,30 @@
 							dest = this.destination,
 							rMap = this.relativeMap,
 							d = this.duration,
+							usersource = this.userData['from'],
+							userdest = this.userData['to'],
 							duration,
 							maxDuration = ZERO ;
 						
 						for (key in source) {
-							
-							if (source[key] == PropertyMapper.REQUIRED) {
+							if (usersource[key] == PropertyMapper.REQUIRED) {
 								source[key] = this.getIn(key) ;
 							}
 							if (rMap['source.' + key]) {
 								source[key] += this.getIn(key) ;
 							}
 						}
-						
+
 						for (key in dest) {
-							
-							if (dest[key] == PropertyMapper.REQUIRED) {
+
+							if (userdest[key] == PropertyMapper.REQUIRED) {
 								dest[key] = this.getIn(key) ;
 							}
 							
 							if (rMap['dest.' + key]) {
 								dest[key] += this.getIn(key) ;
 							}
-							
+
 							if(this.isPhysical){
 								duration = this.ease.getDuration(source[key], source[key] < dest[key] ? dest[key] - source[key] : source[key] - dest[key]  ) ;
 								d[key] = duration ;
@@ -2855,7 +2749,7 @@
 								}
 							}
 						}
-						
+
 						var cuepoints = this.cuepoints, cpVec, l, i ;
 
 						for (key in cuepoints) {
@@ -2903,7 +2797,7 @@
 						return this.time ;
 					},
 					updateObject:function(){
-						
+
 						var factor = this.factor ;
 						
 						var t = this.target,
@@ -2928,7 +2822,6 @@
 								continue ;
 								
 							}else if(factor == ONE){
-								
 								this.store(name, b) ;
 								continue ;
 							}
@@ -2971,22 +2864,19 @@
 											p1 = (cpVec[ip - 1] + cpVec[ip]) >> 1 ;
 											p2 = (cpVec[ip] + cpVec[ip + 1]) >> 1 ;
 										}
-
+										
 										val = p1 + (it * (2 * (1 - it) * (cpVec[ip] - p1)) + it * ((p2 - p1))) ;
 									}
 								} else {
 									val = a * invert + b * factor ;
 								}
 							}
-							
-							
+
 							this.store(name, val) ;
 						}
 					},
 					store:function(name, val){
-						if(!this.value){
-							this.value = {} ;
-						}
+						this.value = this.value || {} ;
 						this.value[name] = val ;
 					},
 					draw:function(){
@@ -3023,7 +2913,7 @@
 						return ss ;
 					},
 					setIn:function(name, value){
-						
+
 						if(isNOTDOM(this.target)) {
 							this.target[name] = value ;
 							return ;
@@ -3060,6 +2950,7 @@
 					isPhysical:false,
 					constructor:UpdaterProxy = function UpdaterProxy(parent, child, propertyName){
 						UpdaterProxy.base.call(this) ;
+
 						this.parent = parent ;
 						this.child = child ;
 						this.propertyName = propertyName ;
@@ -3073,6 +2964,7 @@
 						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
+						
 						if(forReal){
 							if(this.once){
 								return this.time ;
@@ -3149,7 +3041,7 @@
 						BulkUpdater.base.apply(this, [updaters, function(el){
 							if(el.isPhysical) isPhysical = true ;
 						}]) ;
-
+						
 						this.isPhysical = isPhysical ;
 						this.length = updaters.length ;
 					},
@@ -3198,7 +3090,7 @@
 						this.resolveValues(true) ;
 						
 						var bulk = this ;
-
+						
 						var a = this.getElementAt(0) ;
 						this.bulkFunc(function(c){
 							c.update(position) ;
@@ -3304,9 +3196,8 @@
 								custom:this,
 								block:bb
 							} ;
-
-
 						}else{
+							
 							return this.parseMethod(type, inputname, val, val == '__REQUIRED__') ;
 						}
 					}
@@ -3315,7 +3206,7 @@
 				var 
 					COLOR_reg						= /((border|background)?color|background)$/i,
 					ALPHA_reg						= /alpha|opacity/gi,
-					SCROLL_reg 						= /scroll-?(left|top)?/gi ;
+					SCROLL_reg 						= /scroll-?(left|top)?/gi,
 					ALL_reg							= /(.*)$/,
 					NAMEUNIT_reg 					= /((::)(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?)))$/i,
 					VALUEUNIT_reg 					= /(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?))$/i,
@@ -3355,15 +3246,14 @@
 									var s = custom.check(type, name, tt) ;
 									if(s.block){
 										// FOUND !!!!!
-										s0 = s ;
 										break ;
-									}else{
-										s0 = s ;
 									}
+
 								}
 								
+								
 							}
-
+							
 							/// REFERENCING CUSTOM AS A PARSER FOR THIS OUTPUTNAME
 							var cached = PropertyMapper.cache[s.outputname] ;
 							if(!cached) PropertyMapper.cache[s.outputname] = s.custom ;
@@ -3527,6 +3417,7 @@
 									return BetweenJS.$.PropertyMapper.scrollSet(tg, n, val) ;
 								}
 							})
+							
 						],
 						detectNameUnits:function(name){
 							
@@ -3662,28 +3553,34 @@
 						
 						
 						simpleGet:function(tg, n, unit){
-							if(isDOM(tg))
-								return this.simpleDOMGet(tg, n, unit) ;
+							if(isDOM(tg)){
+								try {
+									return this.simpleDOMGet(tg, n, unit || 'px') ;
+								} catch (error) {
+									
+								}
+							}
 							var str = String(tg[n]) ;
 							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
 						},
 						simpleSet:function(tg, n, v, unit){
-							if(isDOM(tg))
-								return this.simpleDOMSet(tg, n, v, unit) ;
+							if(isDOM(tg)){
+								try {
+									return this.simpleDOMSet(tg, n, v, unit || 'px') ;
+								} catch (error) {
+								}
+							}
+								
 							tg[n] = unit == '' ? v : v + unit ;
 						},
 						simpleDOMGet:function(tg, n, unit){
 							var str = this.getStyle(tg, n) ;
-
 							
 							str = Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
+							
 							return str ;
 						},
 						simpleDOMSet:function(tg, n, v, unit){
-							var  str = v + unit ;
-							
-							// if(isNaN(v)) throw new Error("Better check your DOM Element's, style attr -- conflict >> " + v + ' : ' +  unit) ;
-
 							this.setStyle(tg, n, v + unit) ;
 						},
 						printCSSRules:function(selector, propertyname, min, max, units, str){
@@ -3700,7 +3597,7 @@
 						},
 						checkNode:function(tg){
 							var n ;
-							if(isDOM(tg))
+							if(isDOM(tg) || 'appendChild' in tg)
 								n = tg ;
 							else if(isJQ(tg)) // jQuery
 								n = tg.get(0) ;
@@ -3711,9 +3608,6 @@
 						},
 						isDOM:function(tg){
 							return isDOM(tg) ;
-						},
-						isNOTDOM:function(tg){
-							return isNOTDOM(tg) ;
 						}
 					}
 
@@ -3723,26 +3617,7 @@
 		}) ;
 		
 		
-		/////// DEBUG LOGS
-		var LOGS = BetweenJSCore.LOGS = [] ;
-		var ADD_LOGS = BetweenJSCore.ADD_LOGS = function(logs){
-			var args = __SLICE__.call(arguments) ;
-			LOGS.push(args) ;
-		}
-		var TRACE_LOGS = BetweenJSCore.TRACE_LOGS = function(){
-			var i = 0, l = LOGS.length ;
-			for(;i < l ; i++){
-				var log = LOGS[i] ;
-				// var str = log.join(',') ;
-				 
-				trace.apply(trace, ['l.' + i + '\t\t\t', LOGS[i]].concat(log)) ;
-			}
-		}
-		var RESET_LOGS = BetweenJSCore.RESET_LOGS = function(){
-			LOGS = [] ;
-		}
-		
-		
+
 		// BETWEENJS MAIN CLASS
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
@@ -3757,9 +3632,7 @@
 					main Ticker instance created & launched,
 					(also set to tick forever from start, to disable, @see BetweenJS.$.EnterFrameTicker.stop())
 				*/
-				initialize:function initialize(domain){
-
-				},
+				
 				/*
 					create
 
@@ -4257,8 +4130,8 @@
 							}
 						}
 					}
-					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 
+					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 					tw.uid = uid ;
 					return (CACHE_TIMEOUT[uid] = tw) ;
 				},
@@ -4323,7 +4196,6 @@
 		// BJS Shortcut
 		Type.appdomain['BJS'] = BetweenJS ;
 		
-		
 		// CSS
 		Pkg.write('css', function(path){
 			//COLORS
@@ -4345,7 +4217,7 @@
 				isRGBHSVSTR				 		= function(val){ return isSTR(val) && RGB_HSV_SPLIT_reg.test(val) },
 				isStringRGBAColor 				= function(val){ return isSTR(val) && RGB_SPLIT_reg.test(val) },
 				isStringHSVAColor 				= function(val){ return isSTR(val) && HSV_SPLIT_reg.test(val) },
-				isColorOBJ		 					= function(val){ return !isSTR(val) && (isDefined(val.r) || isDefined(val.h)) } ;
+				isColorOBJ		 					= function(val){ return !isSTR(val) &&  (isDefined(val.r) || isDefined(val.h))  } ;
 			
 			var 
 				defaultRGB						= { r:0, 	g:0, 	b:0, 	a:1.0},
@@ -5190,7 +5062,6 @@
 			});
 
 		}) ;
-		
 		
 	})})()
 ) ;
