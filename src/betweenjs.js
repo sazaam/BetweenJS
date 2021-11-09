@@ -346,11 +346,13 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								loop.update(timestamp) ;
-								
-								if(loop.die){
-									loop.stop() ;
-								}
+								// trace(loop)
+								if(!!!loop) return ;
+								if(!!loop.update && typeof loop.update == 'function')
+									loop.update(timestamp) ;
+								// if(loop.die){
+								// 	loop.stop() ;
+								// }
 							}
 						},
 						draw:function(timestamp){
@@ -361,7 +363,9 @@
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
-								loop.draw(timestamp) ;
+								if(!!!loop) return ;
+								if(!!loop.draw && typeof loop.draw == 'function')
+									loop.draw(timestamp) ;
 							}
 						},
 						end:function(__FPS__, panic){
@@ -525,6 +529,10 @@
 					stop:function(){
 						AnimationTicker.detach(this) ;
 						this.destroy() ;
+						return this ;
+					},
+					halt:function(){
+						AnimationTicker.detach(this) ;
 						return this ;
 					}
 				})
@@ -3733,7 +3741,7 @@
 					return tw ;
 				},
 				
-				instant:function instant(tg, properties){
+				instant:function instant(target, properties){
 					
 					return BetweenJS.apply({
 						target:tg,
