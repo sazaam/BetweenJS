@@ -69,9 +69,8 @@
 			isNOTDOM		= function(tg){ return !(isDOM(tg || isJQ(tg))) } ;
 		
 		
-		
 			// Animation & TIcker Control
-		var __LIVE_TIME__ 			= getNow(),
+			var __LIVE_TIME__ 			= getNow(),
 			__SLICE__				= [].slice,
 			__TIME__				= NaN,
 			__OFF_TIME__ 			= ZERO,
@@ -92,12 +91,15 @@
 			__XXL__ 				= XXL ;
 		
 		var BASE_TIME 				= .75 ;
+		var REG_TIME = NaN ;
 		
 		var running 				= false,
 			started 				= false,
 			panic 					= false,
 			// specials
 			CACHE_TIMEOUT 			= {},
+			CACHE_INTERVAL 			= {},
+			CACHE_ANIM_FRAME		= {},
 			// regexp
 			DOM_reg 				= /HTML[a-zA-Z]*Element/,
 			UNIT_reg 				= /(px|em|pc|pt|%)$/,
@@ -339,33 +341,22 @@
 							BetweenJSCore.settings.begin(timestamp, __FRAME_DELTA__) ;
 						},
 						update:function(timestamp){
-							// UNUSED
-							BetweenJSCore.settings.update(timestamp) ;
-							
-							var loops = this.loops ;
-							var l = loops.length ;
-							for(var i = 0 ; i < l ; i++){
-								var loop = loops[i] ;
-								// trace(loop)
-								if(!!!loop) return ;
-								if(!!loop.update && typeof loop.update == 'function')
-									loop.update(timestamp) ;
-								// if(loop.die){
-								// 	loop.stop() ;
-								// }
-							}
+							this.loopthru("update", timestamp) ;
 						},
 						draw:function(timestamp){
+							this.loopthru("draw", timestamp) ;
+						},
+						loopthru:function(funcname, timestamp){
 							// UNUSED
-							BetweenJSCore.settings.draw(timestamp) ;
+							BetweenJSCore.settings[funcname](timestamp) ;
 							
 							var loops = this.loops ;
 							var l = loops.length ;
 							for(var i = 0 ; i < l ; i++){
 								var loop = loops[i] ;
 								if(!!!loop) return ;
-								if(!!loop.draw && typeof loop.draw == 'function')
-									loop.draw(timestamp) ;
+								if(!!loop[funcname] && typeof loop[funcname] == 'function')
+									loop[funcname](timestamp) ;
 							}
 						},
 						end:function(__FPS__, panic){
@@ -449,13 +440,13 @@
 
 							__FRAMES_THIS_SECOND__++ ;
 							__NUM_UPDATES_STEP__ = ZERO ;
-
+							
 							while (__FRAME_DELTA__ >= __SIM_TIMESTEP__) {
-								
 								anim.update(faketimestamp) ;
 
 								__FRAME_DELTA__ -= __SIM_TIMESTEP__ ;
 								if (++__NUM_UPDATES_STEP__ >= __UPDATE_PANIC_LIMIT__) {
+									// trace("PANICKING") ;
 									panic = true ;
 									break ;
 								}
@@ -463,7 +454,6 @@
 							
 							// BETWEENJS TICKER
 							anim.draw(__FRAME_DELTA__ / __SIM_TIMESTEP__) ;
-							
 							anim.end(__FPS__, panic) ;
 							
 							panic = false ;
@@ -547,7 +537,7 @@
 					prevListener:undefined,
 					nextListener:undefined,
 					constructor:TickerListener = function TickerListener(){
-
+						
 					},
 					tick:function(time){
 						return false ;
@@ -573,7 +563,6 @@
 						tickerListenerPaddings:undefined,
 						time:undefined,
 						initialize:function initialize(domain){
-
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
 							
 							var prevListener = undefined,
@@ -625,17 +614,18 @@
 								if(l == listener){
 									if(!!l.prevListener){
 										l.prevListener.nextListener = l.nextListener ;
-										l.nextListener = undefined ;
 									}else{
 										this.first = l.nextListener ;
 									}
 
 									if(!!l.nextListener){
 										l.nextListener.prevListener = l.prevListener;
-										l.prevListener = undefined ;
 									}else{
 										this.last = l.prevListener ;
 									}
+
+									l.nextListener = undefined ;
+									l.prevListener = undefined ;
 									-- this.numListeners ;
 								}
 								l = l.nextListener ;
@@ -651,12 +641,15 @@
 							
 							this.animation = AnimationTicker.createAnimation(
 								function(timestamp){
+									if(REG_TIME == timestamp) return ;
+									REG_TIME = timestamp ;
 									if(__EFT_START_TIME__ == ZERO) {
 										__EFT_START_TIME__ = AnimationTicker.timestamp ;
 									}
 									EFT.update(AnimationTicker.timestamp) ;
 								},
 								function(timestamp){
+									if(REG_TIME == timestamp) return ;
 									EFT.draw(AnimationTicker.timestamp) ;
 								}
 							).start() ;
@@ -668,6 +661,7 @@
 							this.started = false ;
 						},
 						draw:function(ts){
+							
 							var drawables = this.drawables ;
 							var l = drawables.length ;
 							for(var i = 0 ; i < l ; i ++){
@@ -682,10 +676,8 @@
 							var min = 0 ;
 							var EFT = this ;
 
-							
 							EFT.time = time - __EFT_START_TIME__ ;
 							var t = EFT.time ;
-							
 							var drawables = EFT.drawables = [] ;
 							
 							var i = (this.numListeners / 8 + 1) | 0 ; 
@@ -746,7 +738,6 @@
 							
 
 							if(min == 0){
-								// trace('stopping')
 								this.stop() ;
 							}
 
@@ -800,6 +791,7 @@
 						if(!!t){
 							if(isJQ(t)){
 								n = t.size() ;
+								
 								if(n <= 0){
 									throw new Error('Seems your jquery Object is empty : '+ t)
 								}else if(n == 1){
@@ -808,7 +800,15 @@
 									t = t.toArray() ;
 								}
 							}
+
 							if(t.constructor == Array){
+								n = t.length ;
+								// check if target element is not a script or other non-diplayable tag
+								for(var i = 0 ; i < n ; i++){
+									if(!!t[i] && !!t[i].tagName && /(script|link|style)/i.test(t[i].tagName)){
+										t.splice(i, 1) ;
+									}
+								}
 								n = t.length ;
 								if(n <= 0){
 									throw new Error('Seems your Array Object is empty : '+ t)
@@ -818,7 +818,6 @@
 									isMulti = true ;
 								}
 							}
-							
 							options.target = t ;
 
 							if(isMulti){
@@ -867,8 +866,14 @@
 							case !!(t = actions.func) :
 								tw = new (BetweenJS.$.FunctionAction)() ;
 							break ;
+							case !!(t = actions.load) :
+								tw = new (BetweenJS.$.LoadAction)() ;
+							break ;
 							case !!(t = actions.timeout) :
 								tw = new (BetweenJS.$.TimeoutAction)() ;
+							break ;
+							case !!(t = actions.interval) :
+								tw = new (BetweenJS.$.IntervalAction)() ;
 							break ;
 							case !!(t = actions.animationframe) :
 								tw = new (BetweenJS.$.AnimationFrameAction)() ;
@@ -919,7 +924,7 @@
 								tw = new (BetweenJS.$.SerialTween)() ;
 							break ;
 						}
-
+						
 						return tw
 							.configure(t)
 							.checkPhysical()
@@ -1037,7 +1042,7 @@
 					},
 					unregister:function(){
 						if(this.registered){
-							// BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
+							BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
 							this.registered = false ;
 						}
 						
@@ -1045,7 +1050,6 @@
 					},
 					setup:function(){
 						this.isPlaying = true ;
-						
 						var p = this.position ;
 						p = isNaN(p) ? ZERO : p >= this.time ? ZERO : p ;
 						
@@ -1060,7 +1064,6 @@
 					
 					teardown:function(){
 						this.isPlaying = false ;
-
 						this.unregister() ;
 
 						return this ;
@@ -1112,7 +1115,8 @@
 						if(!this.isPlaying)
 							return this.seek(position).play() ;
 						else
-							this.tick(this.position) ;
+							this.seek(position) ;
+							// this.tick(this.position) ;
 						
 						return this ;
 					},
@@ -1132,9 +1136,15 @@
 					},
 					stop:function(){
 						if (this.isPlaying) {
-							this.teardown()
-								.fire('stop') ;
+							this.draw() ;
+							this.teardown().fire('stop') ;
 						}
+						return this ;
+					},
+					restart:function(){
+						if(this.isPlaying) this.stop();
+						this.seek(0);
+						this.play();
 						return this ;
 					},
 					checkFiniteTime:function(position){
@@ -1163,7 +1173,7 @@
 								this.seek(ZERO) ;
 								
 							} else {
-								
+								// this.teardown() ;
 								// this.stop() ;
 								return true ;
 							}
@@ -1244,8 +1254,6 @@
 							return this.internalUpdate(position) ;
 						}
 						
-						this.oldtime = this.time ;
-						
 						var s = this.internalUpdate(position) ;
 						
 						/////////////////////////////////// EVENTS
@@ -1264,13 +1272,15 @@
 						
 						this.internalDraw() ;
 						
+						this.fire('draw') ;
+
 						if(this.endReached){
+							if(!!this.stopOnComplete) this.teardown() ;
 							this.fire('update') ;
 							this.fire('complete') ;
 							this.endReached = false ;
 						}
 						
-						this.fire('draw') ;
 					},
 					internalDraw:function(){
 						this.updater.draw() ;
@@ -1392,7 +1402,6 @@
 						rollback:function(){},
 						copyFrom:function(source){
 							this.time = source['time'] ;
-							
 							this.copyHandlersFrom(source) ;
 						}
 						
@@ -1470,6 +1479,170 @@
 						},
 						copyFrom:function(source){
 							TimeoutAction.factory.copyFrom.apply(this, [source]) ;
+						}
+					}) ;
+					var IntervalAction = Type.define({
+						pkg:'::IntervalAction',
+						domain:BetweenJSCore,
+						inherits:FunctionAction,
+						constructor:IntervalAction = function IntervalAction(){
+							IntervalAction.base.call(this) ;
+						},
+						configure:function(options){
+							IntervalAction.factory.configure.apply(this, [options]) ;
+							
+							this.duration = options['duration'] || options['time'] || Tween.SAFE_TIME ;
+							this.stopOnComplete = false ;
+							return this ;
+						},
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								return this.duration ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(Infinity)) ;
+							}
+							if(!this.cancelled){
+								if(position >= this.duration) {
+									// position = this.position = 0 ;
+									this.action() ;
+								} ;
+
+							}else if(!!this.cancelled){
+								this.setTime(Tween.SAFE_TIME) ;
+							}
+							
+							return this.setPositionAndFeedback(position) ;
+						},
+						action:function(){
+							this.func.apply(this, [].concat(this.params)) ;
+						},
+						clear:function(){
+							this.cancelled = true ;
+							return this ;
+						},
+						newInstance:function(){
+							return new IntervalAction() ;
+						},
+						copyFrom:function(source){
+							IntervalAction.factory.copyFrom.apply(this, [source]) ;
+						}
+					}) ;
+
+					var LoadAction = Type.define({
+						pkg:'::LoadAction',
+						domain:BetweenJSCore,
+						inherits:FunctionAction,
+						constructor:LoadAction = function LoadAction(){
+							LoadAction.base.call(this) ;
+						},
+						configure:function(options){
+							LoadAction.factory.configure.apply(this, [options]) ;
+							this.duration = Infinity ;
+							this.url = options.url ;
+							this.postData = options.postData ;
+							this.keepInLocalCache = options.keepInLocalCache ;
+							this.forceBrowserNoCache = options.forceBrowserNoCache ;
+							
+							
+							return this ;
+						},
+						internalUpdate:function(position){
+							
+							if(!isFinite(position)){
+								return this.duration ;
+							}
+							
+							if(this.time == __XXL__){
+								this.setTime(this.update(Infinity)) ;
+							}
+							if(!this.loaded && !this.loading){
+								this.action() ;
+							}else if(this.loaded){
+								this.setTime(Tween.SAFE_TIME) ;
+							}
+							
+							return this.setPositionAndFeedback(position) ;
+						},
+						action:function(){
+							this.loading = true ;
+							
+							var cache = BetweenJS.filescache = BetweenJS.filescache || {} ;
+							
+							var bank = [
+								function () {return new XMLHttpRequest()},
+								function () {return new ActiveXObject("Msxml2.XMLHTTP")},
+								function () {return new ActiveXObject("Msxml3.XMLHTTP")},
+								function () {return new ActiveXObject("Microsoft.XMLHTTP")}
+							] ;
+							var generateXHR = function () {
+								var xhttp = false;
+								var l = bank.length ;
+								for (var i = 0 ; i < l ; i++) {
+									try {
+										 xhttp = bank[i]();
+									}
+									catch (e) {
+										 continue;
+									}
+									break;
+								}
+								return xhttp;
+							} ;
+							
+							var setPostData = function setPostData(){
+								var postData = {} ;
+								return {
+									post_data:postData,
+									post_method: "GET",
+									ua_header:{ua:'User-Agent',ns:'XMLHTTP/1.0'},
+									post_data_header: {content_type:'Content-type',ns:'application/x-www-form-urlencoded'}
+								} ;
+							}
+							var r = generateXHR() ;
+							if (!r) throw new Error('Current browser does not support XHR-type Http Requests') ;
+							
+							var th = this ;
+							var ud = setPostData() ;
+							var keepInLocalCache = keepInLocalCache || true ;
+							var forceBrowserNoCache = forceBrowserNoCache || false ;
+
+							var url = this.url ;
+							var loc = (forceBrowserNoCache) ? url + '?t=' + Date.now() : url ;
+							
+							if(keepInLocalCache && url in cache){
+								th.response = cache[url] ;
+								th.loaded = true ;
+								th.loading = false ;
+								return th ;
+							}
+
+							r.open(ud['post_method'] , loc, true) ;
+							
+							if (ud['post_data_header'] !== undefined) r.setRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
+							r.onreadystatechange = function () {
+								if (r.readyState != 4) return;
+								if (r.status != 200 && r.status != 304) {
+									th.failed = true ;
+									throw new Error('RequestError : Path > "'+ url +'" failed, with status :'+ r.status) ;
+								}
+								th.response = r.responseText ;
+								if(keepInLocalCache) cache[url] = th.response ;
+								th.loaded = true ;
+								th.loading = false ;
+							}
+							if (r.readyState == 4) return ;
+							r.send(ud['postData']) ;
+							
+							return this ;
+						},
+						newInstance:function(){
+							return new LoadAction() ;
+						},
+						copyFrom:function(source){
+							LoadAction.factory.copyFrom.apply(this, [source]) ;
 						}
 					}) ;
 					var AnimationFrameAction = Type.define({
@@ -2079,6 +2252,7 @@
 									
 									if(el.time == __XXL__){
 										el.setTime(el.update(Infinity)) ;
+										
 									}
 									
 									var local = fff.position ;
@@ -2101,7 +2275,9 @@
 							var i, l = d.length ;
 							for(i = 0 ; i < l ; i++){
 								d[i].draw() ;
+								// not drawing when tween stopped (logical)
 							}
+							
 						},
 						newInstance:function(){
 							return new ParallelTween() ;
@@ -2146,8 +2322,6 @@
 						},
 						internalUpdate:function(position){
 							
-							var isRight = this.name == 'SerialTween_1' ;
-							
 							if(!isFinite(position)){
 								
 								var t = 0 ;
@@ -2156,14 +2330,13 @@
 									t += el.update(position) ;
 									
 								}, true) ;
-								
 								return t ;
 							}
 							
 							if(this.time == __XXL__){
 								this.setTime(this.update(-Infinity)) ;
 							}
-							
+
 							var drawables = [] ;
 							
 							var fff 		= this,
@@ -2219,7 +2392,7 @@
 									
 									extra = 0 ;
 									d = 0 ;
-									
+									var newtime = 0 ;
 									this.bulkFunc(function(el, i, arr){
 										
 										if(el.time == __XXL__){
@@ -2244,7 +2417,6 @@
 										ld = d ;
 										
 									})
-									
 								}
 								
 								
@@ -2308,12 +2480,12 @@
 						return nu ;
 					},
 					isofy:function(updater, props){
+						
+						// props = JSON.parse(JSON.stringify(props)) ;
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						var to = props['to'] ;
 						var fr = props['from'] ;
 						var cp = props['cuepoints'] ;
-
-						var s, r ;
 
 						var isValue = function(val){
 							return !isNaN(val) ;
@@ -2322,15 +2494,16 @@
 						var declareRequired = function(outputname, o, val){
 							var s ;
 							var n = outputname ;
-
 							if(!(n in o)) {
 								
 								if(isValue(val)) {
 									o[n] = PropertyMapper.REQUIRED ;
 								}else{
 									o[n] = {} ;
-									for(t in val){
-										declareRequired(t, o[n], val[t]) ;
+									
+									for(var s in val){
+										
+										declareRequired(s, o[n], val[s]) ;
 									}
 								}
 							}
@@ -2339,7 +2512,7 @@
 						
 						var mappers = {} ;
 						var val ;
-						
+						var s, r ;
 						
 						// cuepoints no need REQUIREDSTUFF to be written but needs to write
 						if(!!cp){
@@ -2365,7 +2538,7 @@
 								}
 								// isRelative ? -> set relative in updater cache
 								if(!!r.isRelative){
-									if(updater.relativeMap['cp' + '.' + s] === undefined) updater.relativeMap['cp' + '.' + s] = r.isRelative ;
+									if(updater.relativeMap['cp.' + s] === undefined) updater.relativeMap['cp.' + s] = r.isRelative ;
 								}
 							}
 						}
@@ -2379,6 +2552,7 @@
 							
 							for(s in to){
 								r = PropertyMapper.checkCustomMapper(to, s) ;
+								
 								mappers['to'][r.outputname] = r ;
 								val = to[s] ;
 								// Name conflict -> OVERWRITE DEST WITH CHOSEN CONVENTION
@@ -2392,15 +2566,17 @@
 								if(val != r.value){
 									to[s] = r.value ;
 								}
+								
 								// Units ? -> set units in updater cache
 								if(!!r.units){
 									if(!updater.units[s]) updater.units[s] = r.units ;
 								}
+								
 								// isRelative ? -> set relative in updater cache
 								if(!!r.isRelative){
-									if(updater.relativeMap['to' + '.' + s] === undefined) updater.relativeMap['to' + '.' + s] = r.isRelative ;
+									if(!updater.relativeMap['to.' + s]) updater.relativeMap['to.' + s] = r.isRelative ;
 								}
-
+								
 							}
 						}
 
@@ -2410,7 +2586,9 @@
 							mappers['from'] = {} ;
 
 							for(s in fr){
+								
 								r = PropertyMapper.checkCustomMapper(fr, s) ;
+								
 								mappers['from'][r.outputname] = r ;
 								val = fr[s] ;
 								// Name conflict -> OVERWRITE DEST WITH CHOSEN CONVENTION
@@ -2428,7 +2606,7 @@
 								}
 								// isRelative ? -> set relative in updater cache
 								if(!!r.isRelative){
-									if(updater.relativeMap['fr' + '.' + s] === undefined) updater.relativeMap['fr' + '.' + s] = r.isRelative ;
+									if(!updater.relativeMap['fr.' + s]) updater.relativeMap['fr.' + s] = r.isRelative ;
 								}
 							}
 						}
@@ -2463,7 +2641,6 @@
 						if(!props['from']) props['from'] = fr ;
 						if(!props['to']) props['to'] = to ;
 						
-						
 						return props ;
 					},
 					treat:function(map, updaters, options){
@@ -2485,8 +2662,8 @@
 						var time = ease instanceof Physical ? BetweenJS.$.Tween.SAFE_TIME : options['time'] ;
 						var target = options['target'] ;
 						updater.target = target ;
-						desc = this.isofy(updater, desc) ;
 						
+						desc = this.isofy(updater, desc) ;
 						
 						updater.time = time ;
 						updater.ease = ease ;
@@ -2650,6 +2827,7 @@
 						this.source = {} ;
 						this.destination = {} ;
 						this.relativeMap = {} ;
+						this.units = {} ;
 						this.cuepoints = {} ;
 						this.duration = {} ;
 						this.position = 
@@ -2697,7 +2875,7 @@
 						
 					},
 					checkTime:function(position){
-						var t = this.resolveValues() ;
+						var t = this.resolveValues(false) ;
 						return t > ZERO ? t : -t ;
 					},
 					resolveValues:function(forReal){
@@ -2711,13 +2889,10 @@
 								this.once = true ;
 							}
 							
-						}else{
-							
-							if(this.isResolved){
-								return this.time ;
-							}
 						}
-						
+
+						if(this.isResolved) return this.time ;
+
 						var key,
 							target = this.target,
 							source = this.source,
@@ -2733,7 +2908,8 @@
 							if (usersource[key] == PropertyMapper.REQUIRED) {
 								source[key] = this.getIn(key) ;
 							}
-							if (rMap['source.' + key]) {
+							
+							if (!!rMap['fr.' + key]) {	
 								source[key] += this.getIn(key) ;
 							}
 						}
@@ -2744,7 +2920,7 @@
 								dest[key] = this.getIn(key) ;
 							}
 							
-							if (rMap['dest.' + key]) {
+							if (!!rMap['to.' + key]) {
 								dest[key] += this.getIn(key) ;
 							}
 
@@ -2772,8 +2948,8 @@
 							for (i = 0 ; i < l ; ++i) {
 
 								var prev = cur || first ;
-
-								if (rMap['cuepoints.' + key + '.' + i]) {
+								
+								if (rMap['cp.' + key]) {
 									(cpVec[i] += this.getIn(key)) ;
 								}
 
@@ -2800,7 +2976,7 @@
 							this.setTime(this.maxDuration) ;
 							
 						}
-						
+
 						this.isResolved = true ;
 						return this.time ;
 					},
@@ -2852,7 +3028,6 @@
 									if (l == 1) {
 										val = a + factor * (2 * invert * (cpVec[0] - a) + factor * (b - a)) ;
 									} else {
-
 										if (factor < ZERO)
 											ip = ZERO ;
 										else if (factor > ONE)
@@ -2913,7 +3088,9 @@
 						var cuepoints = this.cuepoints[name] ;
 						if (cuepoints === undefined) this.cuepoints[name] = cuepoints = [] ;
 						cuepoints.push(value) ;
-						this.relativeMap['cuepoints.' + name + '.' + cuepoints.length] = isRelative ;
+						// dont remember why this is no longer needed... 
+						// guess it is because isRelative is not stored as for each cuepoint, but for all cp in same value 
+						// this.relativeMap['cuepoints.' + name + '.' + (cuepoints.length - 1)] = isRelative ;
 					},
 					getIn:function(name){
 						if(isNOTDOM(this.target)) return this.target[name] ;
@@ -2987,14 +3164,35 @@
 						}
 						
 						var p = this.parent ;
+						var c = this.child ;
+						var prm = p.relativeMap ;
+						var crm = c.relativeMap ;
+						var dest_reg = /dest[.]/ ;
+						var source_reg = /source[.]/ ;
 						
+						if(!!p.relativeMap['to.'+this.propertyName]){
+							for(var s in crm){
+								if(dest_reg.test(s)) {
+									crm[s.replace(dest_reg, 'to.')] = true ;
+								}
+							}
+						}
+
+						if(!!p.relativeMap['fr.'+this.propertyName]){
+							for(var s in crm){
+								if(source_reg.test(s)) {
+									crm[s.replace(source_reg, 'fr.')] = true ;
+								}
+							}
+						}
+
 						if(!p.isResolved) p.resolveValues() ;
 						
 						var time = p.time ;
 						
 						if(this.isPhysical){
 							
-							var c = this.child ;
+							
 							if(!c.isResolved) c.resolveValues() ;
 							
 							if(time > c.time) c.setTime(time) ;
@@ -3205,7 +3403,6 @@
 								block:bb
 							} ;
 						}else{
-							
 							return this.parseMethod(type, inputname, val, val == '__REQUIRED__') ;
 						}
 					}
@@ -3245,12 +3442,11 @@
 							for(i = 0 ; i < l ; i ++){
 								
 								custom = customs[i] ;
-								
 								var tt = type[name] ;
-								// trace(custom.pattern)
+								
 								// KICK OUT UNDESIRABLES
 								if(custom.pattern.test(name)){
-									// trace('HELLO', custom.pattern)
+									
 									var s = custom.check(type, name, tt) ;
 									if(s.block){
 										// FOUND !!!!!
@@ -3294,7 +3490,6 @@
 									var relative = PropertyMapper.replaceRelative(outputname) ;
 									var isRelative = relative.isRelative ;
 									outputname = relative.name ;
-
 									// ANYWAY RETURNING THIS
 									var config = {
 										inputname:inputname,
@@ -3358,6 +3553,17 @@
 									return BetweenJS.$.PropertyMapper.colorGet(tg, n) ;
 								},
 								setMethod:function setMethodColor(tg, n, val){
+									if('v' in val){
+										var rgb = BetweenJS.$.Color.HSVtoRGB(val) ;
+										val.r = rgb.r;
+										val.g = rgb.g;
+										val.b = rgb.b;
+									}else if('l' in val){
+										var rgb = BetweenJS.$.Color.HSLtoRGB(val) ;
+										val.r = rgb.r;
+										val.g = rgb.g;
+										val.b = rgb.b;
+									}
 									return BetweenJS.$.PropertyMapper.colorSet(tg, n, val) ;
 								}
 							}),
@@ -3373,7 +3579,6 @@
 									var isRelative = relative.isRelative ;
 									
 									outputname = 'opacity' ;
-									
 									
 									var config = {
 										inputname:inputname,
@@ -3623,9 +3828,1133 @@
 
 			}) ;
 		}) ;
-		
-		
 
+		
+		// CSS
+		Pkg.write('css', function(path){
+			//COLORS
+			var reg_RGB         = /(^rgba*\()|(\)$)/gmi ;
+			var reg_HSV         = /(^hsva*\()|(\)$)/gmi ;
+			var reg_HSL         = /(^hsla*\()|(\)$)/gmi ;
+			var reg_RGBA        = /^rgba*\(/i ;
+			var reg_HSVA        = /^hsva*\(/i ;
+			var reg_HSLA        = /^hsla*\(/i ;
+
+			var reg_A           = /a/ ;
+			var reg_HX          = /^#/ ;
+			var reg_BLANK       = / /mg ;
+			var reg_LAST2       = /.{2}$/ ;
+			var reg_SPLIT2       = /.{2}/g ;
+			
+			var hsl_open = "hsl(" ;
+			var rgb_open = "rgb(" ;
+			var hsl_close = ")" ; 
+			var rgb_close = ")" ;
+			
+			var
+				RGB_SPLIT_reg 					= /(rgba?\(|\)| )/gi,
+				HSV_SPLIT_reg 					= /(hsva?\(|\)| )/gi,
+				RGB_HSV_SPLIT_reg 				= /((rgb|hsv)a?\(|\)| )/gi,
+				RGB_HSV_HSL_SPLIT_reg 			= /((rgb|hsv|hsl)a?\(|\)| )/gi,
+				HEX_reg 						= /^(0x|#)/,
+				CSS_SHORT_reg 					= /^[a-z]+$/i ;
+
+			var 
+				
+				isDefined 						= function(val){ return val !== undefined },
+				isSTR 							= function(val){ return typeof val == 'string' },
+				isUINT		 					= function(val){ return typeof val == 'number' },
+				isHEX			 				= function(val){ return isSTR(val) && HEX_reg.test(val) },
+				isCSSSHORTCUT			 		= function(val){ return isSTR(val) && CSS_SHORT_reg.test(val) && val in BetweenJS.$.Color.css },
+				isRGBHSVSTR				 		= function(val){ return isSTR(val) && RGB_HSV_SPLIT_reg.test(val) },
+				isStringRGBAColor 				= function(val){ return isSTR(val) && RGB_SPLIT_reg.test(val) },
+				isStringHSVAColor 				= function(val){ return isSTR(val) && HSV_SPLIT_reg.test(val) },
+				isColorOBJ		 				= function(val){ return !isSTR(val) &&  (isDefined(val.r) || isDefined(val.h))  } ;
+			
+			var 
+				defaultRGB						= { r:0, 	g:0, 	b:0, 	a:1.0},
+				maxRGB 							= {	r:255, 	g:255, 	b:255, 	a:1.0},
+				minRGB 							= {	r:0, 	g:0, 	b:0, 	a:0.0},
+				
+				defaultHSV						= {	h:0, 	s:0, 	v:0, 	a:1.0},
+				maxHSV 							= {	h:360, 	s:100, 	v:100, 	a:1.0},
+				minHSV 							= {	h:0, 	s:0, 	v:0, 	a:0.0} ;
+				
+			var and								= function(v){ return v & 0xFF }
+			var base2							= function(v){ return v < 10 ? v = '0' + v : v }
+			var hexify							= function(v){ return base2(parseInt(v).toString(16)).toUpperCase() }
+			var splitSTR						= function(v){ return v.replace(RGB_HSV_SPLIT_reg, '').split(',') }
+			
+			var shorthandHEX					= function(h){
+													if((h = h.replace(HEX_reg, '')).length == 3) 
+														h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2) ;
+													return h.toUpperCase() } ;
+			
+			
+			var RGBtoHSV, HSVtoRGB, HSLtoHSV, HSVtoHSL, HSLtoRGB, RGBtoHSL ;
+			var Color = Type.define({
+				pkg:'::Color',
+				domain:BetweenJSCore,
+				statics:{
+					
+					////////// RGBA HSVA CONVERSIONS
+					/* 
+					/// weird, because simplier, but heavier so... discarded for now
+					rgb2hsv:function(o) {
+						
+						var r = o.r / 255, g = o.g / 255, b = o.b / 255, a = o.a ;
+						var m = {} ;
+						var v= Math.max(r, g, b), c = v - Math.min(r, g, b) ;
+						var h = c && ((v==r) ? (g-b)/c : ((v==g) ? 2+(b-r)/c : 4+(r-g)/c)) ; 
+						m.h = 60 * ( h < 0 ? h + 6 : h) ;
+						m.s = (v&&c/v ) * 100 ;
+						m.v = v * 100 ;
+						
+						if(isDefined(a)) m.a = a ;
+						
+						return m ;
+					},
+					
+					hsv2rgb:function (o) {
+						var h = o.h, s = o.s / 100, v = o.v / 100, a = o.a ;   
+						m = {} ;      
+						var f = function (n) {
+							var k = ( n + h / 60) % 6 ;
+							return (v - v * s * Math.max( Math.min(k, 4 - k, 1), 0)) ;     
+						} 
+						m.r = f(5) * 255 ;
+						m.g = f(3) * 255 ;
+						m.b = f(1) * 255 ;
+						
+						if(isDefined(a)) m.a = a ;
+
+						return m ;
+					},
+					*/
+					RGBtoHSV:RGBtoHSV = function(o){
+						// return BetweenJS.$.Color.rgb2hsv(o) ; 
+
+						var r = o.r, g = o.g, b = o.b, a = o.a ;
+						var m = {} ;
+						
+						if( r != g || r != b ){
+							if ( g > b ) {
+								if ( r > g ) { //r>g>b
+									m.h = 60 * (g - b) / (r - b) ;
+									m.s = (r - b) / r * 100 ;
+									m.v = r / 255 * 100 ;
+								}else if( r < b ){ //g>b>r
+									m.h = 60 * (b - r) / (g - r) + 120 ;
+									m.s = (g - r) / g * 100 ;
+									m.v = g / 255 * 100 ;
+								}else { //g=>r=>b
+									m.h = 60 * (b - r) / (g - b) + 120 ;
+									m.s = (g - b) / g * 100 ;
+									m.v = g / 255 * 100 ;
+								}
+							}else{
+								if ( r > b ) { // r>b=>g
+									m.h = 60 * (g - b) / (r - g) ;
+									m.s = (r - g) / r * 100 ;
+									m.v = r / 255 * 100 ;
+									if ( m.h < 0 ) m.h += 360 ;
+								}else if ( r < g ){ //b=>g>r
+									m.h = 60 * (r - g) / (b - r) + 240 ;
+									m.s = (b - r) / b * 100 ;
+									m.v = b / 255 * 100 ;
+								}else { //b=>r=>g
+									m.h = 60 * (r - g) / (b - g) + 240 ;
+									m.s = (b - g) / b  * 100 ;
+									m.v = b / 255 * 100 ;
+								}
+							}
+						}else {
+							m.h = m.s = 0 ;
+							m.v = r / 255 * 100 ;
+						}
+						
+						m.h = Math.round(m.h) ;
+						m.s = Math.round(m.s) ;
+						m.v = Math.round(m.v) ;
+						
+						if(isDefined(a)) m.a = a ;
+
+						return m ;
+					},
+					HSVtoRGB:HSVtoRGB = function(o){
+						// return BetweenJS.$.Color.hsv2rgb(o) ;
+
+						var h = o.h, s = o.s, v = o.v, a = o.a ;
+						var m = {} ;
+						
+						h = h,
+						s = (s) * .01 ,
+						v = (v) * .01 ;
+						if ( s > 0 ) {
+							if(h > 360) h = h % 360 ;
+							else if(h < -360) h = h % -360 ;
+							h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
+							if ( h < 1 ) {
+								m.r = 255 * v ;
+								m.g = 255 * v * ( 1 - s * (1 - h) ) ;
+								m.b = 255 * v * ( 1 - s ) ;
+							}else if ( h < 2 ) {
+								m.r = 255 * v * ( 1 - s * (h - 1) ) ;
+								m.g = 255 * v ;
+								m.b = 255 * v * ( 1 - s ) ;
+							}else if ( h < 3 ) {
+								m.r = 255 * v * ( 1 - s ) ;
+								m.g = 255 * v ;
+								m.b = 255 * v * ( 1 - s * (3 - h) ) ;
+							}else if ( h < 4 ) {
+								m.r = 255 * v * ( 1 - s ) ;
+								m.g = 255 * v * ( 1 - s * (h - 3) ) ;
+								m.b = 255 * v ;
+							}else if ( h < 5 ) {
+								m.r = 255 * v * ( 1 - s * (5 - h) ) ;
+								m.g = 255 * v * ( 1 - s ) ;
+								m.b = 255 * v ;
+							}else{
+								m.r = 255 * v ;
+								m.g = 255 * v * ( 1 - s ) ;
+								m.b = 255 * v * ( 1 - s * (h - 5) ) ;
+							}
+						}else {
+							m.r = m.g = m.b = 255 * v ;
+						}
+						
+						m.r = Math.round(m.r) ;
+						m.g = Math.round(m.g) ;
+						m.b = Math.round(m.b) ;
+						
+						if(isDefined(a)) m.a = a ;
+
+						return m ;
+					},
+					HSLtoHSV:HSLtoHSV = function(o){
+
+						var h = o.h, s = o.s / 100, l = o.l / 100, a = o.a ;
+						var v = l + s * Math.min(l, 1 - l) ;
+						s = v === 0 ? 0 : 2 * (1 - l / v) ;
+						s = parseFloat(Number(Math.round(s * 10000) / 100).toFixed(3)) ; 
+						v = parseFloat(Number(Math.round(v * 10000) / 100).toFixed(3)) ; 
+						var m = {h:h, s:s, v:v} ; 
+						if(isDefined(a)) m.a = a ;
+						return m ;
+					},
+					HSVtoHSL:HSVtoHSL = function(o){
+						var h = o.h, s = o.s, v = o.v, a = o.a ;
+						var l = (200 - s) * v / 200 ;
+						s = (l === 0 || l === 100) ? 0 : parseFloat(Number(((v - l) / Math.min(l, 100 - l)) * 100).toFixed(2)) ;
+						var m = {h:h, s:s, l:l} ;
+						if(isDefined(a)) m.a = a ;
+						return m ;
+					},
+					HSLtoRGB:HSLtoRGB = function(o){
+						return BetweenJS.$.Color.HSVtoRGB(BetweenJS.$.Color.HSLtoHSV(o))
+					},
+					RGBtoHSL:RGBtoHSL = function(o){
+						return BetweenJS.$.Color.HSVtoHSL(BetweenJS.$.Color.RGBtoHSV(o))
+					},
+					makeRGB:function(r, g, b, a){
+						var m = {r:r, g:g, b:b} ; 
+						if(isDefined(a)) m.a = a ;
+						return m ;
+					},
+					makeHSV:function(h, s, v, a){
+						var m = {h:h, s:s, v:v} ;
+						if(isDefined(a)) m.a = a ;
+						return m ;
+					},
+					makeHSL:function(h, s, l, a){
+						var m = {h:h, s:s, l:l} ;
+						if(isDefined(a)) m.a = a ;
+						return m ;
+					},
+					
+					////////// RGBA CONVERSIONS
+					
+					toUINT:function(val){
+						var res ;
+						
+						switch(true){
+							case isUINT(val) :
+								res = val ;
+							break ;
+							case isHEX(val) :
+								res = parseInt(shorthandHEX(val), 16) ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								res = parseInt('0x'+ hexify(val[0]) + hexify(val[1]) + hexify(val[2]) + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
+							break ;
+							case isColorOBJ(val) :
+								res = parseInt('0x'+ hexify(val.r) + hexify(val.g) + hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '')) ;
+							break ;
+						}
+						
+						return res ;
+					},
+					toHEX:function(val){
+						var res ;
+						
+						switch(true){
+							case isUINT(val) :
+								res = '#' + hexify(val) ;
+							break ;
+							case isHEX(val) :
+								res = '#' + shorthandHEX(val) ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								res = '#' + hexify(val[0]) + hexify(val[1]) + hexify(val[2] + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
+							break ;
+							case isColorOBJ(val) :
+								res = '#' + hexify(val.r) +  hexify(val.g) +  hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '') ;
+							break ;
+						}
+						return res ;
+					},
+					toSTR:function(val){
+						var r, g, b, h, s, v, a ;
+						
+						switch(true){
+							case isUINT(val) :
+								return this.toSTR(this.toHEX(val)) ;
+							break ;
+							case isHEX(val) :
+								val = shorthandHEX(val).match(/.{1,2}/g) ;
+								r = parseInt(val[0], 16) ;
+								g = parseInt(val[1], 16) ;
+								b = parseInt(val[2], 16) ;
+								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
+							break ;
+							case isSTR(val) :
+								return val ;
+							break ;
+							case isColorOBJ(val) :
+								r = val.r ;
+								g = val.g ;
+								b = val.b ;
+								a = val.a ;
+							break ;
+						}
+						var isA = isDefined(a) ;
+						var app = isA ? 'rgba(' : 'rgb(', sep = ', ', end = ')' ;
+						return app + r + sep + g + sep + b + (isA ? sep + a : '' ) + end ;
+					},
+					toOBJ:function(val){
+						var r, g, b, h, s, v, a ;
+						
+						switch(true){
+							case isUINT(val) :
+								return this.toOBJ(this.toHEX(val)) ;
+							break ;
+							case isHEX(val) :
+								val = shorthandHEX(val).match(/.{1,2}/g) ;
+								r = parseInt(val[0], 16) ;
+								g = parseInt(val[1], 16) ;
+								b = parseInt(val[2], 16) ;
+								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
+							break ;
+							case isSTR(val) :
+								val = splitSTR(val) ;
+								r = parseInt(val[0]) ;
+								g = parseInt(val[1]) ;
+								b = parseInt(val[2]) ;
+								a = val.length > 3 ? parseFloat(val[3])  : undefined ;
+							break ;
+							case isColorOBJ(val) :
+								return val ;
+							break ;
+						}
+						
+						var res = {r:r, g:g, b:b} ;
+						if(isDefined(a)) res.a = a ;
+						
+						return res ;
+					},
+					
+					toColorString:function(val, mode){
+						return this.toSTR(val) ;
+					},
+					toColorObj:function(val, mode){
+						return this.toOBJ(val) ;
+					},
+
+					safe:function(val, mode){
+						
+						var MODE = mode || 'rgb' ;
+						
+						var max = MODE == 'HSV' ? maxHSV : maxRGB ;
+						var min = MODE == 'HSV' ? minHSV : minRGB ;
+						
+						for(var s in max){
+							var m = max[s] ;
+							var n = min[s] ;
+							var v = val[s] ;
+							if(v > m) val[s] = m ;
+							if(v < n) val[s] = n ;
+						}
+						
+						return val ;
+					},
+					
+					css:{
+						"aliceblue" : "#F0F8FF",
+						"antiquewhite" : "#FAEBD7",
+						"aqua" : "#00FFFF",
+						"aquamarine" : "#7FFFD4",
+						"azure" : "#F0FFFF",
+						"beige" : "#F5F5DC",
+						"bisque" : "#FFE4C4",
+						"black" : "#000000",
+						"blanchedalmond" : "#FFEBCD",
+						"blue" : "#0000FF",
+						"blueviolet" : "#8A2BE2",
+						"brown" : "#A52A2A",
+						"burlywood" : "#DEB887",
+						"cadetblue" : "#5F9EA0",
+						"chartreuse" : "#7FFF00",
+						"chocolate" : "#D2691E",
+						"coral" : "#FF7F50",
+						"cornflowerblue" : "#6495ED",
+						"cornsilk" : "#FFF8DC",
+						"crimson" : "#DC143C",
+						"cyan" : "#00FFFF",
+						"darkblue" : "#00008B",
+						"darkcyan" : "#008B8B",
+						"darkgoldenrod" : "#B8860B",
+						"darkgray" : "#A9A9A9",
+						"darkgreen" : "#006400",
+						"darkkhaki" : "#BDB76B",
+						"darkmagenta" : "#8B008B",
+						"darkolivegreen" : "#556B2F",
+						"darkorange" : "#FF8C00",
+						"darkorchid" : "#9932CC",
+						"darkred" : "#8B0000",
+						"darksalmon" : "#E9967A",
+						"darkseagreen" : "#8FBC8F",
+						"darkslateblue" : "#483D8B",
+						"darkslategray" : "#2F4F4F",
+						"darkturquoise" : "#00CED1",
+						"darkviolet" : "#9400D3",
+						"deeppink" : "#FF1493",
+						"deepskyblue" : "#00BFFF",
+						"dimgray" : "#696969",
+						"dodgerblue" : "#1E90FF",
+						"firebrick" : "#B22222",
+						"floralwhite" : "#FFFAF0",
+						"forestgreen" : "#228B22",
+						"fuchsia" : "#FF00FF",
+						"gainsboro" : "#DCDCDC",
+						"ghostwhite" : "#F8F8FF",
+						"gold" : "#FFD700",
+						"goldenrod" : "#DAA520",
+						"gray" : "#808080",
+						"green" : "#008000",
+						"greenyellow" : "#ADFF2F",
+						"honeydew" : "#F0FFF0",
+						"hotpink" : "#FF69B4",
+						"indianred" : "#CD5C5C",
+						"indigo" : "#4B0082",
+						"ivory" : "#FFFFF0",
+						"khaki" : "#F0E68C",
+						"lavender" : "#E6E6FA",
+						"lavenderblush" : "#FFF0F5",
+						"lawngreen" : "#7CFC00",
+						"lemonchiffon" : "#FFFACD",
+						"lightblue" : "#ADD8E6",
+						"lightcoral" : "#F08080",
+						"lightcyan" : "#E0FFFF",
+						"lightgoldenrodyellow" : "#FAFAD2",
+						"lightgray" : "#D3D3D3",
+						"lightgreen" : "#90EE90",
+						"lightpink" : "#FFB6C1",
+						"lightsalmon" : "#FFA07A",
+						"lightseagreen" : "#20B2AA",
+						"lightskyblue" : "#87CEFA",
+						"lightslategray" : "#778899",
+						"lightsteelblue" : "#B0C4DE",
+						"lightyellow" : "#FFFFE0",
+						"lime" : "#00FF00",
+						"limegreen" : "#32CD32",
+						"linen" : "#FAF0E6",
+						"magenta" : "#FF00FF",
+						"maroon" : "#800000",
+						"mediumaquamarine" : "#66CDAA",
+						"mediumblue" : "#0000CD",
+						"mediumorchid" : "#BA55D3",
+						"mediumpurple" : "#9370DB",
+						"mediumseagreen" : "#3CB371",
+						"mediumslateblue" : "#7B68EE",
+						"mediumspringgreen" : "#00FA9A",
+						"mediumturquoise" : "#48D1CC",
+						"mediumvioletred" : "#C71585",
+						"midnightblue" : "#191970",
+						"mintcream" : "#F5FFFA",
+						"mistyrose" : "#FFE4E1",
+						"moccasin" : "#FFE4B5",
+						"navajowhite" : "#FFDEAD",
+						"navy" : "#000080",
+						"oldlace" : "#FDF5E6",
+						"olive" : "#808000",
+						"olivedrab" : "#6B8E23",
+						"orange" : "#FFA500",
+						"orangered" : "#FF4500",
+						"orchid" : "#DA70D6",
+						"palegoldenrod" : "#EEE8AA",
+						"palegreen" : "#98FB98",
+						"paleturquoise" : "#AFEEEE",
+						"palevioletred" : "#DB7093",
+						"papayawhip" : "#FFEFD5",
+						"peachpuff" : "#FFDAB9",
+						"peru" : "#CD853F",
+						"pink" : "#FFC0CB",
+						"plum" : "#DDA0DD",
+						"powderblue" : "#B0E0E6",
+						"purple" : "#800080",
+						"rebeccapurple" : "#663399",
+						"red" : "#FF0000",
+						"rosybrown" : "#BC8F8F",
+						"royalblue" : "#4169E1",
+						"saddlebrown" : "#8B4513",
+						"salmon" : "#FA8072",
+						"sandybrown" : "#F4A460",
+						"seagreen" : "#2E8B57",
+						"seashell" : "#FFF5EE",
+						"sienna" : "#A0522D",
+						"silver" : "#C0C0C0",
+						"skyblue" : "#87CEEB",
+						"slateblue" : "#6A5ACD",
+						"slategray" : "#708090",
+						"snow" : "#FFFAFA",
+						"springgreen" : "#00FF7F",
+						"steelblue" : "#4682B4",
+						"tan" : "#D2B48C",
+						"teal" : "#008080",
+						"thistle" : "#D8BFD8",
+						"tomato" : "#FF6347",
+						"turquoise" : "#40E0D0",
+						"violet" : "#EE82EE",
+						"wheat" : "#F5DEB3",
+						"white" : "#FFFFFF",
+						"whitesmoke" : "#F5F5F5",
+						"yellow" : "#FFFF00",
+						"yellowgreen" : "#9ACD32"
+					}
+				}
+			}) ;
+			
+			
+			var RGB, HSV, HSL;
+			
+			var ColorMode = Type.define({
+				pkg:'::ColorMode',
+				domain:BetweenJSCore,
+				statics:{
+					RGBtoHSV:RGBtoHSV,
+					RGBtoHSL:RGBtoHSL,
+					HSVtoRGB:HSVtoRGB,
+					HSVtoHSL:HSVtoHSL,
+					HSLtoRGB:HSLtoRGB,
+					HSLtoHSV:HSLtoHSV,
+					fromStr: function (s, reg, dest) {
+						var arr = s.replace(reg, '').replace(reg_BLANK, '').split(',') ;
+						var hasAlpha = arr.length > 3 ;
+						if(hasAlpha) return dest(parseInt(arr[0]), parseInt(arr[1]), parseInt(arr[2]), parseFloat(Number(arr[3] || 1.0).toFixed(2))) ;
+						return dest(parseInt(arr[0]), parseInt(arr[1]), parseInt(arr[2])) ;
+					},
+					fromObj: function(o, mode){
+						switch(true){
+							case 'r' in o :
+								return (mode == 'HSV') ? RGBtoHSV(o) : (mode == 'HSL') ? RGBtoHSL(o) : o ; 
+							case 'v' in o :
+								return (mode == 'RGB') ? HSVtoRGB(o) : (mode == 'HSL') ? HSVtoHSL(o) : o ; 
+							case 'l' in o :
+								return (mode == 'RGB') ? HSLtoRGB(o) : (mode == 'HSV') ? HSLtoHSV(o) : o ; 
+						}
+					},
+					RGB:Type.define({
+						pkg:'::RGB',
+						domain:ColorMode,
+						statics:{
+							fromInt:function(i){
+								var s = i.toString(16) ;
+								var hasAlpha = s.length > 6 ;
+								var n, a ;
+								if(hasAlpha) {
+									n = parseInt(s.replace(reg_LAST2, ''), 16) ;
+									a = parseInt(s.match(reg_LAST2)[0], 16) ;
+									a = parseFloat((a / 255).toFixed(2)) ;
+								}else{ n = i }
+								
+								return BJS.$.Color.makeRGB((n & 0x00FF0000) >> 16, (n & 0x0000FF00) >> 8, (n & 0x000000FF), a) ;
+							},
+							fromHex:function(h){
+								var hex = h.replace(reg_HX, '') ;
+								var tot = parseInt('0x' + hex) ; 
+								var rgb = (hex.match(reg_SPLIT2)) ;
+								if(rgb.length > 3) return BJS.$.Color.makeRGB(parseInt('0x' + rgb[0]), parseInt('0x' + rgb[1]), parseInt('0x' + rgb[2]), parseFloat((parseInt('0x' + rgb[3]) / 255).toFixed(2))) ;
+								return BJS.$.Color.makeRGB(parseInt('0x' + rgb[0]), parseInt('0x' + rgb[1]), parseInt('0x' + rgb[2])) ;
+							},
+							fromStr:function(s){
+								switch(true){
+									case reg_RGBA.test(s) :
+										return BJS.$.ColorMode.fromStr(s, reg_RGB, BJS.$.Color.makeRGB) ;
+									case reg_HSVA.test(s) :
+										return HSVtoRGB(HSV.fromStr(s)) ;
+									case reg_HSLA.test(s):
+										return HSLtoRGB(HSL.fromStr(s)) ;
+								}
+							},
+							fromAlias:function(a){ return RGB.fromHex(BJS.$.Color.css[a]) },
+							fromObj:function(o){ return BJS.$.ColorMode.fromObj(o, 'RGB') }, 
+							format:function(o){
+								return rgb_open + o.r + ', ' + o.g + ', ' +  o.b + (!!o.a ? (', ' + o.a ) : '') + rgb_close ;
+							},
+							fromAllStrings:function(s){
+								return HEX_reg.test(s) ? 
+									RGB.fromHex(s) : RGB_HSV_HSL_SPLIT_reg.test(s) ? 
+									RGB.fromStr(s) : RGB.fromAlias(s) ;
+							}
+						},
+						constructor:RGB = function RGB(r, g, b, a){
+							switch(arguments.length){
+								case 1 :
+									return typeof r == 'string' ? RGB.fromAllStrings(r) : typeof r == 'number' ? RGB.fromInt(r) : RGB.fromObj(r) ;
+								case 3 :
+								case 4 :
+									return BJS.$.Color.makeRGB(r, g, b, a) ;
+							}
+						}
+					}),
+					HSV:Type.define({
+						pkg:'::HSV',
+						domain:ColorMode,
+						statics:{
+							fromInt:function(i){ return RGBtoHSV(RGB.fromInt(i)) },
+							fromHex:function(h){ return RGBtoHSV(RGB.fromHex(h)) },
+							fromStr:function(s){
+								switch(true){
+									case reg_RGBA.test(s) :
+										return RGBtoHSV(RGB.fromStr(s)) ;
+									case reg_HSVA.test(s) :
+										return BJS.$.ColorMode.fromStr(s, reg_HSV, BJS.$.Color.makeHSV) ;
+									case reg_HSLA.test(s):
+										return HSLtoHSV(HSL.fromStr(s)) ;
+								}
+							},
+							fromObj:function(o){ return BJS.$.ColorMode.fromObj(o, 'HSV') },
+							fromAlias:function(a){ return HSV.fromHex(BJS.$.Color.css[a]) },
+							toRGB:function(o){ return HSVtoRGB(o) },
+							toHSL:function(o){ return HSVtoHSL(o) },
+							fromHSL:function(o){ return HSLtoHSV(o) },
+							format:function(o, toMode){
+								return (toMode != 'HSL') ? RGB.format(HSV.toRGB(o)) :
+									HSL.format(HSV.toHSL(o)) ;
+							},
+							fromAllStrings:function(s){
+								return HEX_reg.test(s) ? 
+									HSV.fromHex(s) : RGB_HSV_HSL_SPLIT_reg.test(s) ? 
+									HSV.fromStr(s) : HSV.fromAlias(s) ;
+							}
+						},
+						constructor:HSV = function HSV(h, s, v, a){
+							switch(arguments.length){
+								case 1 :
+									return typeof h == 'string' ? HSV.fromAllStrings(h) : typeof h == 'number' ? HSV.fromInt(h) : HSV.fromObj(h) ;
+								case 3 :
+								case 4 :
+									return BJS.$.Color.makeHSV(h, s, v, a) ;
+							}
+						}
+					}),
+					HSL:Type.define({
+						pkg:'::HSL',
+						domain:ColorMode,
+						statics:{
+							fromInt:function(i){ return RGBtoHSL(RGB.fromInt(i)) },
+							fromHex:function(h){ return RGBtoHSL(RGB.fromHex(h)) },
+							fromStr:function(s){
+								switch(true){
+									case reg_RGBA.test(s) :
+										return RGBtoHSL(RGB.fromStr(s)) ;
+									case reg_HSVA.test(s) :
+										return HSVtoHSL(HSV.fromStr(s)) ;
+									case reg_HSLA.test(s):
+										return BJS.$.ColorMode.fromStr(s, reg_HSL, BJS.$.Color.makeHSL) ;
+								}
+							},
+							fromObj:function(o){ return BJS.$.ColorMode.fromObj(o, 'HSL') },
+							fromAlias:function(a){ return HSL.fromHex(BJS.$.Color.css[a]) },
+							toRGB:function(o){ return HSLtoRGB(o) },
+							toHSV:function(o){ return HSLtoHSV(o) },
+							format:function(o, toMode){
+								if(toMode == 'RGB') return RGB.format(HSL.toRGB(o)) ;
+								return hsl_open + o.h + ' ' + o.s + ' ' +  o.l + (!!o.a ? (' / ' + o.a ) : '') + hsl_close ;
+							},
+							fromAllStrings:function(s){
+								return HEX_reg.test(s) ? 
+									HSL.fromHex(s) : RGB_HSV_HSL_SPLIT_reg.test(s) ? 
+									HSL.fromStr(s) : HSL.fromAlias(s) ;
+							}
+						},
+						constructor:HSL = function HSL(h, s, l, a){
+							switch(arguments.length){
+								case 1 :
+									return typeof h == 'string' ? HSL.fromAllStrings(h) : typeof r == 'number' ? HSL.fromInt(h) : HSL.fromObj(h) ;
+								case 3 :
+								case 4 :
+									return BJS.$.Color.makeHSL(h, s, l, a) ;
+							}
+						}
+					})
+				}
+			})
+
+		}) ;
+		
+		// EASE
+		Pkg.write('ease', function(path){
+			/* EASINGS */
+			/* Thanks to Robert Penner & Yossi */
+			var Ease = Type.define({
+				pkg:'::Ease',
+				constructor:Ease = function Ease(calc){
+					this.calculate = calc || function calculate(t, b, c, d){
+						return c * t / d + b ;
+					}
+				}
+			})
+			// LINEAR
+			var Linear = Type.define({
+				pkg:'::Linear',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(),
+					easeOut:new Ease(),
+					easeInOut:new Ease(),
+					easeOutIn:new Ease()
+				}
+			})
+			// CIRC
+			var Circ = Type.define({
+				pkg:'::Circ',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
+						else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
+						else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
+					})
+				}
+			})
+			// CUBIC
+			var Cubic = Type.define({
+				pkg:'::Cubic',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * ((t = t / d - 1) * t * t + 1) + b;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
+					})
+				}
+			})
+			// EXPO
+			var Expo = Type.define({
+				pkg:'::Expo',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
+					}),
+					easeOut: new Ease(function(t, b, c, d){
+						return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if (t == 0) return b ;
+						if (t == d) return b + c ;
+						if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
+						return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
+						else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
+					})
+				}
+			})
+			// QUAD
+			var Quad = Type.define({
+				pkg:'::Quad',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return -c * (t /= d) * (t - 2) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
+						else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
+					})
+				}
+			})
+			// QUART
+			var Quart = Type.define({
+				pkg:'::Quart',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
+						else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
+					})
+				}
+			})
+			// QUINT
+			var Quint = Type.define({
+				pkg:'::Quint',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						return c * (t /= d) * t * t * t * t + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
+						else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
+						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
+					})
+				}
+			})
+			// SINE
+			var Sine = Type.define({
+				pkg:'::Sine',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function calculate(t, b, c, d){
+						return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
+					}),
+					easeOut:new Ease(function calculate(t, b, c, d){
+						return c * Math.sin(t / d * (Math.PI / 2)) + b ;
+					}),
+					easeInOut:new Ease(function calculate(t, b, c, d){
+						return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
+					}),
+					easeOutIn:new Ease(function calculate(t, b, c, d){
+						if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
+						else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
+					})
+				}
+			})
+			// BOUNCE
+			var Bounce = Type.define({
+				pkg:'::Bounce',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new Ease(function(t, b, c, d){
+						if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
+						if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
+						if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
+						else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
+					}),
+					easeOut:new Ease(function(t, b, c, d){
+						if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
+						if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+						if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+						else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+					}),
+					easeInOut:new Ease(function(t, b, c, d){
+						if (t < d / 2) {
+							if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
+							if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
+							if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
+							else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
+						} else {
+							if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
+							if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
+							if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
+							else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
+						}
+					}),
+					easeOutIn:new Ease(function(t, b, c, d){
+						if (t < d / 2) {
+							if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
+							if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
+							if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
+							else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
+						} else {
+							if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
+							if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
+							if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
+							else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
+						}
+					})
+				}
+			})
+			// ELASTIC
+			var ElasticEaseIn = function(a, p){
+				return new Ease(function(t, b, c, d){
+					a = a || 0 , p = p || 0 ;
+					if (t == 0) return b ;
+					if ((t /= d) == 1) return b + c ;
+					if (!p) p = d * 0.3 ;
+
+					var s ;// Number
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+				})
+			}
+			var ElasticEaseOut = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					if (t == 0) return b ;
+					if ((t /= d) == 1) return b + c ;
+					if (!p) p = d * 0.3 ;
+
+					var s ;
+					if (!a || a < Math.abs(c)) {
+						a = c ;
+						s = p / 4 ;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a) ;
+					}
+					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+				})
+			}
+			var ElasticEaseInOut = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					if (t == 0) return b ;
+					if ((t /= d / 2) == 2) return b + c ;
+					if (!p) p = d * (0.3 * 1.5) ;
+
+					var s ;
+					if (!a || a < Math.abs(c)) {
+						a = c;
+						s = p / 4;
+					} else {
+						s = p / (2 * Math.PI) * Math.asin(c / a);
+					}
+					if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
+					else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
+				})
+			}
+			var ElasticEaseOutIn = function(a, p){
+				a = a || 0 , p = p || 0 ;
+				return new Ease(function(t, b, c, d){
+					var s ;
+					c /= 2 ;
+					if (t < d / 2) {
+						if ((t *= 2) == 0) return b ;
+						if ((t /= d) == 1) return b + c ;
+						if (!p) p = d * 0.3 ;
+						if (!a || a < Math.abs(c)) {
+							a = c ;
+							s = p / 4 ;
+						} else {
+							s = p / (2 * Math.PI) * Math.asin(c / a) ;
+						}
+						return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
+					} else {
+						if ((t = t * 2 - d) == 0) return (b + c) ;
+						if ((t /= d) == 1) return (b + c) + c ;
+						if (!p) p = d * 0.3 ;
+						if (!a || a < Math.abs(c)) {
+							a = c ;
+							s = p / 4 ;
+						} else {
+							s = p / (2 * Math.PI) * Math.asin(c / a) ;
+						}
+						return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
+					}
+				})
+			}
+			var Elastic = Type.define({
+				pkg:'::Elastic',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new ElasticEaseIn(),
+					easeOut:new ElasticEaseOut(),
+					easeInOut:new ElasticEaseInOut(),
+					easeOutIn:new ElasticEaseOutIn(),
+					easeInWith:function(a, p){return new ElasticEaseIn(a || 0, p || 0)},
+					easeOutWith:function(a, p){return new ElasticEaseOut(a || 0, p || 0)},
+					easeInOutWith:function(a, p){return new ElasticEaseInOut(a || 0, p || 0)},
+					easeOutInWith:function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)}
+				}
+			})
+			// BACK
+			var BackEaseIn = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					return c * (t /= d) * t * ((s + 1) * t - s) + b;
+				})
+			}
+			var BackEaseOut = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+				})
+			}
+			var BackEaseInOut = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
+					else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
+				})
+			}
+			var BackEaseOutIn = function(s){
+				s = s || 1.70158 ;
+				return new Ease(function(t, b, c, d){
+					if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
+					else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
+				})
+			}
+			var Back = Type.define({
+				pkg:'::Back',
+				domain:Type.appdomain,
+				statics:{
+					easeIn:new BackEaseIn(),
+					easeOut:new BackEaseOut(),
+					easeInOut:new BackEaseInOut(),
+					easeOutIn:new BackEaseOutIn(),
+					easeInWith:function(s){return new BackEaseIn(s || 1.70158)},
+					easeOutWith:function(s){return new BackEaseOut(s || 1.70158)},
+					easeInOutWith:function(s){return new BackEaseInOut(s || 1.70158)},
+					easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
+				}
+			})
+			// CUSTOM
+			var Custom = Type.define({
+				pkg:'::Custom',
+				domain:Type.appdomain,
+				statics:{
+					func:function func(f){
+						return new Ease(f) ;
+					}
+				}
+			}) ;
+			// PHYSICAL
+			var Physical = Type.define({
+				pkg:'physical::Physical',
+				domain:Type.appdomain,
+				inherits:Ease,
+				statics:{
+					defaultFrameRate:__FPS__,
+					uniform:function(velocity, frameRate){
+						return new PhysicalUniform(velocity || TEN, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					},
+					accelerate:function(acceleration, initialVelocity, frameRate){
+						return new PhysicalAccelerate(initialVelocity || ZERO, acceleration || ONE, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					},
+					exponential:function(factor, threshold, frameRate){
+						return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
+					}
+				}
+			}) ;
+			var PhysicalAccelerate = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				iv:undefined,
+				a:undefined,
+				fps:undefined,
+				constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){
+					this.iv = iv ;
+					this.a = a ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					var iv = c < 0 ? - this.iv : this.iv ;
+					var a = c < 0 ? - this.a : this.a ;
+
+					return ((-iv + Math.sqrt(iv * iv - 4 * (a / TWO) * -c)) / (2 * (a / TWO))) * (ONE / this.fps);
+				},
+				calculate:function(t, b, c){
+					var f = c < 0 ? -1 : 1 ;
+					var n = t / (ONE / this.fps) ;
+					return b + (f * this.iv) * n + ((f * this.a) * n) * n / TWO ;
+				}
+			}) ;
+			var PhysicalExponential = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				f:undefined,
+				th:undefined,
+				fps:undefined,
+				constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){
+					this.f = f ;
+					this.th = th ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (ONE / this.fps) ;
+				},
+				calculate:function(t, b, c){
+					return -c * Math.pow(1 - this.f, (t / (ONE / this.fps)) - 1) + (b + c) ;
+				}
+			}) ;
+			var PhysicalUniform = Type.define({
+				pkg:'physical',
+				inherits:Physical,
+				v:undefined,
+				fps:undefined,
+				constructor:PhysicalUniform = function PhysicalUniform(v, fps){
+					this.v = v ;
+					this.fps = fps ;
+				},
+				getDuration:function(b, c){
+					return (c / (c < 0 ? -this.v : this.v)) * (ONE / this.fps) ;
+				},
+				calculate:function(t, b, c){
+					return b + (c < 0 ? -this.v : this.v) * (t / (ONE / this.fps)) ;
+				}
+			});
+
+		}) ;
+		
 		// BETWEENJS MAIN CLASS
 		var BetweenJS = Type.define({
 			pkg:'::BetweenJS',
@@ -3653,6 +4982,7 @@
 					@return TweenLike Object
 				*/
 				create:function create(options){
+					if(!!!options.target) throw new Error('BetweenJS: The target is undefined') ;
 					return BetweenJS.$.TweenFactory.create(options) ;
 				},
 				/*
@@ -4114,6 +5444,56 @@
 					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
 				/*
+					load
+
+					@param url String
+					@param callback Function
+					@param params Array
+
+					@return TweenLike AbstractActionTween Object
+				*/
+				load:function(url, callback, params){
+					var options = {
+						actions:{
+							load:{
+								url:url
+							}
+						}
+					}
+					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
+					return tw ;
+				},
+				/*
+					interval
+
+					@param duration Float
+					@param func Function
+					@param params Array
+
+					@return TweenLike AbstractActionTween Object
+				*/
+				interval:function(duration, closure, params, useRollback, rollbackClosure, rollbackParams, force){
+					var uid = getTimer() ;
+					
+					var options = {
+						actions:{
+							interval:{
+								duration:duration,
+								closure:closure,
+								params:params,
+								useRollback:useRollback,
+								rollbackClosure:rollbackClosure,
+								rollbackParams:rollbackParams,
+								force:force
+							}
+						}
+					}
+
+					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
+					tw.uid = uid ;
+					return (CACHE_INTERVAL[uid] = tw) ;
+				},
+				/*
 					timeout
 
 					@param duration Float
@@ -4156,6 +5536,12 @@
 					delete CACHE_TIMEOUT[uid] ;
 					return cc.stop() ;
 				},
+				clearInterval:function(uid){
+					var cc = isNaN(uid)? uid : CACHE_INTERVAL[uid] ;
+					uid = cc.uid ;
+					delete CACHE_INTERVAL[uid] ;
+					return cc.stop() ;
+				},
 				/*
 					animationframe
 
@@ -4183,7 +5569,7 @@
 					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
 					tw.uid = uid ;
 
-					return (CACHE_TIMEOUT[uid] = tw) ;
+					return (CACHE_ANIM_FRAME[uid] = tw) ;
 				},
 				/*
 					cancelanimationframe
@@ -4193,883 +5579,19 @@
 					@return TweenLike AbstractActionTween Object
 				*/
 				cancelanimationframe:function(uid){
-					var cc = isNaN(uid)? uid : CACHE_TIMEOUT[uid] ;
+					var cc = isNaN(uid)? uid : CACHE_ANIM_FRAME[uid] ;
+					if(!!!cc) return ;
 					uid = cc.uid ;
-					delete CACHE_TIMEOUT[uid] ;
+					delete CACHE_ANIM_FRAME[uid] ;
 					return cc.clear() ;
 				}
 			}
 		}) ;
 		
 		// BJS Shortcut
-		Type.appdomain['BJS'] = BetweenJS ;
+		Type.appdomain['BJS'] = Type.appdomain['BTW'] = BetweenJS ;
 		
-		// CSS
-		Pkg.write('css', function(path){
-			//COLORS
-			
-			var
-				RGB_SPLIT_reg 					= /(rgba?\(|\)| )/gi,
-				HSV_SPLIT_reg 					= /(hsva?\(|\)| )/gi,
-				RGB_HSV_SPLIT_reg 				= /((rgb|hsv)a?\(|\)| )/gi,
-				HEX_reg 						= /^(0x|#)/,
-				CSS_SHORT_reg 					= /^[a-z]+$/i ;
 
-			var 
-				
-				isDefined 						= function(val){ return val !== undefined },
-				isSTR 							= function(val){ return typeof val == 'string' },
-				isUINT		 					= function(val){ return typeof val == 'number' },
-				isHEX			 				= function(val){ return isSTR(val) && HEX_reg.test(val) },
-				isCSSSHORTCUT			 		= function(val){ return isSTR(val) && CSS_SHORT_reg.test(val) && val in BetweenJS.$.Color.css },
-				isRGBHSVSTR				 		= function(val){ return isSTR(val) && RGB_HSV_SPLIT_reg.test(val) },
-				isStringRGBAColor 				= function(val){ return isSTR(val) && RGB_SPLIT_reg.test(val) },
-				isStringHSVAColor 				= function(val){ return isSTR(val) && HSV_SPLIT_reg.test(val) },
-				isColorOBJ		 					= function(val){ return !isSTR(val) &&  (isDefined(val.r) || isDefined(val.h))  } ;
-			
-			var 
-				defaultRGB						= { r:0, 	g:0, 	b:0, 	a:1.0},
-				maxRGB 							= {	r:255, 	g:255, 	b:255, 	a:1.0},
-				minRGB 							= {	r:0, 	g:0, 	b:0, 	a:0.0},
-				
-				defaultHSV						= {	h:0, 	s:0, 	v:0, 	a:1.0},
-				maxHSV 							= {	h:360, 	s:100, 	v:100, 	a:1.0},
-				minHSV 							= {	h:0, 	s:0, 	v:0, 	a:0.0} ;
-				
-			var and								= function(v){ return v & 0xFF }
-			var base2							= function(v){ return v < 10 ? v = '0' + v : v }
-			var hexify							= function(v){ return base2(parseInt(v).toString(16)).toUpperCase() }
-			var splitSTR						= function(v){ return v.replace(RGB_HSV_SPLIT_reg, '').split(',') }
-			
-			var shorthandHEX					= function(h){
-													h = h.replace(HEX_reg, '') ;
-													if(h.length == 3) 
-														h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2) ;
-													return h.toUpperCase() ;
-												}
-			
-			
-			var Color = Type.define({
-				pkg:'::Color',
-				domain:BetweenJSCore,
-				statics:{
-					
-					////////// RGBA HSVA CONVERSIONS
-					
-					RGBtoHSV:function(r, g, b, a){
-						
-						var m = {} ;
-						
-						if( r != g || r != b ){
-							if ( g > b ) {
-								if ( r > g ) { //r>g>b
-									m.h = 60 * (g - b) / (r - b) ;
-									m.s = (r - b) / r * 100 ;
-									m.v = r / 255 * 100 ;
-								}else if( r < b ){ //g>b>r
-									m.v = g / 255 * 100 ;
-									m.s = (g - r) / g * 100 ;
-									m.h = 60 * (b - r) / (g - r) + 120 ;
-								}else { //g=>r=>b
-									m.v = g / 255 * 100 ;
-									m.s = (g - b) / g * 100 ;
-									m.h = 60 * (b - r) / (g - b) + 120 ;
-								}
-							}else{
-								if ( r > b ) { // r>b=>g
-									m.v = r / 255 * 100 ;
-									m.s = (r - g) / r * 100 ;
-									m.h = 60 * (g - b) / (r - g) ;
-									if ( m.h < 0 ) m.h += 360 ;
-								}else if ( r < g ){ //b=>g>r
-									m.v = b / 255 * 100 ;
-									m.s = (b - r) / b * 100 ;
-									m.h = 60 * (r - g) / (b - r) + 240 ;
-								}else { //b=>r=>g
-									m.v = b / 255 * 100 ;
-									m.s = (b - g) / b  * 100 ;
-									m.h = 60 * (r - g) / (b - g) + 240 ;
-								}
-							}
-						}else {
-							m.h = m.s = 0 ;
-							m.v = r / 255 * 100 ;
-						}
-						
-						m.h = Math.round(m.h) ;
-						m.s = Math.round(m.s) ;
-						m.v = Math.round(m.v) ;
-						
-						if(isDefined(a)) m.a = a ;
 
-						return m ;
-					},
-					HSVtoRGB:function(h, s, v, a){
-
-						var m = {} ;
-						
-						h = h,
-						s = (s) * .01 ,
-						v = (v) * .01 ;
-						if ( s > 0 ) {
-							if(h > 360) h = h % 360 ;
-							else if(h < -360) h = h % -360 ;
-							h = ((h < 0) ? h % 360 + 360 : h % 360 ) / 60 ;
-							if ( h < 1 ) {
-								m.r = 255 * v ;
-								m.g = 255 * v * ( 1 - s * (1 - h) ) ;
-								m.b = 255 * v * ( 1 - s ) ;
-							}else if ( h < 2 ) {
-								m.r = 255 * v * ( 1 - s * (h - 1) ) ;
-								m.g = 255 * v ;
-								m.b = 255 * v * ( 1 - s ) ;
-							}else if ( h < 3 ) {
-								m.r = 255 * v * ( 1 - s ) ;
-								m.g = 255 * v ;
-								m.b = 255 * v * ( 1 - s * (3 - h) ) ;
-							}else if ( h < 4 ) {
-								m.r = 255 * v * ( 1 - s ) ;
-								m.g = 255 * v * ( 1 - s * (h - 3) ) ;
-								m.b = 255 * v ;
-							}else if ( h < 5 ) {
-								m.r = 255 * v * ( 1 - s * (5 - h) ) ;
-								m.g = 255 * v * ( 1 - s ) ;
-								m.b = 255 * v ;
-							}else{
-								m.r = 255 * v ;
-								m.g = 255 * v * ( 1 - s ) ;
-								m.b = 255 * v * ( 1 - s * (h - 5) ) ;
-							}
-						}else {
-							m.r = m.g = m.b = 255 * v ;
-						}
-						
-						m.r = Math.round(m.r) ;
-						m.g = Math.round(m.g) ;
-						m.b = Math.round(m.b) ;
-						
-						if(isDefined(a)) m.a = a ;
-
-						return m ;
-					},
-					
-					
-					////////// RGBA CONVERSIONS
-					
-					toUINT:function(val){
-						var res ;
-						
-						switch(true){
-							case isUINT(val) :
-								res = val ;
-							break ;
-							case isHEX(val) :
-								res = parseInt(shorthandHEX(val), 16) ;
-							break ;
-							case isSTR(val) :
-								val = splitSTR(val) ;
-								res = parseInt('0x'+ hexify(val[0]) + hexify(val[1]) + hexify(val[2]) + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
-							break ;
-							case isColorOBJ(val) :
-								res = parseInt('0x'+ hexify(val.r) + hexify(val.g) + hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '')) ;
-							break ;
-						}
-						
-						return res ;
-					},
-					toHEX:function(val){
-						var res ;
-						
-						switch(true){
-							case isUINT(val) :
-								res = '#' + hexify(val) ;
-							break ;
-							case isHEX(val) :
-								res = '#' + shorthandHEX(val) ;
-							break ;
-							case isSTR(val) :
-								val = splitSTR(val) ;
-								res = '#' + hexify(val[0]) + hexify(val[1]) + hexify(val[2] + (val.length > 3 ? hexify(val[3] * 255) : '')) ;
-							break ;
-							case isColorOBJ(val) :
-								res = '#' + hexify(val.r) +  hexify(val.g) +  hexify(val.b) + (isDefined(val.a) ? hexify(val.a * 255) : '') ;
-							break ;
-						}
-						return res ;
-					},
-					toSTR:function(val){
-						var r, g, b, h, s, v, a ;
-						
-						switch(true){
-							case isUINT(val) :
-								return this.toSTR(this.toHEX(val)) ;
-							break ;
-							case isHEX(val) :
-								val = shorthandHEX(val).match(/.{1,2}/g) ;
-								r = parseInt(val[0], 16) ;
-								g = parseInt(val[1], 16) ;
-								b = parseInt(val[2], 16) ;
-								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
-							break ;
-							case isSTR(val) :
-								return val ;
-							break ;
-							case isColorOBJ(val) :
-								r = val.r ;
-								g = val.g ;
-								b = val.b ;
-								a = val.a ;
-							break ;
-						}
-						var isA = isDefined(a) ;
-						var app = isA ? 'rgba(' : 'rgb(', sep = ', ', end = ')' ;
-						return app + r + sep + g + sep + b + (isA ? sep + a : '' ) + end ;
-					},
-					toOBJ:function(val){
-						var r, g, b, h, s, v, a ;
-						
-						switch(true){
-							case isUINT(val) :
-								return this.toOBJ(this.toHEX(val)) ;
-							break ;
-							case isHEX(val) :
-								val = shorthandHEX(val).match(/.{1,2}/g) ;
-								r = parseInt(val[0], 16) ;
-								g = parseInt(val[1], 16) ;
-								b = parseInt(val[2], 16) ;
-								a = val.length > 3 ? parseInt(val[3], 16) / 255  : undefined ;
-							break ;
-							case isSTR(val) :
-								val = splitSTR(val) ;
-								r = parseInt(val[0]) ;
-								g = parseInt(val[1]) ;
-								b = parseInt(val[2]) ;
-								a = val.length > 3 ? parseFloat(val[3])  : undefined ;
-							break ;
-							case isColorOBJ(val) :
-								return val ;
-							break ;
-						}
-						
-						var res = {r:r, g:g, b:b} ;
-						if(isDefined(a)) res.a = a ;
-						
-						return res ;
-					},
-					
-					toColorString:function(val, mode){
-						
-						return this.toSTR(val) ;
-					},
-					
-					toColorObj:function(val, mode){
-						
-						return this.toOBJ(val) ;
-					},
-					safe:function(val, mode){
-						
-						var MODE = mode || 'rgb' ;
-						
-						var max = MODE == 'HSV' ? maxHSV : maxRGB ;
-						var min = MODE == 'HSV' ? minHSV : minRGB ;
-						
-						for(var s in max){
-							var m = max[s] ;
-							var n = min[s] ;
-							var v = val[s] ;
-							if(v > m) val[s] = m ;
-							if(v < n) val[s] = n ;
-						}
-						
-						return val ;
-					},
-					css:{
-						"aliceblue" : "#F0F8FF",
-						"antiquewhite" : "#FAEBD7",
-						"aqua" : "#00FFFF",
-						"aquamarine" : "#7FFFD4",
-						"azure" : "#F0FFFF",
-						"beige" : "#F5F5DC",
-						"bisque" : "#FFE4C4",
-						"black" : "#000000",
-						"blanchedalmond" : "#FFEBCD",
-						"blue" : "#0000FF",
-						"blueviolet" : "#8A2BE2",
-						"brown" : "#A52A2A",
-						"burlywood" : "#DEB887",
-						"cadetblue" : "#5F9EA0",
-						"chartreuse" : "#7FFF00",
-						"chocolate" : "#D2691E",
-						"coral" : "#FF7F50",
-						"cornflowerblue" : "#6495ED",
-						"cornsilk" : "#FFF8DC",
-						"crimson" : "#DC143C",
-						"cyan" : "#00FFFF",
-						"darkblue" : "#00008B",
-						"darkcyan" : "#008B8B",
-						"darkgoldenrod" : "#B8860B",
-						"darkgray" : "#A9A9A9",
-						"darkgreen" : "#006400",
-						"darkkhaki" : "#BDB76B",
-						"darkmagenta" : "#8B008B",
-						"darkolivegreen" : "#556B2F",
-						"darkorange" : "#FF8C00",
-						"darkorchid" : "#9932CC",
-						"darkred" : "#8B0000",
-						"darksalmon" : "#E9967A",
-						"darkseagreen" : "#8FBC8F",
-						"darkslateblue" : "#483D8B",
-						"darkslategray" : "#2F4F4F",
-						"darkturquoise" : "#00CED1",
-						"darkviolet" : "#9400D3",
-						"deeppink" : "#FF1493",
-						"deepskyblue" : "#00BFFF",
-						"dimgray" : "#696969",
-						"dodgerblue" : "#1E90FF",
-						"firebrick" : "#B22222",
-						"floralwhite" : "#FFFAF0",
-						"forestgreen" : "#228B22",
-						"fuchsia" : "#FF00FF",
-						"gainsboro" : "#DCDCDC",
-						"ghostwhite" : "#F8F8FF",
-						"gold" : "#FFD700",
-						"goldenrod" : "#DAA520",
-						"gray" : "#808080",
-						"green" : "#008000",
-						"greenyellow" : "#ADFF2F",
-						"honeydew" : "#F0FFF0",
-						"hotpink" : "#FF69B4",
-						"indianred" : "#CD5C5C",
-						"indigo" : "#4B0082",
-						"ivory" : "#FFFFF0",
-						"khaki" : "#F0E68C",
-						"lavender" : "#E6E6FA",
-						"lavenderblush" : "#FFF0F5",
-						"lawngreen" : "#7CFC00",
-						"lemonchiffon" : "#FFFACD",
-						"lightblue" : "#ADD8E6",
-						"lightcoral" : "#F08080",
-						"lightcyan" : "#E0FFFF",
-						"lightgoldenrodyellow" : "#FAFAD2",
-						"lightgray" : "#D3D3D3",
-						"lightgreen" : "#90EE90",
-						"lightpink" : "#FFB6C1",
-						"lightsalmon" : "#FFA07A",
-						"lightseagreen" : "#20B2AA",
-						"lightskyblue" : "#87CEFA",
-						"lightslategray" : "#778899",
-						"lightsteelblue" : "#B0C4DE",
-						"lightyellow" : "#FFFFE0",
-						"lime" : "#00FF00",
-						"limegreen" : "#32CD32",
-						"linen" : "#FAF0E6",
-						"magenta" : "#FF00FF",
-						"maroon" : "#800000",
-						"mediumaquamarine" : "#66CDAA",
-						"mediumblue" : "#0000CD",
-						"mediumorchid" : "#BA55D3",
-						"mediumpurple" : "#9370DB",
-						"mediumseagreen" : "#3CB371",
-						"mediumslateblue" : "#7B68EE",
-						"mediumspringgreen" : "#00FA9A",
-						"mediumturquoise" : "#48D1CC",
-						"mediumvioletred" : "#C71585",
-						"midnightblue" : "#191970",
-						"mintcream" : "#F5FFFA",
-						"mistyrose" : "#FFE4E1",
-						"moccasin" : "#FFE4B5",
-						"navajowhite" : "#FFDEAD",
-						"navy" : "#000080",
-						"oldlace" : "#FDF5E6",
-						"olive" : "#808000",
-						"olivedrab" : "#6B8E23",
-						"orange" : "#FFA500",
-						"orangered" : "#FF4500",
-						"orchid" : "#DA70D6",
-						"palegoldenrod" : "#EEE8AA",
-						"palegreen" : "#98FB98",
-						"paleturquoise" : "#AFEEEE",
-						"palevioletred" : "#DB7093",
-						"papayawhip" : "#FFEFD5",
-						"peachpuff" : "#FFDAB9",
-						"peru" : "#CD853F",
-						"pink" : "#FFC0CB",
-						"plum" : "#DDA0DD",
-						"powderblue" : "#B0E0E6",
-						"purple" : "#800080",
-						"rebeccapurple" : "#663399",
-						"red" : "#FF0000",
-						"rosybrown" : "#BC8F8F",
-						"royalblue" : "#4169E1",
-						"saddlebrown" : "#8B4513",
-						"salmon" : "#FA8072",
-						"sandybrown" : "#F4A460",
-						"seagreen" : "#2E8B57",
-						"seashell" : "#FFF5EE",
-						"sienna" : "#A0522D",
-						"silver" : "#C0C0C0",
-						"skyblue" : "#87CEEB",
-						"slateblue" : "#6A5ACD",
-						"slategray" : "#708090",
-						"snow" : "#FFFAFA",
-						"springgreen" : "#00FF7F",
-						"steelblue" : "#4682B4",
-						"tan" : "#D2B48C",
-						"teal" : "#008080",
-						"thistle" : "#D8BFD8",
-						"tomato" : "#FF6347",
-						"turquoise" : "#40E0D0",
-						"violet" : "#EE82EE",
-						"wheat" : "#F5DEB3",
-						"white" : "#FFFFFF",
-						"whitesmoke" : "#F5F5F5",
-						"yellow" : "#FFFF00",
-						"yellowgreen" : "#9ACD32"
-					}
-				}
-			}) ;
-
-		}) ;
-		
-		// EASE
-		Pkg.write('ease', function(path){
-			/* EASINGS */
-			/* Thanks to Robert Penner & Yossi */
-			var Ease = Type.define({
-				pkg:'::Ease',
-				constructor:Ease = function Ease(calc){
-					this.calculate = calc || function calculate(t, b, c, d){
-						return c * t / d + b ;
-					}
-				}
-			})
-			// LINEAR
-			var Linear = Type.define({
-				pkg:'::Linear',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(),
-					easeOut:new Ease(),
-					easeInOut:new Ease(),
-					easeOutIn:new Ease()
-				}
-			})
-			// CIRC
-			var Circ = Type.define({
-				pkg:'::Circ',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return -c * (Math.sqrt(1 - (t /= d) * t) - 1) + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * Math.sqrt(1 - (t = t / d - 1) * t) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return -c / 2 * (Math.sqrt(1 - t * t) - 1) + b ;
-						else return c / 2 * (Math.sqrt(1 - (t -= 2) * t) + 1) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return (c / 2) * Math.sqrt(1 - (t = (t * 2) / d - 1) * t) + b ;
-						else return -(c / 2) * (Math.sqrt(1 - (t = (t * 2 - d) / d) * t) - 1) + (b + c / 2) ;
-					})
-				}
-			})
-			// CUBIC
-			var Cubic = Type.define({
-				pkg:'::Cubic',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * ((t = t / d - 1) * t * t + 1) + b;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						return ((t /= d / 2) < 1) ? c / 2 * t * t * t + b : c / 2 * ((t -= 2) * t * t + 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						return t < d / 2 ? c / 2 * ((t = t * 2 / d - 1) * t * t + 1) + b : c / 2 * (t = (t * 2 - d) / d) * t * t + b + c / 2 ;
-					})
-				}
-			})
-			// EXPO
-			var Expo = Type.define({
-				pkg:'::Expo',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return t == 0 ? b : c * Math.pow(2, 10 * (t / d - 1)) + b ;
-					}),
-					easeOut: new Ease(function(t, b, c, d){
-						return t == d ? b + c : c * (-Math.pow(2, -10 * t / d)+1) + b;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if (t == 0) return b ;
-						if (t == d) return b + c ;
-						if ((t /= d / 2.0) < 1.0) return c / 2 * Math.pow(2, 10 * (t - 1)) + b ;
-						return c / 2 * (-Math.pow(2, -10 * --t)+2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2.0) return t * 2.0 == d ? b + c / 2.0 : c / 2.0 * (-Math.pow(2, -10 * t * 2.0 / d)+1) + b ;
-						else return (t * 2.0 - d) == 0 ? b + c / 2.0 : c / 2.0 * Math.pow(2, 10 * ((t * 2 - d) / d - 1)) + b + c / 2.0 ;
-					})
-				}
-			})
-			// QUAD
-			var Quad = Type.define({
-				pkg:'::Quad',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return -c * (t /= d) * (t - 2) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t + b ;
-						else return -c / 2 * ((--t) * (t - 2) - 1) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return -(c / 2) * (t = (t * 2 / d)) * (t - 2) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t + (b + c / 2) ;
-					})
-				}
-			})
-			// QUART
-			var Quart = Type.define({
-				pkg:'::Quart',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return -c * ((t = t / d - 1) * t * t * t - 1) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t + b ;
-						else return -c / 2 * ((t -= 2) * t * t * t - 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return -(c / 2) * ((t = (t * 2) / d - 1) * t * t * t - 1) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t + (b + c / 2) ;
-					})
-				}
-			})
-			// QUINT
-			var Quint = Type.define({
-				pkg:'::Quint',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						return c * (t /= d) * t * t * t * t + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						return c * ((t = t / d - 1) * t * t * t * t + 1) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if ((t /= d / 2) < 1) return c / 2 * t * t * t * t * t + b ;
-						else return c / 2 * ((t -= 2) * t * t * t * t + 2) + b ;
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * t * t * t + 1) + b ;
-						else return (c / 2) * (t = (t * 2 - d) / d) * t * t * t * t + (b + c / 2) ;
-					})
-				}
-			})
-			// SINE
-			var Sine = Type.define({
-				pkg:'::Sine',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function calculate(t, b, c, d){
-						return -c * Math.cos(t / d * (Math.PI / 2)) + c + b ;
-					}),
-					easeOut:new Ease(function calculate(t, b, c, d){
-						return c * Math.sin(t / d * (Math.PI / 2)) + b ;
-					}),
-					easeInOut:new Ease(function calculate(t, b, c, d){
-						return -c / 2 * (Math.cos(Math.PI * t / d) - 1) + b ;
-					}),
-					easeOutIn:new Ease(function calculate(t, b, c, d){
-						if (t < d / 2) return (c / 2) * Math.sin((t * 2) / d * (Math.PI / 2)) + b ;
-						else return -(c / 2) * Math.cos((t * 2 - d) / d * (Math.PI / 2)) + (c / 2) + (b + c / 2) ;
-					})
-				}
-			})
-			// BOUNCE
-			var Bounce = Type.define({
-				pkg:'::Bounce',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new Ease(function(t, b, c, d){
-						if ((t = (d - t) / d) < (1 / 2.75)) return c - (c * (7.5625 * t * t)) + b ;
-						if (t < (2 / 2.75)) return c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + b ;
-						if (t < (2.5 / 2.75)) return c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + b ;
-						else return c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + b ;
-					}),
-					easeOut:new Ease(function(t, b, c, d){
-						if ((t /= d) < (1 / 2.75)) return c * (7.5625 * t * t) + b ;
-						if (t < (2 / 2.75)) return c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-						if (t < (2.5 / 2.75)) return c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-						else return c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-					}),
-					easeInOut:new Ease(function(t, b, c, d){
-						if (t < d / 2) {
-							if ((t = (d - t * 2) / d) < (1 / 2.75)) return (c - (c * (7.5625 * t * t))) * 0.5 + b ;
-							if (t < (2 / 2.75)) return (c - (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75))) * 0.5 + b ;
-							if (t < (2.5 / 2.75)) return (c - (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375))) * 0.5 + b ;
-							else return (c - (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375))) * 0.5 + b ;
-						} else {
-							if ((t = (t * 2 - d) / d) < (1 / 2.75)) return (c * (7.5625 * t * t)) * 0.5 + c * 0.5 + b ;
-							if (t < (2 / 2.75)) return (c * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) * 0.5 + c * 0.5 + b ;
-							if (t < (2.5 / 2.75)) return (c * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) * 0.5 + c * 0.5 + b ;
-							else return (c * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) * 0.5 + c * 0.5 + b ;
-						}
-					}),
-					easeOutIn:new Ease(function(t, b, c, d){
-						if (t < d / 2) {
-							if ((t = (t * 2) / d) < (1 / 2.75)) return (c / 2) * (7.5625 * t * t) + b ;
-							if (t < (2 / 2.75)) return (c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75) + b ;
-							if (t < (2.5 / 2.75)) return (c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375) + b ;
-							else return (c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375) + b ;
-						} else {
-							if ((t = (d - (t * 2 - d)) / d) < (1 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * t * t)) + (b + c / 2) ;
-							if (t < (2 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (1.5 / 2.75)) * t + 0.75)) + (b + c / 2) ;
-							if (t < (2.5 / 2.75)) return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.25 / 2.75)) * t + 0.9375)) + (b + c / 2) ;
-							else return (c / 2) - ((c / 2) * (7.5625 * (t -= (2.625 / 2.75)) * t + 0.984375)) + (b + c / 2) ;
-						}
-					})
-				}
-			})
-			// ELASTIC
-			var ElasticEaseIn = function(a, p){
-				return new Ease(function(t, b, c, d){
-					a = a || 0 , p = p || 0 ;
-					if (t == 0) return b ;
-					if ((t /= d) == 1) return b + c ;
-					if (!p) p = d * 0.3 ;
-
-					var s ;// Number
-					if (!a || a < Math.abs(c)) {
-						a = c ;
-						s = p / 4 ;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a) ;
-					}
-					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-				})
-			}
-			var ElasticEaseOut = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					if (t == 0) return b ;
-					if ((t /= d) == 1) return b + c ;
-					if (!p) p = d * 0.3 ;
-
-					var s ;
-					if (!a || a < Math.abs(c)) {
-						a = c ;
-						s = p / 4 ;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a) ;
-					}
-					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-				})
-			}
-			var ElasticEaseInOut = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					if (t == 0) return b ;
-					if ((t /= d / 2) == 2) return b + c ;
-					if (!p) p = d * (0.3 * 1.5) ;
-
-					var s ;
-					if (!a || a < Math.abs(c)) {
-						a = c;
-						s = p / 4;
-					} else {
-						s = p / (2 * Math.PI) * Math.asin(c / a);
-					}
-					if (t < 1) return -0.5 * (a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
-					else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
-				})
-			}
-			var ElasticEaseOutIn = function(a, p){
-				a = a || 0 , p = p || 0 ;
-				return new Ease(function(t, b, c, d){
-					var s ;
-					c /= 2 ;
-					if (t < d / 2) {
-						if ((t *= 2) == 0) return b ;
-						if ((t /= d) == 1) return b + c ;
-						if (!p) p = d * 0.3 ;
-						if (!a || a < Math.abs(c)) {
-							a = c ;
-							s = p / 4 ;
-						} else {
-							s = p / (2 * Math.PI) * Math.asin(c / a) ;
-						}
-						return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
-					} else {
-						if ((t = t * 2 - d) == 0) return (b + c) ;
-						if ((t /= d) == 1) return (b + c) + c ;
-						if (!p) p = d * 0.3 ;
-						if (!a || a < Math.abs(c)) {
-							a = c ;
-							s = p / 4 ;
-						} else {
-							s = p / (2 * Math.PI) * Math.asin(c / a) ;
-						}
-						return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + (b + c) ;
-					}
-				})
-			}
-			var Elastic = Type.define({
-				pkg:'::Elastic',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new ElasticEaseIn(),
-					easeOut:new ElasticEaseOut(),
-					easeInOut:new ElasticEaseInOut(),
-					easeOutIn:new ElasticEaseOutIn(),
-					easeInWith:function(a, p){return new ElasticEaseIn(a || 0, p || 0)},
-					easeOutWith:function(a, p){return new ElasticEaseOut(a || 0, p || 0)},
-					easeInOutWith:function(a, p){return new ElasticEaseInOut(a || 0, p || 0)},
-					easeOutInWith:function(a, p){return new ElasticEaseOutIn(a || 0, p || 0)}
-				}
-			})
-			// BACK
-			var BackEaseIn = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					return c * (t /= d) * t * ((s + 1) * t - s) + b;
-				})
-			}
-			var BackEaseOut = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					return c * ((t = t / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-				})
-			}
-			var BackEaseInOut = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					if ((t /= d / 2) < 1) return c / 2 * (t * t * (((s * 1.525) + 1) * t - s * 1.525)) + b ;
-					else return c / 2 * ((t -= 2) * t * (((s * 1.525) + 1) * t + s * 1.525) + 2) + b ;
-				})
-			}
-			var BackEaseOutIn = function(s){
-				s = s || 1.70158 ;
-				return new Ease(function(t, b, c, d){
-					if (t < d / 2) return (c / 2) * ((t = (t * 2) / d - 1) * t * ((s + 1) * t + s) + 1) + b ;
-					else return (c / 2) * (t = (t * 2 - d) / d) * t * ((s + 1) * t - s) + (b + c / 2) ;
-				})
-			}
-			var Back = Type.define({
-				pkg:'::Back',
-				domain:Type.appdomain,
-				statics:{
-					easeIn:new BackEaseIn(),
-					easeOut:new BackEaseOut(),
-					easeInOut:new BackEaseInOut(),
-					easeOutIn:new BackEaseOutIn(),
-					easeInWith:function(s){return new BackEaseIn(s || 1.70158)},
-					easeOutWith:function(s){return new BackEaseOut(s || 1.70158)},
-					easeInOutWith:function(s){return new BackEaseInOut(s || 1.70158)},
-					easeOutInWith:function(s){return new BackEaseOutIn(s || 1.70158)}
-				}
-			})
-			// CUSTOM
-			var Custom = Type.define({
-				pkg:'::Custom',
-				domain:Type.appdomain,
-				statics:{
-					func:function func(f){
-						return new Ease(f) ;
-					}
-				}
-			}) ;
-			// PHYSICAL
-			var Physical = Type.define({
-				pkg:'physical::Physical',
-				domain:Type.appdomain,
-				inherits:Ease,
-				statics:{
-					defaultFrameRate:__FPS__,
-					uniform:function(velocity, frameRate){
-						return new PhysicalUniform(velocity || TEN, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					},
-					accelerate:function(acceleration, initialVelocity, frameRate){
-						return new PhysicalAccelerate(initialVelocity || ZERO, acceleration || ONE, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					},
-					exponential:function(factor, threshold, frameRate){
-						return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
-					}
-				}
-			}) ;
-			var PhysicalAccelerate = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				iv:undefined,
-				a:undefined,
-				fps:undefined,
-				constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){
-					this.iv = iv ;
-					this.a = a ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					var iv = c < 0 ? - this.iv : this.iv ;
-					var a = c < 0 ? - this.a : this.a ;
-
-					return ((-iv + Math.sqrt(iv * iv - 4 * (a / TWO) * -c)) / (2 * (a / TWO))) * (ONE / this.fps);
-				},
-				calculate:function(t, b, c){
-					var f = c < 0 ? -1 : 1 ;
-					var n = t / (ONE / this.fps) ;
-					return b + (f * this.iv) * n + ((f * this.a) * n) * n / TWO ;
-				}
-			}) ;
-			var PhysicalExponential = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				f:undefined,
-				th:undefined,
-				fps:undefined,
-				constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){
-					this.f = f ;
-					this.th = th ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (ONE / this.fps) ;
-				},
-				calculate:function(t, b, c){
-					return -c * Math.pow(1 - this.f, (t / (ONE / this.fps)) - 1) + (b + c) ;
-				}
-			}) ;
-			var PhysicalUniform = Type.define({
-				pkg:'physical',
-				inherits:Physical,
-				v:undefined,
-				fps:undefined,
-				constructor:PhysicalUniform = function PhysicalUniform(v, fps){
-					this.v = v ;
-					this.fps = fps ;
-				},
-				getDuration:function(b, c){
-					return (c / (c < 0 ? -this.v : this.v)) * (ONE / this.fps) ;
-				},
-				calculate:function(t, b, c){
-					return b + (c < 0 ? -this.v : this.v) * (t / (ONE / this.fps)) ;
-				}
-			});
-
-		}) ;
-		
 	})})()
 ) ;
