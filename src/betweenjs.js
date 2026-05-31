@@ -100,6 +100,7 @@
 			CACHE_TIMEOUT 			= {},
 			CACHE_INTERVAL 			= {},
 			CACHE_ANIM_FRAME		= {},
+			CACHE_LOAD				= {},
 			// regexp
 			DOM_reg 				= /HTML[a-zA-Z]*Element/,
 			UNIT_reg 				= /(px|em|pc|pt|%)$/,
@@ -333,19 +334,43 @@
 						actions:[],
 						frames:-1,
 						HALT:false,
+						/**
+						 * Creates a new Animation instance.
+						 * @param {Function} update - Update callback
+						 * @param {Function} draw - Draw callback
+						 * @return {Animation} New Animation instance
+						 */
 						createAnimation:function(update, draw){
 							return new Animation(update, draw) ;
 						},
+						/**
+						 * Begins the animation frame cycle.
+						 * @param {number} timestamp - Current timestamp
+						 * @param {number} __FRAME_DELTA__ - Frame delta time
+						 */
 						begin:function(timestamp, __FRAME_DELTA__){
 							// UNUSED
 							BetweenJSCore.settings.begin(timestamp, __FRAME_DELTA__) ;
 						},
+						/**
+						 * Updates all animation loops.
+						 * @param {number} timestamp - Current timestamp
+						 */
 						update:function(timestamp){
 							this.loopthru("update", timestamp) ;
 						},
+						/**
+						 * Draws all animation loops.
+						 * @param {number} timestamp - Current timestamp
+						 */
 						draw:function(timestamp){
 							this.loopthru("draw", timestamp) ;
 						},
+						/**
+						 * Iterates through all animation loops calling the named method.
+						 * @param {string} funcname - Name of the method to call on each loop
+						 * @param {number} timestamp - Current timestamp
+						 */
 						loopthru:function(funcname, timestamp){
 							// UNUSED
 							BetweenJSCore.settings[funcname](timestamp) ;
@@ -359,10 +384,18 @@
 									loop[funcname](timestamp) ;
 							}
 						},
+						/**
+						 * Ends the animation frame cycle.
+						 * @param {number} __FPS__ - Current frames per second
+						 * @param {boolean} panic - Whether the update panic limit was hit
+						 */
 						end:function(__FPS__, panic){
 							// UNUSED
 							BetweenJSCore.settings.end(__FPS__, panic) ;
 						},
+						/**
+						 * Checks and executes queued frame actions.
+						 */
 						checkFrameActions:function(){
 							
 							var l = this.actions.length ;
@@ -390,15 +423,25 @@
 							}
 							
 						},
+						/**
+						 * Halts the entire animation system.
+						 */
 						haltSystem:function(){
 							var anim = AnimationTicker ;
 							anim.HALT = true ;
 						},
+						/**
+						 * Restores and restarts the animation system after a halt.
+						 */
 						restoreSystem:function(){
 							var anim = AnimationTicker ;
 							anim.HALT = false ;
 							anim.start() ;
 						},
+						/**
+						 * Inner animation loop callback. Computes frame timing, updates, and draws.
+						 * @param {number} timestamp - High-resolution timestamp from requestAnimationFrame
+						 */
 						innerFunc:function(timestamp){
 							/////
 							if (timestamp < __LAST_FRAME_TIME_MS__ + __MIN_FRAME_DELAY__) {
@@ -458,6 +501,9 @@
 							
 							panic = false ;
 						},
+						/**
+						 * Starts the animation ticker.
+						 */
 						start:function(){
 							var anim = AnimationTicker ;
 							anim.started = true ;
@@ -467,6 +513,9 @@
 								anim.innerFunc(now) ;
 							}) ;
 						},
+						/**
+						 * Stops the animation ticker.
+						 */
 						stop:function(){
 							var anim = AnimationTicker ;
 							cancelAnimationFrame(anim.ID) ;
@@ -474,6 +523,10 @@
 							anim.started = false ;
 							delete anim.ID ;
 						},
+						/**
+						 * Attaches an animation loop to the ticker.
+						 * @param {Object} loop - Animation loop to attach
+						 */
 						attach:function(loop){
 							var lo = this.loops ;
 							lo[lo.length] = loop ;
@@ -481,12 +534,19 @@
 								this.start() ;
 							}
 						},
+						/**
+						 * Detaches an animation loop from the ticker.
+						 * @param {Object} loop - Animation loop to detach
+						 */
 						detach:function(loop){
 							this.reorder() ;
 							this.loops.splice(loop.index, 1) ;
 							
 							if(this.loops.length == 0) this.stop() ;
 						},
+						/**
+						 * Reindexes all loops after a removal.
+						 */
 						reorder:function(){
 							var l = this.loops.length ;
 							for(var i = 0 ; i < l ; i++){
@@ -504,23 +564,45 @@
 					update:undefined,
 					draw:undefined,
 					die:false,
+					/**
+					 * Creates a new Animation instance.
+					 * @param {Function} update - Update callback
+					 * @param {Function} draw - Draw callback
+					 */
 					constructor:Animation = function Animation(update, draw){
 						Animation.base.call(this) ;
 						this.enable(update, draw) ;
 					},
+					/**
+					 * Enables the animation with update and draw callbacks.
+					 * @param {Function} update - Update callback
+					 * @param {Function} draw - Draw callback
+					 */
 					enable:function(update, draw){
 						this.update = update ;
 						this.draw = draw ;
 					},
+					/**
+					 * Starts the tween from the beginning (rewind then play).
+					 * @return {Object} This tween instance
+					 */
 					start:function(){
 						AnimationTicker.attach(this) ;
 						return this ;
 					},
+					/**
+					 * Stops playback of the tween.
+					 * @return {Object} This tween instance
+					 */
 					stop:function(){
 						AnimationTicker.detach(this) ;
 						this.destroy() ;
 						return this ;
 					},
+					/**
+					 * Halts the animation without destroying it.
+					 * @return {Object} This Animation instance
+					 */
 					halt:function(){
 						AnimationTicker.detach(this) ;
 						return this ;
@@ -536,9 +618,17 @@
 					inherits:Traceable,
 					prevListener:undefined,
 					nextListener:undefined,
+					/**
+					 * Creates a new TickerListener instance.
+					 */
 					constructor:TickerListener = function TickerListener(){
 						
 					},
+					/**
+					 * Tick callback called on each frame.
+					 * @param {number} time - Current time value
+					 * @return {boolean} Whether the listener should be removed
+					 */
 					tick:function(time){
 						return false ;
 					},
@@ -562,6 +652,10 @@
 						coreListenersMax: 0,
 						tickerListenerPaddings:undefined,
 						time:undefined,
+						/**
+						 * Initializes the EnterFrameTicker with listener padding pool.
+						 * @param {Object} domain - The BetweenJSCore domain
+						 */
 						initialize:function initialize(domain){
 							var AnimationTicker = BetweenJSCore.AnimationTicker ;
 							
@@ -582,6 +676,10 @@
 								this.tickerListenerPaddings[i] = listener ;
 							}
 						},
+						/**
+						 * Adds a ticker listener to the linked list.
+						 * @param {Object} listener - The listener to add
+						 */
 						addTickerListener:function(listener){
 
 							if(!!listener.nextListener || !!listener.prevListener) {
@@ -606,6 +704,10 @@
 							++ this.numListeners ;
 
 						},
+						/**
+						 * Removes a ticker listener from the linked list.
+						 * @param {Object} listener - The listener to remove
+						 */
 						removeTickerListener:function(listener){
 
 							var l = this.first ;
@@ -632,6 +734,9 @@
 							}
 
 						},
+						/**
+						 * Starts the EnterFrameTicker animation loop.
+						 */
 						start:function(){
 							
 							var AnimationTicker = BetweenJS.$.AnimationTicker ;
@@ -656,10 +761,17 @@
 							
 							this.started = true ;
 						},
+						/**
+						 * Stops the EnterFrameTicker animation loop.
+						 */
 						stop:function(){
 							this.animation.stop() ;
 							this.started = false ;
 						},
+						/**
+						 * Draws all drawable listeners.
+						 * @param {number} ts - Timestamp for drawing
+						 */
 						draw:function(ts){
 							
 							var drawables = this.drawables ;
@@ -669,6 +781,10 @@
 								drawable.draw(ts) ;
 							}
 						},
+						/**
+						 * Updates all ticker listeners and collects drawables.
+						 * @param {number} time - Current time value
+						 */
 						update:function(time){
 							
 							var EFT = this ;
@@ -702,6 +818,12 @@
 										listener = listener.nextListener ;
 										var AbstractTween = BetweenJS.$.AbstractTween ;
 										
+										if(!!!listener){
+											listener = this.tickerListenerPaddings[n] ;
+											j = 0 ;
+											continue ;
+										}
+										
 										if(listener instanceof AbstractTween){
 											listener.triggerNext(newt) ;
 											newt = newt - listener.startTime ;
@@ -725,7 +847,7 @@
 											ll = listener.prevListener ;
 											listener.nextListener = undefined ;
 											listener.prevListener = undefined ;
-											listener = ll ;
+											listener = !!ll ? ll : this.tickerListenerPaddings[n] ;
 											-- this.numListeners ;
 										}
 									}
@@ -759,10 +881,19 @@
 			Pkg.write('tweens', function(path){
 				// FACTORY
 				var TweenFactory = BetweenJSCore.TweenFactory = {
+					/**
+					 * Sets default easing and time on options if not provided.
+					 * @param {Object} options - Tween options object
+					 */
 					optionDefaults:function(options){
 						if(!!!options['ease']) options['ease'] = Expo.easeOut ;
 						if(!!!options['time'] && options['time'] !== 0) options['time'] = BASE_TIME ;
 					},
+					/**
+					 * Detects the tween type from options and creates the appropriate tween.
+					 * @param {Object} options - Tween options object
+					 * @return {Object} The created tween instance
+					 */
 					detectTweenTypeFromOptions:function(options){
 						var method = '';
 
@@ -784,6 +915,11 @@
 						}
 						return this[method](options) ;
 					},
+					/**
+					 * Checks for multiple targets and delegates to bulkcreate or single tween creation.
+					 * @param {Object} options - Tween options containing a target
+					 * @return {Object} A single tween or parallel tweens for multiple targets
+					 */
 					checkMultipleTargets:function(options){
 
 						var n, t = options.target ;
@@ -827,6 +963,11 @@
 
 						return this.detectTweenTypeFromOptions(options) ;
 					},
+					/**
+					 * Creates parallel tweens for multiple targets.
+					 * @param {Object} options - Tween options object
+					 * @return {Object} A ParallelTween containing tweens for each target
+					 */
 					bulkcreate:function(options){
 						var targets = [].concat(options.target) ;
 						var l = targets.length ;
@@ -839,10 +980,20 @@
 
 						return BetweenJS.parallelTweens(arr) ;
 					},
+					/**
+					 * Creates a tween from options, checking for multiple targets first.
+					 * @param {Object} options - Tween options object
+					 * @return {Object} The created tween instance
+					 */
 					create:function(options){
 
 						return this.checkMultipleTargets(options) ;
 					},
+					/**
+					 * Creates a basic tween.
+					 * @param {Object} options - Tween options object
+					 * @return {Object} The configured Tween instance
+					 */
 					createBasic:function(options){
 
 						var tw = new Tween() ;
@@ -852,6 +1003,11 @@
 							.checkPhysical()
 							.setHandlers(options) ;
 					},
+					/**
+					 * Creates an action tween (addChild, removeFromParent, func, load, timeout, interval, animationframe).
+					 * @param {Object} options - Tween options containing an actions property
+					 * @return {Object} The configured action tween instance
+					 */
 					createAction:function(options){
 						var tw ;
 						var actions = options.actions ;
@@ -884,6 +1040,11 @@
 							.configure(t)
 							.setHandlers(options)
 					},
+					/**
+					 * Creates a decorator tween (slice, scale, reverse, repeat, delay).
+					 * @param {Object} options - Tween options containing a decorators property
+					 * @return {Object} The configured decorator tween instance
+					 */
 					createDecorator:function(options){
 						var tw ;
 						var mods = options.decorators ;
@@ -912,6 +1073,11 @@
 							.checkPhysical()
 							.setHandlers(options)
 					},
+					/**
+					 * Creates a group tween (parallel or serial).
+					 * @param {Object} options - Tween options containing a groups property
+					 * @return {Object} The configured group tween instance
+					 */
 					createGroup:function(options){
 						var tw ;
 						var groups = options.groups ;
@@ -949,6 +1115,11 @@
 						this.isPlaying = false ;
 						this.time = Tween.DEFAULT_TIME ;
 					},
+					/**
+					 * Configures the tween with options.
+					 * @param {Object} options - Configuration with stopOnComplete, initposition, etc.
+					 * @return {Object} This tween instance
+					 */
 					configure:function(options){
 						this.stopOnComplete = options['stopOnComplete'] || true ;
 						this.position = options['initposition'] || ZERO ;
@@ -964,10 +1135,19 @@
 					///////////
 					//// TWEEN METHODS
 					///////////
+					/**
+					 * Checks if the updater is physics-based and sets the isPhysical flag.
+					 * @return {Object} This tween instance
+					 */
 					checkPhysical:function(){
 						if(this.updater.isPhysical) this.isPhysical = true ;
 						return this ;
 					},
+					/**
+					 * Sets event handlers from an options object.
+					 * @param {Object} options - Options object with onStart, onUpdate, onComplete, etc.
+					 * @return {Object} This tween instance
+					 */
 					setHandlers:function(options){//		EVENTS
 						this.copyHandlersFrom(options) ;
 						return this ;
@@ -979,6 +1159,12 @@
 						if (!!f) f.apply(this, [].concat(p)) ;
 						return this ;
 					},
+					/**
+					 * Binds an event handler to a tween event type.
+					 * @param {String} type - Event type (start, update, complete, etc.)
+					 * @param {Function} func - Handler function
+					 * @return {Object} This tween instance
+					 */
 					bind:function(type, func){
 						type = type.replace(/^\w/, function($1){return $1.toUpperCase()}) ;
 						this['on'+type] = func ;
@@ -986,6 +1172,12 @@
 						
 						return this ;
 					},
+					/**
+					 * Unbinds an event handler from a tween event type.
+					 * @param {String} type - Event type to unbind from
+					 * @param {Function} func - Handler function to remove
+					 * @return {Object} This tween instance
+					 */
 					unbind:function(type, func){
 						type = type.replace(/^\w/, function($1){return $1.toUpperCase()}) ;
 						
@@ -998,15 +1190,20 @@
 						
 						return this ;
 					},
-					/*
-
-						TWEEN & UPDATER SETTINGS
-
-					*/
+					/**
+					 * Sets the updater for this tween.
+					 * @param {Object} updater - The updater instance
+					 * @return {Object} This tween instance
+					 */
 					setUpdater:function(updater){
 						this.updater = updater ;
 						return this ;
 					},
+					/**
+					 * Sets the current position of the tween, clamped to valid range.
+					 * @param {Number} position - Time position
+					 * @return {Object} This tween instance
+					 */
 					setPosition:function(position){
 						if (position < ZERO) position = ZERO ;
 						if (position > this.time) position = this.time ;
@@ -1014,20 +1211,30 @@
 						this.position = position ;
 						return this ;
 					},
+					/**
+					 * Sets the start time based on the current ticker time minus position.
+					 * @param {Number} position - Time position to offset from current ticker time
+					 * @return {Object} This tween instance
+					 */
 					setStartTime:function(position){
 						var EFT = BetweenJS.$.EnterFrameTicker ;
 						this.startTime = EFT.time - position ;
 						return this ;
 					},
+					/**
+					 * Sets the total duration of the tween.
+					 * @param {Number} time - Duration in seconds
+					 * @return {Object} This tween instance
+					 */
 					setTime:function(time){
 						this.time = time ;
 						return this ;
 					},
-					/*
-
-						TWEEN LAUNCH SETUP
-
-					*/
+					/**
+					 * Registers the tween with the enter frame ticker to start receiving updates.
+					 * @param {*} [p] - Optional parameter
+					 * @return {Object} This tween instance
+					 */
 					register:function(p){
 						var EFT = BetweenJS.$.EnterFrameTicker ;
 						
@@ -1040,6 +1247,10 @@
 						
 						return this ;
 					},
+					/**
+					 * Unregisters the tween from the enter frame ticker.
+					 * @return {Object} This tween instance
+					 */
 					unregister:function(){
 						if(this.registered){
 							BetweenJS.$.EnterFrameTicker.removeTickerListener(this) ;
@@ -1048,6 +1259,10 @@
 						
 						return this ;
 					},
+					/**
+					 * Sets up the tween for playback: marks as playing, registers ticker, seeks to position.
+					 * @return {Object} This tween instance
+					 */
 					setup:function(){
 						this.isPlaying = true ;
 						var p = this.position ;
@@ -1061,13 +1276,22 @@
 						
 						return this ;
 					},
-					
+					/**
+					 * Tears down the tween: stops playing and unregisters from ticker.
+					 * @return {Object} This tween instance
+					 */
 					teardown:function(){
 						this.isPlaying = false ;
 						this.unregister() ;
 
 						return this ;
 					},
+					/**
+					 * Schedules a callback to be called on the next frame.
+					 * @param {Function} closure - Callback function
+					 * @param {*} [params] - Additional parameters for the callback
+					 * @return {void}
+					 */
 
 					nextFrame:function(closure, params){
 						var args = __SLICE__.call(arguments) ;
@@ -1078,7 +1302,10 @@
 						} ;
 						
 					},
-					
+					/**
+					 * Triggers the next-frame callback if one is scheduled.
+					 * @return {void}
+					 */
 					triggerNext:function(){
 						if(!!this.next){
 							this.next.closure.apply(this, this.next.params) ;
@@ -1088,11 +1315,12 @@
 						}
 					},
 					
-					/*
-
-						TIMELINE SETTINGS
-
-					*/
+					/**
+					 * Moves the tween to a specific position in time.
+					 * @param {Number} position - Time position or percent if isPercent is true
+					 * @param {Boolean} [isPercent] - Whether position is a percentage of total time
+					 * @return {Object} This tween instance
+					 */
 					seek:function(position, isPercent){
 						position = !!isPercent ? this.time * position : position ;
 						this.setPosition(position) ;
@@ -1100,15 +1328,30 @@
 						
 						return this ;
 					},
+					/**
+					 * Toggles the tween between play and stop states.
+					 * @return {Object} This tween instance
+					 */
 					toggle:function(){
 						return this.isPlaying ? this.stop() : this.play() ;
 					},
 					start:function(){
 						return this.rewind().play() ;
 					},
+					/**
+					 * Rewinds the tween to the beginning (position 0).
+					 * @param {*} [position] - Ignored, present for signature compatibility
+					 * @return {Object} This tween instance
+					 */
 					rewind:function(position){
 						return this.seek(ZERO) ;
 					},
+					/**
+					 * Moves to a position and plays from there.
+					 * @param {Number} position - Time position or percent
+					 * @param {Boolean} [isPercent] - Whether position is a percentage
+					 * @return {Object} This tween instance
+					 */
 					gotoAndPlay:function(position, isPercent){
 						position = !!isPercent ?this.time * position : position ;
 						
@@ -1120,6 +1363,12 @@
 						
 						return this ;
 					},
+					/**
+					 * Moves to a position and stops there.
+					 * @param {Number} position - Time position or percent
+					 * @param {Boolean} [isPercent] - Whether position is a percentage
+					 * @return {Object} This tween instance
+					 */
 					gotoAndStop:function(position, isPercent){
 						position = !!isPercent ? this.time * position : position ;
 						this.update(position) ;
@@ -1127,6 +1376,10 @@
 							? this.stop()
 							: this.draw() ;
 					},
+					/**
+					 * Starts or resumes playback of the tween.
+					 * @return {Object} This tween instance
+					 */
 					play:function(){
 						if (!this.isPlaying) {
 							this.setup()
@@ -1141,12 +1394,21 @@
 						}
 						return this ;
 					},
+					/**
+					 * Restarts the tween from the beginning.
+					 * @return {Object} This tween instance
+					 */
 					restart:function(){
 						if(this.isPlaying) this.stop();
 						this.seek(0);
 						this.play();
 						return this ;
 					},
+					/**
+					 * Updates the tween using the updater for non-finite position values.
+					 * @param {Number} position - The position value
+					 * @return {Object} Update result from the updater
+					 */
 					checkFiniteTime:function(position){
 						return this.updater.update(position) ;
 					},
@@ -1154,6 +1416,11 @@
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
 					//////// CAUTION MANY CLASSES DEPENDING ON THIS UPDATE / TICK / INTERNALUPDATE
+					/**
+					 * Called on each frame tick to update the tween position.
+					 * @param {Number} position - The new time position
+					 * @return {Boolean} True if the tween has completed and should stop
+					 */
 					tick:function(position){
 						
 						if (!this.isPlaying) {
@@ -1173,14 +1440,18 @@
 								this.seek(ZERO) ;
 								
 							} else {
-								// this.teardown() ;
-								// this.stop() ;
+								this.isPlaying = false ;
 								return true ;
 							}
 						}
 						
 						return false ;
 					},
+					/**
+					 * Internal update that handles non-finite times and infinite duration.
+					 * @param {Number} position - The time position
+					 * @return {Object} Update result with started, decayed, granted, reversed flags
+					 */
 					internalUpdate:function(position){
 						
 						if(!isFinite(position)){
@@ -1199,6 +1470,11 @@
 						
 						return r ;
 					},
+					/**
+					 * Sets the position and computes feedback flags (started, decayed, reversed, granted).
+					 * @param {Number} position - The time position to set
+					 * @return {Object} Info object with started, decayed, reversed, granted properties
+					 */
 					setPositionAndFeedback:function(position){
 						
 						var started, 
@@ -1248,6 +1524,11 @@
 							granted:granted
 						} ;
 					},
+					/**
+					 * Updates the tween to a given position and fires relevant events.
+					 * @param {Number} position - The time position to update to
+					 * @return {Object} Update result with started, decayed, granted, reversed flags
+					 */
 					update:function(position){
 						
 						if(!isFinite(position)){
@@ -1268,6 +1549,10 @@
 						
 						return s ;
 					},
+					/**
+					 * Applies the current tween state to the target and fires draw/complete events.
+					 * @return {void}
+					 */
 					draw:function(){
 						
 						this.internalDraw() ;
@@ -1282,12 +1567,20 @@
 						}
 						
 					},
+					/**
+					 * Applies the current updater state to the target.
+					 * @return {void}
+					 */
 					internalDraw:function(){
 						this.updater.draw() ;
 					},
 					//////// END CAUTION
 					//////// END CAUTION
 					//////// END CAUTION
+					/**
+					 * Creates a clone of this tween.
+					 * @return {Object} A new tween instance with the same configuration
+					 */
 					clone:function(){
 						var instance = this.newInstance() ;
 						if (!!instance) {
@@ -1295,9 +1588,18 @@
 						}
 						return instance ;
 					},
+					/**
+					 * Creates a new empty instance of the same tween type.
+					 * @return {Object} A new AbstractTween instance
+					 */
 					newInstance:function(){
 					   return new AbstractTween() ;
 					},
+					/**
+					 * Copies properties and handlers from a source tween.
+					 * @param {Object} source - The source tween to copy from
+					 * @return {void}
+					 */
 					copyFrom:function(source){
 						this.position = source.position ;
 						this.time = source.time ;
@@ -1307,6 +1609,11 @@
 						
 						this.copyHandlersFrom(source);
 					},
+					/**
+					 * Copies event handlers (start, play, stop, update, draw, complete) from a source.
+					 * @param {Object} source - The source tween to copy handlers from
+					 * @return {void}
+					 */
 					copyHandlersFrom:function(source){
 
 						var list = [
@@ -1332,6 +1639,10 @@
 							
 						}
 					},
+					/**
+					 * Destroys the tween, stopping it if currently playing.
+					 * @return {void}
+					 */
 					destroy:function(){
 
 						if(this.isPlaying){
@@ -1368,6 +1679,9 @@
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
 						duration:Tween.SAFE_TIME,
+						/**
+						 * Base class for action tweens that execute callbacks at specific times.
+						 */
 						constructor:AbstractActionTween = function AbstractActionTween(){
 							AbstractActionTween.base.call(this) ;
 						},
@@ -1416,6 +1730,9 @@
 						useRollback:false,
 						rollbackFunc:undefined,
 						rollbackParams:undefined,
+						/**
+						 * Action tween that executes a function at completion.
+						 */
 						constructor:FunctionAction = function FunctionAction(){
 							FunctionAction.base.call(this) ;
 						},
@@ -1461,6 +1778,9 @@
 						pkg:'::TimeoutAction',
 						domain:BetweenJSCore,
 						inherits:FunctionAction,
+						/**
+						 * Action tween that executes a function once after a duration elapses.
+						 */
 						constructor:TimeoutAction = function TimeoutAction(){
 							TimeoutAction.base.call(this) ;
 						},
@@ -1485,6 +1805,9 @@
 						pkg:'::IntervalAction',
 						domain:BetweenJSCore,
 						inherits:FunctionAction,
+						/**
+						 * Action tween that repeatedly executes a function at each interval duration.
+						 */
 						constructor:IntervalAction = function IntervalAction(){
 							IntervalAction.base.call(this) ;
 						},
@@ -1496,24 +1819,26 @@
 							return this ;
 						},
 						internalUpdate:function(position){
-							
+
 							if(!isFinite(position)){
 								return this.duration ;
 							}
-							
+
 							if(this.time == __XXL__){
 								this.setTime(this.update(Infinity)) ;
 							}
 							if(!this.cancelled){
 								if(position >= this.duration) {
-									// position = this.position = 0 ;
 									this.action() ;
-								} ;
+									var elapsed = Math.floor(position / this.duration) * this.duration ;
+									this.startTime += elapsed ;
+									position -= elapsed ;
+								}
 
 							}else if(!!this.cancelled){
 								this.setTime(Tween.SAFE_TIME) ;
 							}
-							
+
 							return this.setPositionAndFeedback(position) ;
 						},
 						action:function(){
@@ -1535,6 +1860,9 @@
 						pkg:'::LoadAction',
 						domain:BetweenJSCore,
 						inherits:FunctionAction,
+						/**
+						 * Action tween that loads a URL via XHR and fires a callback on completion.
+						 */
 						constructor:LoadAction = function LoadAction(){
 							LoadAction.base.call(this) ;
 						},
@@ -1543,13 +1871,21 @@
 							this.duration = Infinity ;
 							this.url = options.url ;
 							this.postData = options.postData ;
-							this.keepInLocalCache = options.keepInLocalCache ;
-							this.forceBrowserNoCache = options.forceBrowserNoCache ;
+							this.keepInLocalCache = options.keepInLocalCache !== false ;
+							this.forceBrowserNoCache = options.forceBrowserNoCache === true ;
 							
-							
+
 							return this ;
 						},
 						internalUpdate:function(position){
+							
+							// Fire the XHR on first call regardless of position
+							// (serial chain may pass Infinity or NaN on init frame)
+							if(!this.loaded && !this.loading){
+								this.action() ;
+							}else if(this.loaded || this.failed){
+								this.setTime(Tween.SAFE_TIME) ;
+							}
 							
 							if(!isFinite(position)){
 								return this.duration ;
@@ -1557,11 +1893,6 @@
 							
 							if(this.time == __XXL__){
 								this.setTime(this.update(Infinity)) ;
-							}
-							if(!this.loaded && !this.loading){
-								this.action() ;
-							}else if(this.loaded){
-								this.setTime(Tween.SAFE_TIME) ;
 							}
 							
 							return this.setPositionAndFeedback(position) ;
@@ -1592,49 +1923,52 @@
 								return xhttp;
 							} ;
 							
-							var setPostData = function setPostData(){
-								var postData = {} ;
-								return {
-									post_data:postData,
-									post_method: "GET",
-									ua_header:{ua:'User-Agent',ns:'XMLHTTP/1.0'},
-									post_data_header: {content_type:'Content-type',ns:'application/x-www-form-urlencoded'}
-								} ;
-							}
 							var r = generateXHR() ;
-							if (!r) throw new Error('Current browser does not support XHR-type Http Requests') ;
+							if (!r) {
+								this.failed = true ;
+								this.loading = false ;
+								return this ;
+							}
 							
 							var th = this ;
-							var ud = setPostData() ;
-							var keepInLocalCache = keepInLocalCache || true ;
-							var forceBrowserNoCache = forceBrowserNoCache || false ;
-
 							var url = this.url ;
-							var loc = (forceBrowserNoCache) ? url + '?t=' + Date.now() : url ;
+							var keepInLocalCache = this.keepInLocalCache ;
+							var forceBrowserNoCache = this.forceBrowserNoCache ;
+							var postData = this.postData ;
+							var loc = forceBrowserNoCache ? url + '?t=' + Date.now() : url ;
 							
 							if(keepInLocalCache && url in cache){
 								th.response = cache[url] ;
+								if(!!th.func) th.func.apply(th, [].concat(th.params)) ;
 								th.loaded = true ;
 								th.loading = false ;
 								return th ;
 							}
-
-							r.open(ud['post_method'] , loc, true) ;
 							
-							if (ud['post_data_header'] !== undefined) r.setRequestHeader(ud['post_data_header']['content_type'],ud['post_data_header']['ns']) ;
+							var method = !!postData ? 'POST' : 'GET' ;
+							r.open(method , loc, true) ;
+							r.setRequestHeader('Accept','*/*') ;
+							
+							if(method == 'POST'){
+								r.setRequestHeader('Content-type','application/x-www-form-urlencoded') ;
+							}
 							r.onreadystatechange = function () {
 								if (r.readyState != 4) return;
 								if (r.status != 200 && r.status != 304) {
 									th.failed = true ;
-									throw new Error('RequestError : Path > "'+ url +'" failed, with status :'+ r.status) ;
+									th.response = r.statusText || 'RequestError' ;
+									th.loaded = true ;
+									th.loading = false ;
+									return ;
 								}
 								th.response = r.responseText ;
 								if(keepInLocalCache) cache[url] = th.response ;
+								if(!!th.func) th.func.apply(th, [].concat(th.params)) ;
 								th.loaded = true ;
 								th.loading = false ;
 							}
 							if (r.readyState == 4) return ;
-							r.send(ud['postData']) ;
+							r.send(postData || null) ;
 							
 							return this ;
 						},
@@ -1649,6 +1983,9 @@
 						pkg:'::AnimationFrameAction',
 						domain:BetweenJSCore,
 						inherits:FunctionAction,
+						/**
+						 * Action tween that starts a requestAnimationFrame-based animation loop.
+						 */
 						constructor:AnimationFrameAction = function AnimationFrameAction(){
 							AnimationFrameAction.base.call(this) ;
 						},
@@ -1766,6 +2103,9 @@
 						domain:BetweenJSCore,
 						inherits:AbstractTween,
 						baseTween:undefined,
+						/**
+						 * Base decorator that wraps another tween to modify its behavior.
+						 */
 						constructor:TweenDecorator = function TweenDecorator(){
 							TweenDecorator.base.call(this) ;
 						},
@@ -1824,6 +2164,9 @@
 						inherits:TweenDecorator,
 						begin:0,
 						end:1,
+						/**
+						 * Decorator that plays a slice of a base tween's timeline.
+						 */
 						constructor:SlicedTween = function SlicedTween(){
 							SlicedTween.base.call(this) ;
 						},
@@ -1904,6 +2247,9 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						scale:1,
+						/**
+						 * Decorator that scales the duration of a base tween.
+						 */
 						constructor:ScaledTween = function ScaledTween(){
 							ScaledTween.base.call(this) ;
 						},
@@ -1960,6 +2306,9 @@
 						pkg:'::ReversedTween',
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
+						/**
+						 * Decorator that reverses the direction of a base tween.
+						 */
 						constructor:ReversedTween = function ReversedTween(){
 							ReversedTween.base.call(this) ;
 						},
@@ -1995,6 +2344,9 @@
 						domain:BetweenJSCore,
 						inherits:TweenDecorator,
 						repeatCount:2,
+						/**
+						 * Decorator that repeats a base tween a specified number of times.
+						 */
 						constructor:RepeatedTween = function RepeatedTween(){
 						   RepeatedTween.base.call(this) ;
 						},
@@ -2050,6 +2402,9 @@
 						basetime:undefined,
 						delay:ZERO,
 						postDelay:ZERO,
+						/**
+						 * Decorator that adds a delay before and/or after a base tween.
+						 */
 						constructor:DelayedTween = function DelayedTween(){
 						   DelayedTween.base.call(this) ;
 						},
@@ -2102,6 +2457,12 @@
 						d:undefined,
 						elements:undefined,
 						length:0,
+						/**
+						 * Iterates over all child elements, calling a function for each.
+						 * @param {Function} f - Callback function (el, index, array)
+						 * @param {Boolean} [reversed] - Whether to iterate in reverse order
+						 * @return {Array} Array of return values
+						 */
 						bulkFunc:function(f, reversed){
 							var els = [] ;
 							var ret = [] ;
@@ -2148,10 +2509,21 @@
 								break ;
 							}
 						},
+						/**
+						 * A tween that manages a group of child tweens.
+						 * @param {Array} [elements] - Array of child tweens
+						 * @param {Function} [closure] - Optional callback for each element
+						 */
 						constructor:GroupTween = function GroupTween(elements, closure){
 							GroupTween.base.call(this) ;
 							this.elements = [] ;
 						},
+						/**
+						 * Fills the group with child tweens from an array.
+						 * @param {Array} elements - Array of child tween objects
+						 * @param {Function} [closure] - Optional callback for each element
+						 * @return {void}
+						 */
 						fill:function(elements, closure){
 							
 							var l = elements.length, tar ;
@@ -2201,6 +2573,9 @@
 						domain:BetweenJSCore,
 						inherits:GroupTween,
 						tweens:undefined,
+						/**
+						 * Group tween that plays all child tweens simultaneously.
+						 */
 						constructor:ParallelTween = function ParallelTween(){
 							ParallelTween.base.call(this) ;
 						},
@@ -2295,6 +2670,9 @@
 						inherits:GroupTween,
 						tweens:undefined,
 						drawables:undefined,
+						/**
+						 * Group tween that plays all child tweens in sequence.
+						 */
 						constructor:SerialTween = function SerialTween(){
 							SerialTween.base.call(this) ;
 						},
@@ -2451,6 +2829,13 @@
 					poolIndex:0,
 					mapPool:[],
 					listPool:[],
+					/**
+					 * Gets or creates an active updater instance, caching it in the map.
+					 * @param {Object} map - Map of existing updaters
+					 * @param {Array} updaters - Array to push new updaters into
+					 * @param {Object} options - Tween options
+					 * @return {Updater} The active updater instance
+					 */
 					getActiveUpdater:function(map, updaters, options){
 						var upstr = 'org.libspark.betweenjs.core.updaters::Updater' ;
 						var updater = map[upstr] ;
@@ -2465,6 +2850,11 @@
 
 						return updater ;
 					},
+					/**
+					 * Transforms an array of cue point objects into a transposed object of arrays.
+					 * @param {Array} cp - Array of cue point objects
+					 * @return {Object} Object with property keys mapped to arrays of values per cue
+					 */
 					treatCuePoints:function(cp){
 						var l = cp.length ;
 						var nu = {} ;
@@ -2479,6 +2869,12 @@
 						}
 						return nu ;
 					},
+					/**
+					 * Normalizes property names, resolves mappers, and declares required source/dest values.
+					 * @param {Updater} updater - The updater to configure
+					 * @param {Object} props - Properties object with to, from, cuepoints
+					 * @return {Object} The processed properties object
+					 */
 					isofy:function(updater, props){
 						
 						// props = JSON.parse(JSON.stringify(props)) ;
@@ -2643,6 +3039,13 @@
 						
 						return props ;
 					},
+					/**
+					 * Processes tween options, creating updaters and nested child updaters as needed.
+					 * @param {Object} map - Map of existing updaters
+					 * @param {Array} updaters - Array to collect created updaters
+					 * @param {Object} options - Tween options (target, to, from, ease, time, cuepoints)
+					 * @return {Object} The processed user data descriptor
+					 */
 					treat:function(map, updaters, options){
 						
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
@@ -2670,9 +3073,6 @@
 						updater.isPhysical = ease instanceof Physical ;
 						updater.userData = desc ;
 						
-						// updater.source = desc['from'] ;
-						// updater.destination = desc['to'] ;
-						// updater.cuepoints = desc['cuepoints'] ;
 						
 						for(var type in desc){
 
@@ -2748,6 +3148,11 @@
 						
 						return desc ;
 					},
+					/**
+					 * Creates an updater (or BulkUpdater) from tween options.
+					 * @param {Object} options - Tween options
+					 * @return {Updater|BulkUpdater} The created updater instance
+					 */
 					make:function(options){
 
 						var BulkUpdater = BetweenJS.$.BulkUpdater,
@@ -2774,12 +3179,23 @@
 						r = this.unregisterUpdaters(map, updaters) ;
 						return updater ;
 					},
+					/**
+					 * Creates an updater directly from options (convenience wrapper around make).
+					 * @param {Object} options - Tween options
+					 * @return {Updater|BulkUpdater} The created updater instance
+					 */
 					create:function(options){
 						var updater = this.make(options) ;
 						return updater ;
 					},
 					
 					// ENTER REGISTRY UNIT
+					/**
+					 * Acquires a map/updaters pair from the object pool or creates new ones.
+					 * @param {Object} map - Map placeholder (overwritten by pooled ref)
+					 * @param {Array} updaters - Array placeholder (overwritten by pooled ref)
+					 * @return {Object} Object with map and updaters properties
+					 */
 					registerUpdaters:function(map,updaters){
 						if (this.poolIndex > 0) {
 							--this.poolIndex ;
@@ -2791,6 +3207,12 @@
 						}
 						return {map:map, updaters:updaters} ;
 					},
+					/**
+					 * Returns a map/updaters pair to the object pool for reuse.
+					 * @param {Object} map - Map to clear and pool
+					 * @param {Array} updaters - Array to clear and pool
+					 * @return {void}
+					 */
 					unregisterUpdaters:function(map, updaters){
 						for (var p in map) delete map[p] ;
 						updaters.length = 0 ;
@@ -2817,11 +3239,18 @@
 					position:ZERO,
 					isResolved:false,
 					units:{},
+					/**
+					 * Creates an Updater that manages property interpolation over time.
+					 */
 					constructor:Updater = function Updater(){
 						Updater.base.call(this) ;
 
 						this.reset() ;
 					},
+					/**
+					 * Resets the updater state, clearing all resolved values.
+					 * @return {void}
+					 */
 					reset:function(){
 						this.isResolved = false ;
 						this.source = {} ;
@@ -2833,6 +3262,11 @@
 						this.position = 
 						this.maxDuration = ZERO ;
 					},
+					/**
+					 * Calculates and stores the interpolation factor for a given position.
+					 * @param {Number} position - Current time position
+					 * @return {Updater} This updater for chaining
+					 */
 					setFactor:function(position){
 						var factor = -Infinity ;
 						if(this.isPhysical){
@@ -2855,12 +3289,27 @@
 						
 						return this ;
 					},
+					/**
+					 * Sets the total duration for the updater.
+					 * @param {Number} time - Duration
+					 * @return {void}
+					 */
 					setTime:function(time){
 						this.time = time ;
 					},
+					/**
+					 * Sets the current position within the tween timeline.
+					 * @param {Number} position - Current position
+					 * @return {void}
+					 */
 					setPosition:function(position){
 						this.position = position ;
 					},
+					/**
+					 * Updates the updater to a given position, resolving values and calculating new state.
+					 * @param {Number} position - Time position to update to
+					 * @return {void}
+					 */
 					update:function(position){
 						
 						if(!isFinite(position)){
@@ -2874,10 +3323,20 @@
 						this.updateObject() ;
 						
 					},
+					/**
+					 * Checks what time would result from an infinite position without modifying state.
+					 * @param {Number} position - Infinite position (Infinity or -Infinity)
+					 * @return {Number} The resolved absolute time
+					 */
 					checkTime:function(position){
 						var t = this.resolveValues(false) ;
 						return t > ZERO ? t : -t ;
 					},
+					/**
+					 * Resolves all source and destination values, computing durations for physical eases.
+					 * @param {Boolean} forReal - Whether to mark as resolved for real (prevents re-resolution)
+					 * @return {Number} The total time
+					 */
 					resolveValues:function(forReal){
 						var PropertyMapper = BetweenJS.$.PropertyMapper ;
 						
@@ -2980,6 +3439,10 @@
 						this.isResolved = true ;
 						return this.time ;
 					},
+					/**
+					 * Interpolates all target properties based on the current factor, handling cue points.
+					 * @return {void}
+					 */
 					updateObject:function(){
 
 						var factor = this.factor ;
@@ -3011,17 +3474,11 @@
 							}
 							
 							if(!!!cp[name]){
-								// if(this.isPhysical){
-									// if (position >= dur[name]) {
-										// val = b ;
-									// }else{
-										// val = e.calculate(position, a, b - a) ;
-									// }
-								// }else{
-									// val = a * invert + b * factor ;
-								// }
-								
-								val = a * invert + b * factor ;
+								if(this.isPhysical){
+									val = e.calculate(position, a, b - a) ;
+								}else{
+									val = a * invert + b * factor ;
+								}
 							}else{
 								if (factor != ONE && !!(cpVec = this.cuepoints[name])) {
 									l = cpVec.length ;
@@ -3058,10 +3515,20 @@
 							this.store(name, val) ;
 						}
 					},
+					/**
+					 * Stores an interpolated value for later application.
+					 * @param {String} name - Property name
+					 * @param {Number} val - Interpolated value
+					 * @return {void}
+					 */
 					store:function(name, val){
 						this.value = this.value || {} ;
 						this.value[name] = val ;
 					},
+					/**
+					 * Applies all stored interpolated values to the target object.
+					 * @return {void}
+					 */
 					draw:function(){
 						var v = this.value, val ;
 						for(var name in v){
@@ -3069,18 +3536,36 @@
 							this.setIn(name, val) ;
 						}
 					},
+					/**
+					 * Sets a source (from) value for a property.
+					 * @param {String} name - Property name (may start with > for relative)
+					 * @param {*} value - Source value
+					 * @return {void}
+					 */
 					setSourceValue:function(name, value){
 						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
 						this.source[name] = value ;
 						this.relativeMap['source.' + name] = isRelative ;
 					},
+					/**
+					 * Sets a destination (to) value for a property.
+					 * @param {String} name - Property name (may start with > for relative)
+					 * @param {*} value - Destination value
+					 * @return {void}
+					 */
 					setDestinationValue:function(name, value){
 						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
 						this.destination[name] = value ;
 						this.relativeMap['dest.' + name] = isRelative ;
 					},
+					/**
+					 * Adds a cue point value for a property at a specific point in the timeline.
+					 * @param {String} name - Property name
+					 * @param {Number} value - Cue point value
+					 * @return {void}
+					 */
 					addCuePoint:function(name, value){
 						var isRelative = REL_reg.test(name) ;
 						if(isRelative) name = name.substr(1) ;
@@ -3089,14 +3574,24 @@
 						if (cuepoints === undefined) this.cuepoints[name] = cuepoints = [] ;
 						cuepoints.push(value) ;
 						// dont remember why this is no longer needed... 
-						// guess it is because isRelative is not stored as for each cuepoint, but for all cp in same value 
 						// this.relativeMap['cuepoints.' + name + '.' + (cuepoints.length - 1)] = isRelative ;
 					},
+					/**
+					 * Reads a property value from the target using the appropriate getter.
+					 * @param {String} name - Property name
+					 * @return {*} The current property value
+					 */
 					getIn:function(name){
 						if(isNOTDOM(this.target)) return this.target[name] ;
 						var ss = BetweenJS.$.PropertyMapper.cache[name]['getMethod'](this.target, name, this.units[name]) ;
 						return ss ;
 					},
+					/**
+					 * Writes a property value to the target using the appropriate setter.
+					 * @param {String} name - Property name
+					 * @param {*} value - Value to set
+					 * @return {void}
+					 */
 					setIn:function(name, value){
 
 						if(isNOTDOM(this.target)) {
@@ -3221,6 +3716,7 @@
 					},
 					draw:function(){
 						this.child.draw() ;
+						this.child.target.__units = this.child.units ;
 						this.parent.setIn(this.propertyName, this.child.target) ;
 					},
 					clone:function(source){
@@ -3239,6 +3735,11 @@
 					time:ZERO,
 					isResolved:false,
 					isPhysical:false,
+					/**
+					 * Groups multiple updaters for a single target.
+					 * @param {Object|Element} target - The animation target
+					 * @param {Array} updaters - Array of child updaters
+					 */
 					constructor:BulkUpdater = function BulkUpdater(target, updaters){
 						var isPhysical = false ;
 						
@@ -3412,6 +3913,7 @@
 					COLOR_reg						= /((border|background)?color|background)$/i,
 					ALPHA_reg						= /alpha|opacity/gi,
 					SCROLL_reg 						= /scroll-?(left|top)?/gi,
+					TRANSFORM_reg					= /^transform$/i,
 					ALL_reg							= /(.*)$/,
 					NAMEUNIT_reg 					= /((::)(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?)))$/i,
 					VALUEUNIT_reg 					= /(%|c(m|h)|r?e(x|m)|in|p(x|c|t)|mm|v(h|w|m(in|ax)?))$/i,
@@ -3427,6 +3929,12 @@
 					statics:{
 						REQUIRED:'__REQUIRED__',
 						cache:{},
+						/**
+						 * Checks if a property name matches a custom mapper and returns parsed info.
+						 * @param {Object} type - The properties object (to, from, or cuepoints)
+						 * @param {String} name - The property name to check
+						 * @return {Object} Parsed result with outputname, value, units, isRelative, custom, block
+						 */
 						checkCustomMapper:function(type, name){
 
 							var CustomMappers = BetweenJS.$.PropertyMapper.CustomMappers ;
@@ -3467,6 +3975,28 @@
 						},
 						CustomMappers:[
 							
+							/** Custom mapper for CSS transform properties. */
+							new CustomMapper(TRANSFORM_reg, {
+								parseMethod:function(type, inputname, val, required){
+									return {
+										inputname:inputname,
+										outputname:'transform',
+										units:'',
+										value:val,
+										isRelative:false,
+										custom:this,
+										block:true
+									};
+								},
+								getMethod:function(tg, n){
+									return BetweenJS.$.PropertyMapper.transformGet(tg);
+								},
+								setMethod:function(tg, n, val){
+									BetweenJS.$.PropertyMapper.transformSet(tg, val);
+								}
+							}),
+							
+							/** Custom mapper for all other (non-specialized) properties. */
 							new CustomMapper(ALL_reg, {
 								parseMethod:function(type, inputname, val, required){
 
@@ -3511,6 +4041,7 @@
 								}
 							}),
 							
+							/** Custom mapper for CSS color properties. */
 							new CustomMapper(COLOR_reg, {
 								parseMethod:function(type, inputname, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
@@ -3568,6 +4099,7 @@
 								}
 							}),
 							
+							/** Custom mapper for CSS alpha/opacity properties. */
 							new CustomMapper(ALPHA_reg, {
 								parseMethod:function(type, inputname, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
@@ -3599,6 +4131,7 @@
 									return BetweenJS.$.PropertyMapper.alphaSet(tg, n, val) ;
 								}
 							}),
+							/** Custom mapper for scroll position properties. */
 							new CustomMapper(SCROLL_reg, {
 								parseMethod:function(type, inputname, val, required){
 									var PropertyMapper = BetweenJS.$.PropertyMapper ;
@@ -3632,6 +4165,11 @@
 							})
 							
 						],
+						/**
+						 * Detects units embedded in a property name via :: syntax.
+						 * @param {String} name - Property name possibly containing ::unit suffix
+						 * @return {Object} Object with name and unit properties
+						 */
 						detectNameUnits:function(name){
 							
 							var unit ;
@@ -3641,6 +4179,11 @@
 							}) ;
 							return {name:n, unit:unit} ;
 						},
+						/**
+						 * Detects CSS units in a string value.
+						 * @param {String} value - Value string possibly ending with a CSS unit
+						 * @return {Object} Object with unit and numeric value
+						 */
 						detectValueUnits:function(value){
 
 							if(typeof(value) != 'string') return {unit : ''} ;
@@ -3654,6 +4197,12 @@
 
 							return {unit:unit, value:parseFloat(value)} ;
 						},
+						/**
+						 * Checks both name and value for unit specifications.
+						 * @param {String} name - Property name
+						 * @param {*} val - Property value
+						 * @return {Object} Object with units, name, and value
+						 */
 						checkForUnits:function(name, val){
 							var unit,
 								value = val ;
@@ -3666,17 +4215,33 @@
 
 							return {units:unit, name:name, value:value} ;
 						},
+						/**
+						 * Converts camelCase property names to dash-case.
+						 * @param {String} name - camelCase property name
+						 * @return {String} Dash-case property name
+						 */
 						replaceCapitalToDash:function(name){
 							
 							return name.replace(CAPSTODASH_reg, function($1){
 								return '-' + $1.toLowerCase() ;
 							}) ;
 						},
+						/**
+						 * Detects and strips the relative prefix from a property name.
+						 * @param {String} name - Property name starting with > for relative
+						 * @return {Object} Object with isRelative bool and cleaned name
+						 */
 						replaceRelative:function(name){
 							var o = {isRelative:REL_reg.test(name)} ;
 							o.name = o.isRelative ? name.substr(1) : name ;
 							return o ;
 						},
+						/**
+						 * Gets a computed CSS style value from a DOM element.
+						 * @param {Element} tg - The target DOM element
+						 * @param {String} name - CSS property name
+						 * @return {String} The computed style value
+						 */
 						getStyle:function(tg, name){
 							var val = '' ;
 							if(window.getComputedStyle){
@@ -3692,9 +4257,22 @@
 							
 							return val ;
 						},
+						/**
+						 * Sets a CSS style property on a DOM element.
+						 * @param {Element} tg - The target DOM element
+						 * @param {String} name - CSS property name
+						 * @param {*} val - Property value
+						 * @return {void}
+						 */
 						setStyle:function(tg, name, val){
 							tg['style'][name] = val ;
 						},
+						/**
+						 * IE fallback to get computed CSS values.
+						 * @param {Element} el - The target DOM element
+						 * @param {String} name - CSS property name
+						 * @return {String} The computed style value
+						 */
 						cssHackGet:function(el, name){
 							if (el.currentStyle) {
 								
@@ -3709,7 +4287,13 @@
 								return el.currentStyle[name] ;
 							}
 						},
-						// SCROLL
+						/**
+						 * Gets the current scroll position of a target.
+						 * @param {Object|Element} target - The scrollable target (window, document, or element)
+						 * @param {String} name - Property name (scrollTop, scrollLeft)
+						 * @param {String} [unit] - Optional unit
+						 * @return {Number} The scroll position
+						 */
 						scrollGet:function(target, name, unit) {
 							return (target === window || target === document) ?
 							(
@@ -3719,6 +4303,14 @@
 							) :
 							target[name] ;
 						},
+						/**
+						 * Sets the scroll position of a target.
+						 * @param {Object|Element} target - The scrollable target
+						 * @param {String} name - Property name (scrollTop, scrollLeft)
+						 * @param {Number} val - Scroll position value
+						 * @param {String} [unit] - Optional unit
+						 * @return {void}
+						 */
 						scrollSet:function(target, name, val, unit) {
 							if(target === window || target === document){
 								try{
@@ -3731,7 +4323,12 @@
 								target[name] = parseInt(val) ;
 							}
 						},
-						// ALPHA
+						/**
+						 * Gets the opacity value of a target (0-100 scale).
+						 * @param {Object|Element} target - The target element
+						 * @param {String} pname - Property name
+						 * @return {Number} Opacity value from 0 to 100
+						 */
 						alphaGet:function(target, pname){
 							var val ;
 							if(window.getComputedStyle){
@@ -3744,6 +4341,13 @@
 							
 							return val ;
 						},
+						/**
+						 * Sets the opacity value of a target (0-100 scale).
+						 * @param {Object|Element} target - The target element
+						 * @param {String} pname - Property name
+						 * @param {Number} val - Opacity value from 0 to 100
+						 * @return {void}
+						 */
 						alphaSet:function(target, pname, val){
 							if(window.getComputedStyle){
 								return target['style']['opacity'] = val / 100 ;
@@ -3754,17 +4358,37 @@
 						
 						
 						
+						/**
+						 * Gets a color value from a target and converts to a color object.
+						 * @param {Object|Element} target - The target element
+						 * @param {String} pname - CSS color property name
+						 * @return {Object} Color object with r, g, b, a properties
+						 */
 						colorGet:function(target, pname){
 							var Color = BetweenJS.$.Color ;
 							return Color.toColorObj(this.getStyle(target, pname)) ;
 						},
 						
+						/**
+						 * Sets a color property on a target from a color object.
+						 * @param {Object|Element} target - The target element
+						 * @param {String} pname - CSS color property name
+						 * @param {Object} val - Color object with r, g, b, a
+						 * @return {void}
+						 */
 						colorSet:function(target, pname, val){
 							var Color = BetweenJS.$.Color ;
 							this.setStyle(target, pname, Color.toColorString(Color.safe(val))) ;
 						},
 						
 						
+						/**
+						 * Gets a simple property value from a target, stripping units.
+						 * @param {Object|Element} tg - The target
+						 * @param {String} n - Property name
+						 * @param {String} [unit] - Unit to strip from the value
+						 * @return {Number} The numeric property value
+						 */
 						simpleGet:function(tg, n, unit){
 							if(isDOM(tg)){
 								try {
@@ -3776,6 +4400,14 @@
 							var str = String(tg[n]) ;
 							return Number(unit == '' ? str : str.replace(new RegExp(unit+'.*$'), '')) ;
 						},
+						/**
+						 * Sets a simple property value on a target, appending units.
+						 * @param {Object|Element} tg - The target
+						 * @param {String} n - Property name
+						 * @param {Number} v - Numeric value
+						 * @param {String} [unit] - Unit to append
+						 * @return {void}
+						 */
 						simpleSet:function(tg, n, v, unit){
 							if(isDOM(tg)){
 								try {
@@ -3786,6 +4418,13 @@
 								
 							tg[n] = unit == '' ? v : v + unit ;
 						},
+						/**
+						 * Gets a computed CSS property value from a DOM element.
+						 * @param {Element} tg - The DOM element
+						 * @param {String} n - CSS property name
+						 * @param {String} [unit] - Unit to strip
+						 * @return {Number} The numeric property value
+						 */
 						simpleDOMGet:function(tg, n, unit){
 							var str = this.getStyle(tg, n) ;
 							
@@ -3793,9 +4432,27 @@
 							
 							return str ;
 						},
+						/**
+						 * Sets a CSS property on a DOM element with unit.
+						 * @param {Element} tg - The DOM element
+						 * @param {String} n - CSS property name
+						 * @param {Number} v - Numeric value
+						 * @param {String} [unit] - CSS unit to append
+						 * @return {void}
+						 */
 						simpleDOMSet:function(tg, n, v, unit){
 							this.setStyle(tg, n, v + unit) ;
 						},
+						/**
+						 * Generates a CSS rule string for sequential class-based animations.
+						 * @param {String} selector - CSS selector prefix
+						 * @param {String} propertyname - CSS property name
+						 * @param {Number} [min=0] - Starting value
+						 * @param {Number} max - Ending value (exclusive)
+						 * @param {String} [units] - CSS unit
+						 * @param {String} [str=''] - Accumulator string
+						 * @return {String} Generated CSS rules
+						 */
 						printCSSRules:function(selector, propertyname, min, max, units, str){
 							min = min == undefined ? 0 : min ;
 							str = str == undefined ? '' : str ;
@@ -3808,6 +4465,11 @@
 							}
 							return str ;
 						},
+						/**
+						 * Resolves a jQuery or DOM target to a raw DOM node.
+						 * @param {Object|Element} tg - jQuery object or DOM element
+						 * @return {Element} The DOM node
+						 */
 						checkNode:function(tg){
 							var n ;
 							if(isDOM(tg) || 'appendChild' in tg)
@@ -3816,11 +4478,251 @@
 								n = tg.get(0) ;
 							return n ;
 						},
+						/**
+						 * Checks if a target is a jQuery object.
+						 * @param {*} tg - The target to check
+						 * @return {Boolean} Whether the target is a jQuery object
+						 */
 						isJQ:function(tg){
 							return isJQ(tg) ;
 						},
+						/**
+						 * Checks if a target is a DOM element.
+						 * @param {*} tg - The target to check
+						 * @return {Boolean} Whether the target is a DOM element
+						 */
 						isDOM:function(tg){
 							return isDOM(tg) ;
+						},
+						/**
+						 * Gets the current CSS transform of a target as decomposed properties.
+						 * @param {Element} tg - The DOM element
+						 * @return {Object} Decomposed transform properties (translateX, translateY, rotate, scaleX, scaleY, skewX, etc.)
+						 */
+						transformGet:function(tg){
+							var PM = BetweenJS.$.PropertyMapper;
+							var m = PM.parseTransformMatrix(tg);
+							if(!m) return {translateX:0, translateY:0, rotate:0, rotateZ:0, scaleX:1, scaleY:1, skewX:0, rotateX:0, rotateY:0, translateZ:0, scaleZ:1};
+							if(m.is3d){
+								var r = PM.decomposeMatrix3D(m.vals);
+								if(r){
+									r.rotate = r.rotateZ;
+									return r;
+								}
+							}
+							var r = PM.decomposeMatrix2D(m.a, m.b, m.c, m.d, m.e, m.f);
+							r.rotateX = 0; r.rotateY = 0; r.rotateZ = r.rotate || 0;
+							r.translateZ = 0; r.scaleZ = 1;
+							return r;
+						},
+						/**
+						 * Sets the CSS transform on a target from decomposed properties.
+						 * @param {Element} tg - The DOM element
+						 * @param {Object} val - Transform properties object
+						 * @return {void}
+						 */
+						transformSet:function(tg, val){
+							if(!val || typeof val !== 'object') return;
+							var PM = BetweenJS.$.PropertyMapper;
+							tg.style.transform = PM.composeTransformString(val);
+						},
+						/**
+						 * Parses the CSS transform matrix string from a DOM element.
+						 * @param {Element} tg - The DOM element
+						 * @return {Object|null} Parsed matrix values or null if none
+						 */
+						parseTransformMatrix:function(tg){
+							var style = window.getComputedStyle(tg, '');
+							var str = style.transform || style.webkitTransform || '';
+							if(!str || str === 'none') return null;
+							var m = str.match(/matrix\(([^)]+)\)/);
+							if(m){
+								var vals = m[1].split(',').map(parseFloat);
+								return {a:vals[0], b:vals[1], c:vals[2], d:vals[3], e:vals[4], f:vals[5]};
+							}
+							m = str.match(/matrix3d\(([^)]+)\)/);
+							if(m){
+								var vals = m[1].split(',').map(parseFloat);
+								var isPure2d = (
+									Math.abs(vals[2]) < 1e-10 && Math.abs(vals[3]) < 1e-10 &&
+									Math.abs(vals[6]) < 1e-10 && Math.abs(vals[7]) < 1e-10 &&
+									Math.abs(vals[8]) < 1e-10 && Math.abs(vals[9]) < 1e-10 &&
+									Math.abs(vals[10] - 1) < 1e-10 && Math.abs(vals[11]) < 1e-10 &&
+									Math.abs(vals[14]) < 1e-10 && Math.abs(vals[15] - 1) < 1e-10
+								);
+								if(isPure2d){
+									return {a:vals[0], b:vals[1], c:vals[4], d:vals[5], e:vals[12], f:vals[13]};
+								}
+								return {is3d:true, vals:vals};
+							}
+							return null;
+						},
+						/**
+						 * Decomposes a 2D transformation matrix into translate, rotate, scale, skew.
+						 * @param {Number} a - Matrix element (0,0)
+						 * @param {Number} b - Matrix element (0,1)
+						 * @param {Number} c - Matrix element (1,0)
+						 * @param {Number} d - Matrix element (1,1)
+						 * @param {Number} e - Matrix element (0,2) translateX
+						 * @param {Number} f - Matrix element (1,2) translateY
+						 * @return {Object} Decomposed transform with translateX, translateY, rotate, scaleX, scaleY, skewX
+						 */
+						decomposeMatrix2D:function(a, b, c, d, e, f){
+							var det = a * d - b * c;
+							var eps = 1e-10;
+							if(Math.abs(det) < eps){
+								return {translateX:e, translateY:f, rotate:0, scaleX:0, scaleY:0, skewX:0};
+							}
+							var tx = e, ty = f;
+							var row0x = a, row0y = b;
+							var sx = Math.sqrt(row0x * row0x + row0y * row0y);
+							row0x /= sx; row0y /= sx;
+							var k = row0x * c + row0y * d;
+							var row1x = c - k * row0x;
+							var row1y = d - k * row0y;
+							var sy = Math.sqrt(row1x * row1x + row1y * row1y);
+							row1x /= sy; row1y /= sy;
+							if(row0x * row1y - row0y * row1x < 0){
+								sx = -sx; row0x = -row0x; row0y = -row0y;
+							}
+							var rot = Math.atan2(row0y, row0x) * 180 / Math.PI;
+							return {translateX:tx, translateY:ty, rotate:rot, scaleX:sx, scaleY:sy, skewX:Math.atan(k / sy) * 180 / Math.PI};
+						},
+						/**
+						 * Decomposes a 3D transformation matrix (16 elements) into individual transforms.
+						 * @param {Array} vals - 16-element matrix array
+						 * @return {Object|null} Decomposed transform with translate, rotate, scale, skew, or null if invalid
+						 */
+						decomposeMatrix3D:function(vals){
+							var m = vals.slice();
+							if(Math.abs(m[15]) < 1e-10) return null;
+							var i;
+							for(i = 0; i < 16; i++) m[i] /= m[15];
+							var tx = m[12], ty = m[13], tz = m[14];
+							var perspectiveX = m[3], perspectiveY = m[7], perspectiveZ = m[11], perspectiveW = m[15];
+							if(Math.abs(perspectiveX) > 1e-10 || Math.abs(perspectiveY) > 1e-10 || Math.abs(perspectiveZ) > 1e-10){
+								if(Math.abs(perspectiveX) < 1e-10 && Math.abs(perspectiveY) < 1e-10 && perspectiveZ < 0){
+									perspectiveW = -1 / perspectiveZ;
+								}else{
+									perspectiveW = undefined;
+								}
+								m[3] = m[7] = m[11] = 0; m[15] = 1;
+							}else{
+								perspectiveW = undefined;
+							}
+							var row = [
+								[m[0], m[1], m[2]],
+								[m[4], m[5], m[6]],
+								[m[8], m[9], m[10]]
+							];
+							var sx = Math.sqrt(row[0][0]*row[0][0] + row[0][1]*row[0][1] + row[0][2]*row[0][2]);
+							row[0][0] /= sx; row[0][1] /= sx; row[0][2] /= sx;
+							var kxy = row[0][0]*row[1][0] + row[0][1]*row[1][1] + row[0][2]*row[1][2];
+							row[1][0] -= kxy * row[0][0]; row[1][1] -= kxy * row[0][1]; row[1][2] -= kxy * row[0][2];
+							var sy = Math.sqrt(row[1][0]*row[1][0] + row[1][1]*row[1][1] + row[1][2]*row[1][2]);
+							row[1][0] /= sy; row[1][1] /= sy; row[1][2] /= sy;
+							kxy /= sy;
+							var kxz = row[0][0]*row[2][0] + row[0][1]*row[2][1] + row[0][2]*row[2][2];
+							row[2][0] -= kxz * row[0][0]; row[2][1] -= kxz * row[0][1]; row[2][2] -= kxz * row[0][2];
+							var kyz = row[1][0]*row[2][0] + row[1][1]*row[2][1] + row[1][2]*row[2][2];
+							row[2][0] -= kyz * row[1][0]; row[2][1] -= kyz * row[1][1]; row[2][2] -= kyz * row[1][2];
+							var sz = Math.sqrt(row[2][0]*row[2][0] + row[2][1]*row[2][1] + row[2][2]*row[2][2]);
+							row[2][0] /= sz; row[2][1] /= sz; row[2][2] /= sz;
+							kxz /= sz; kyz /= sz;
+							var pd = row[0][0]*(row[1][1]*row[2][2] - row[1][2]*row[2][1]) -
+							         row[0][1]*(row[1][0]*row[2][2] - row[1][2]*row[2][0]) +
+							         row[0][2]*(row[1][0]*row[2][1] - row[1][1]*row[2][0]);
+							if(pd < 0){
+								sx = -sx; row[0][0] = -row[0][0]; row[0][1] = -row[0][1]; row[0][2] = -row[0][2];
+							}
+							var trace = row[0][0] + row[1][1] + row[2][2];
+							var qx, qy, qz, qw, s;
+							if(trace > 0){
+								s = 0.5 / Math.sqrt(trace + 1);
+								qw = 0.25 / s;
+								qx = (row[1][2] - row[2][1]) * s;
+								qy = (row[2][0] - row[0][2]) * s;
+								qz = (row[0][1] - row[1][0]) * s;
+							}else if(row[0][0] > row[1][1] && row[0][0] > row[2][2]){
+								s = 2 * Math.sqrt(1 + row[0][0] - row[1][1] - row[2][2]);
+								qw = (row[1][2] - row[2][1]) / s;
+								qx = 0.25 * s;
+								qy = (row[0][1] + row[1][0]) / s;
+								qz = (row[0][2] + row[2][0]) / s;
+							}else if(row[1][1] > row[2][2]){
+								s = 2 * Math.sqrt(1 + row[1][1] - row[0][0] - row[2][2]);
+								qw = (row[2][0] - row[0][2]) / s;
+								qx = (row[0][1] + row[1][0]) / s;
+								qy = 0.25 * s;
+								qz = (row[1][2] + row[2][1]) / s;
+							}else{
+								s = 2 * Math.sqrt(1 + row[2][2] - row[0][0] - row[1][1]);
+								qw = (row[0][1] - row[1][0]) / s;
+								qx = (row[0][2] + row[2][0]) / s;
+								qy = (row[1][2] + row[2][1]) / s;
+								qz = 0.25 * s;
+							}
+							var rx = Math.atan2(-2*(qy*qz - qx*qw), 1 - 2*(qx*qx + qy*qy));
+							var sinp = 2*(qx*qz + qy*qw);
+							if(sinp > 1) sinp = 1; else if(sinp < -1) sinp = -1;
+							var ry = Math.asin(sinp);
+							var rz = Math.atan2(-2*(qx*qy - qz*qw), 1 - 2*(qy*qy + qz*qz));
+							var out = {
+								translateX:tx, translateY:ty, translateZ:tz,
+								rotateX:rx * 180 / Math.PI,
+								rotateY:ry * 180 / Math.PI,
+								rotateZ:rz * 180 / Math.PI,
+								scaleX:sx, scaleY:sy, scaleZ:sz,
+								skewX:Math.atan(kxy) * 180 / Math.PI
+							};
+							if(perspectiveW !== undefined) out.perspectiveW = perspectiveW;
+							return out;
+						},
+						/**
+						 * Composes a CSS transform string from decomposed transform properties.
+						 * @param {Object} val - Transform properties object
+						 * @return {String} CSS transform string
+						 */
+						composeTransformString:function(val){
+							var u = val.__units || {}, p = [], rv = BetweenJS.$.PropertyMapper.roundVal;
+							if(val.rotate !== undefined && val.rotateZ === undefined) val.rotateZ = val.rotate;
+							if(val.rotateZ !== undefined && val.rotate === undefined) val.rotate = val.rotateZ;
+							var is3d = (val.rotateX !== undefined && Math.abs(val.rotateX) > 1e-6) ||
+							           (val.rotateY !== undefined && Math.abs(val.rotateY) > 1e-6) ||
+							           (val.translateZ !== undefined && Math.abs(val.translateZ) > 1e-6) ||
+							           (val.scaleZ !== undefined && Math.abs(val.scaleZ - 1) > 1e-6) ||
+							           val.perspectiveW !== undefined;
+							if(is3d){
+								if(val.perspectiveW) p.push('perspective(' + rv(val.perspectiveW, 2) + 'px)');
+								if(val.translateZ !== undefined && val.translateZ !== 0) p.push('translateZ(' + rv(val.translateZ, 2) + (u.translateZ || 'px') + ')');
+								if(val.translateY !== undefined && val.translateY !== 0) p.push('translateY(' + rv(val.translateY, 2) + (u.translateY || 'px') + ')');
+								if(val.translateX !== undefined && val.translateX !== 0) p.push('translateX(' + rv(val.translateX, 2) + (u.translateX || 'px') + ')');
+								if(val.rotateX !== undefined && val.rotateX !== 0) p.push('rotateX(' + rv(val.rotateX, 2) + (u.rotateX || 'deg') + ')');
+								if(val.rotateY !== undefined && val.rotateY !== 0) p.push('rotateY(' + rv(val.rotateY, 2) + (u.rotateY || 'deg') + ')');
+								if(val.rotateZ !== undefined && val.rotateZ !== 0) p.push('rotateZ(' + rv(val.rotateZ, 2) + (u.rotateZ || 'deg') + ')');
+								if(val.scaleX !== undefined && val.scaleX !== 1) p.push('scaleX(' + rv(val.scaleX, 4) + ')');
+								if(val.scaleY !== undefined && val.scaleY !== 1) p.push('scaleY(' + rv(val.scaleY, 4) + ')');
+								if(val.scaleZ !== undefined && val.scaleZ !== 1) p.push('scaleZ(' + rv(val.scaleZ, 4) + ')');
+								if(val.skewX !== undefined && val.skewX !== 0) p.push('skewX(' + rv(val.skewX, 2) + (u.skewX || 'deg') + ')');
+							}else{
+								if(val.translateX !== undefined && val.translateX !== 0) p.push('translateX(' + rv(val.translateX, 2) + (u.translateX || 'px') + ')');
+								if(val.translateY !== undefined && val.translateY !== 0) p.push('translateY(' + rv(val.translateY, 2) + (u.translateY || 'px') + ')');
+								if(val.scaleX !== undefined && val.scaleX !== 1) p.push('scaleX(' + rv(val.scaleX, 4) + ')');
+								if(val.scaleY !== undefined && val.scaleY !== 1) p.push('scaleY(' + rv(val.scaleY, 4) + ')');
+								if(val.rotate !== undefined && val.rotate !== 0) p.push('rotate(' + rv(val.rotate, 2) + (u.rotate || 'deg') + ')');
+								if(val.skewX !== undefined && val.skewX !== 0) p.push('skewX(' + rv(val.skewX, 2) + (u.skewX || 'deg') + ')');
+							}
+							return p.length ? p.join(' ') : 'none';
+						},
+						/**
+						 * Rounds a number to a specified number of decimal places.
+						 * @param {Number} v - The value to round
+						 * @param {Number} decimals - Number of decimal places
+						 * @return {Number} The rounded value
+						 */
+						roundVal:function(v, decimals){
+							var f = Math.pow(10, decimals);
+							return Math.round(v * f) / f;
 						}
 					}
 
@@ -3931,6 +4833,11 @@
 						return m ;
 					},
 					*/
+					/**
+					 * Converts an RGB color object to HSV.
+					 * @param {Object} o - RGB color object with r, g, b, and optional a properties
+					 * @return {Object} HSV color object with h, s, v, and optional a properties
+					 */
 					RGBtoHSV:RGBtoHSV = function(o){
 						// return BetweenJS.$.Color.rgb2hsv(o) ; 
 
@@ -3981,6 +4888,11 @@
 
 						return m ;
 					},
+					/**
+					 * Converts an HSV color object to RGB.
+					 * @param {Object} o - HSV color object with h, s, v, and optional a properties
+					 * @return {Object} RGB color object with r, g, b, and optional a properties
+					 */
 					HSVtoRGB:HSVtoRGB = function(o){
 						// return BetweenJS.$.Color.hsv2rgb(o) ;
 
@@ -4031,6 +4943,11 @@
 
 						return m ;
 					},
+					/**
+					 * Converts an HSL color object to HSV.
+					 * @param {Object} o - HSL color object with h, s, l, and optional a properties
+					 * @return {Object} HSV color object with h, s, v, and optional a properties
+					 */
 					HSLtoHSV:HSLtoHSV = function(o){
 
 						var h = o.h, s = o.s / 100, l = o.l / 100, a = o.a ;
@@ -4042,6 +4959,11 @@
 						if(isDefined(a)) m.a = a ;
 						return m ;
 					},
+					/**
+					 * Converts an HSV color object to HSL.
+					 * @param {Object} o - HSV color object with h, s, v, and optional a properties
+					 * @return {Object} HSL color object with h, s, l, and optional a properties
+					 */
 					HSVtoHSL:HSVtoHSL = function(o){
 						var h = o.h, s = o.s, v = o.v, a = o.a ;
 						var l = (200 - s) * v / 200 ;
@@ -4050,22 +4972,56 @@
 						if(isDefined(a)) m.a = a ;
 						return m ;
 					},
+					/**
+					 * Converts an HSL color object to RGB (via HSV).
+					 * @param {Object} o - HSL color object with h, s, l, and optional a properties
+					 * @return {Object} RGB color object with r, g, b, and optional a properties
+					 */
 					HSLtoRGB:HSLtoRGB = function(o){
 						return BetweenJS.$.Color.HSVtoRGB(BetweenJS.$.Color.HSLtoHSV(o))
 					},
+					/**
+					 * Converts an RGB color object to HSL (via HSV).
+					 * @param {Object} o - RGB color object with r, g, b, and optional a properties
+					 * @return {Object} HSL color object with h, s, l, and optional a properties
+					 */
 					RGBtoHSL:RGBtoHSL = function(o){
 						return BetweenJS.$.Color.HSVtoHSL(BetweenJS.$.Color.RGBtoHSV(o))
 					},
+					/**
+					 * Creates an RGB color object.
+					 * @param {number} r - Red value (0-255)
+					 * @param {number} g - Green value (0-255)
+					 * @param {number} b - Blue value (0-255)
+					 * @param {number} [a] - Alpha value (0-1)
+					 * @return {Object} RGB color object
+					 */
 					makeRGB:function(r, g, b, a){
 						var m = {r:r, g:g, b:b} ; 
 						if(isDefined(a)) m.a = a ;
 						return m ;
 					},
+					/**
+					 * Creates an HSV color object.
+					 * @param {number} h - Hue value (0-360)
+					 * @param {number} s - Saturation value (0-100)
+					 * @param {number} v - Value/Brightness (0-100)
+					 * @param {number} [a] - Alpha value (0-1)
+					 * @return {Object} HSV color object
+					 */
 					makeHSV:function(h, s, v, a){
 						var m = {h:h, s:s, v:v} ;
 						if(isDefined(a)) m.a = a ;
 						return m ;
 					},
+					/**
+					 * Creates an HSL color object.
+					 * @param {number} h - Hue value (0-360)
+					 * @param {number} s - Saturation value (0-100)
+					 * @param {number} l - Lightness value (0-100)
+					 * @param {number} [a] - Alpha value (0-1)
+					 * @return {Object} HSL color object
+					 */
 					makeHSL:function(h, s, l, a){
 						var m = {h:h, s:s, l:l} ;
 						if(isDefined(a)) m.a = a ;
@@ -4074,6 +5030,11 @@
 					
 					////////// RGBA CONVERSIONS
 					
+					/**
+					 * Converts a color value to an unsigned integer.
+					 * @param {number|string|Object} val - Color as UINT, HEX string, RGB string, or color object
+					 * @return {number} Color as unsigned integer
+					 */
 					toUINT:function(val){
 						var res ;
 						
@@ -4095,6 +5056,11 @@
 						
 						return res ;
 					},
+					/**
+					 * Converts a color value to a HEX string.
+					 * @param {number|string|Object} val - Color as UINT, HEX string, RGB string, or color object
+					 * @return {string} HEX color string (e.g. #FF0000)
+					 */
 					toHEX:function(val){
 						var res ;
 						
@@ -4115,6 +5081,11 @@
 						}
 						return res ;
 					},
+					/**
+					 * Converts a color value to an RGB or RGBA string.
+					 * @param {number|string|Object} val - Color as UINT, HEX string, RGB string, or color object
+					 * @return {string} RGB/RGBA color string (e.g. rgb(255,0,0))
+					 */
 					toSTR:function(val){
 						var r, g, b, h, s, v, a ;
 						
@@ -4143,6 +5114,11 @@
 						var app = isA ? 'rgba(' : 'rgb(', sep = ', ', end = ')' ;
 						return app + r + sep + g + sep + b + (isA ? sep + a : '' ) + end ;
 					},
+					/**
+					 * Converts a color value to an RGB color object.
+					 * @param {number|string|Object} val - Color as UINT, HEX string, RGB string, or color object
+					 * @return {Object} RGB color object with r, g, b, and optional a properties
+					 */
 					toOBJ:function(val){
 						var r, g, b, h, s, v, a ;
 						
@@ -4175,13 +5151,31 @@
 						return res ;
 					},
 					
+					/**
+					 * Converts a color value to a string representation.
+					 * @param {number|string|Object} val - Color value to convert
+					 * @param {string} [mode] - Color mode (unused)
+					 * @return {string} RGB/RGBA color string
+					 */
 					toColorString:function(val, mode){
 						return this.toSTR(val) ;
 					},
+					/**
+					 * Converts a color value to an RGB color object.
+					 * @param {number|string|Object} val - Color value to convert
+					 * @param {string} [mode] - Color mode (unused)
+					 * @return {Object} RGB color object
+					 */
 					toColorObj:function(val, mode){
 						return this.toOBJ(val) ;
 					},
 
+					/**
+					 * Clamps color values to valid ranges for the given mode.
+					 * @param {Object} val - Color object to clamp
+					 * @param {string} [mode] - Color mode ('rgb' or 'HSV')
+					 * @return {Object} The clamped color object
+					 */
 					safe:function(val, mode){
 						
 						var MODE = mode || 'rgb' ;
@@ -4521,13 +5515,17 @@
 			/* Thanks to Robert Penner & Yossi */
 			var Ease = Type.define({
 				pkg:'::Ease',
+				/**
+				 * Base easing class. Creates an ease instance with a given calculation function.
+				 * @param {Function} calc - The easing calculation function (t, b, c, d) => value
+				 */
 				constructor:Ease = function Ease(calc){
 					this.calculate = calc || function calculate(t, b, c, d){
 						return c * t / d + b ;
 					}
 				}
 			})
-			// LINEAR
+			/** Linear ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Linear = Type.define({
 				pkg:'::Linear',
 				domain:Type.appdomain,
@@ -4538,7 +5536,7 @@
 					easeOutIn:new Ease()
 				}
 			})
-			// CIRC
+			/** Circular ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Circ = Type.define({
 				pkg:'::Circ',
 				domain:Type.appdomain,
@@ -4559,7 +5557,7 @@
 					})
 				}
 			})
-			// CUBIC
+			/** Cubic ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Cubic = Type.define({
 				pkg:'::Cubic',
 				domain:Type.appdomain,
@@ -4578,7 +5576,7 @@
 					})
 				}
 			})
-			// EXPO
+			/** Exponential ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Expo = Type.define({
 				pkg:'::Expo',
 				domain:Type.appdomain,
@@ -4601,7 +5599,7 @@
 					})
 				}
 			})
-			// QUAD
+			/** Quadratic ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Quad = Type.define({
 				pkg:'::Quad',
 				domain:Type.appdomain,
@@ -4622,7 +5620,7 @@
 					})
 				}
 			})
-			// QUART
+			/** Quartic ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Quart = Type.define({
 				pkg:'::Quart',
 				domain:Type.appdomain,
@@ -4643,7 +5641,7 @@
 					})
 				}
 			})
-			// QUINT
+			/** Quintic ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Quint = Type.define({
 				pkg:'::Quint',
 				domain:Type.appdomain,
@@ -4664,7 +5662,7 @@
 					})
 				}
 			})
-			// SINE
+			/** Sine ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Sine = Type.define({
 				pkg:'::Sine',
 				domain:Type.appdomain,
@@ -4684,7 +5682,7 @@
 					})
 				}
 			})
-			// BOUNCE
+			/** Bounce ease with 4 variants: easeIn, easeOut, easeInOut, easeOutIn. */
 			var Bounce = Type.define({
 				pkg:'::Bounce',
 				domain:Type.appdomain,
@@ -4730,6 +5728,12 @@
 				}
 			})
 			// ELASTIC
+			/**
+			 * Creates an elastic ease-in function.
+			 * @param {Number} [a] - Amplitude
+			 * @param {Number} [p] - Period
+			 * @return {Ease} An Ease instance
+			 */
 			var ElasticEaseIn = function(a, p){
 				return new Ease(function(t, b, c, d){
 					a = a || 0 , p = p || 0 ;
@@ -4747,6 +5751,12 @@
 					return -(a * Math.pow(2, 10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p)) + b ;
 				})
 			}
+			/**
+			 * Creates an elastic ease-out function.
+			 * @param {Number} [a] - Amplitude
+			 * @param {Number} [p] - Period
+			 * @return {Ease} An Ease instance
+			 */
 			var ElasticEaseOut = function(a, p){
 				a = a || 0 , p = p || 0 ;
 				return new Ease(function(t, b, c, d){
@@ -4764,6 +5774,12 @@
 					return a * Math.pow(2, -10 * t) * Math.sin((t * d - s) * (2 * Math.PI) / p) + c + b ;
 				})
 			}
+			/**
+			 * Creates an elastic ease-in-out function.
+			 * @param {Number} [a] - Amplitude
+			 * @param {Number} [p] - Period
+			 * @return {Ease} An Ease instance
+			 */
 			var ElasticEaseInOut = function(a, p){
 				a = a || 0 , p = p || 0 ;
 				return new Ease(function(t, b, c, d){
@@ -4782,6 +5798,12 @@
 					else return a * Math.pow(2, -10 * (t -= 1)) * Math.sin((t * d - s) * (2 * Math.PI) / p) * 0.5 + c + b ;
 				})
 			}
+			/**
+			 * Creates an elastic ease-out-in function.
+			 * @param {Number} [a] - Amplitude
+			 * @param {Number} [p] - Period
+			 * @return {Ease} An Ease instance
+			 */
 			var ElasticEaseOutIn = function(a, p){
 				a = a || 0 , p = p || 0 ;
 				return new Ease(function(t, b, c, d){
@@ -4872,6 +5894,11 @@
 				pkg:'::Custom',
 				domain:Type.appdomain,
 				statics:{
+					/**
+					 * Creates a custom ease from a user-provided function.
+					 * @param {Function} f - The easing function (t, b, c, d) => value
+					 * @return {Ease} An Ease instance wrapping the function
+					 */
 					func:function func(f){
 						return new Ease(f) ;
 					}
@@ -4884,12 +5911,32 @@
 				inherits:Ease,
 				statics:{
 					defaultFrameRate:__FPS__,
+					/**
+					 * Creates a uniform physical ease with constant velocity.
+					 * @param {Number} [velocity=10] - Velocity per second in frames
+					 * @param {Number} [frameRate] - Target frame rate (defaults to Physical.defaultFrameRate)
+					 * @return {PhysicalUniform} A PhysicalUniform ease instance
+					 */
 					uniform:function(velocity, frameRate){
 						return new PhysicalUniform(velocity || TEN, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
 					},
+					/**
+					 * Creates an accelerating physical ease.
+					 * @param {Number} [acceleration=1] - Acceleration per frame
+					 * @param {Number} [initialVelocity=0] - Initial velocity
+					 * @param {Number} [frameRate] - Target frame rate (defaults to Physical.defaultFrameRate)
+					 * @return {PhysicalAccelerate} A PhysicalAccelerate ease instance
+					 */
 					accelerate:function(acceleration, initialVelocity, frameRate){
 						return new PhysicalAccelerate(initialVelocity || ZERO, acceleration || ONE, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
 					},
+					/**
+					 * Creates an exponential decay physical ease.
+					 * @param {Number} [factor=0.2] - Decay factor (0-1)
+					 * @param {Number} [threshold=0.0001] - Threshold at which to stop
+					 * @param {Number} [frameRate] - Target frame rate (defaults to Physical.defaultFrameRate)
+					 * @return {PhysicalExponential} A PhysicalExponential ease instance
+					 */
 					exponential:function(factor, threshold, frameRate){
 						return new PhysicalExponential(factor || 0.2, threshold || 0.0001, isNaN(frameRate) ? Physical.defaultFrameRate : frameRate) ;
 					}
@@ -4901,17 +5948,36 @@
 				iv:undefined,
 				a:undefined,
 				fps:undefined,
+				/**
+				 * Accelerating physical ease using constant acceleration.
+				 * @param {Number} iv - Initial velocity
+				 * @param {Number} a - Acceleration
+				 * @param {Number} fps - Frame rate
+				 */
 				constructor:PhysicalAccelerate = function PhysicalAccelerate(iv, a, fps){
 					this.iv = iv ;
 					this.a = a ;
 					this.fps = fps ;
 				},
+				/**
+				 * Calculates duration given start value and change.
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} Duration in seconds
+				 */
 				getDuration:function(b, c){
 					var iv = c < 0 ? - this.iv : this.iv ;
 					var a = c < 0 ? - this.a : this.a ;
 
 					return ((-iv + Math.sqrt(iv * iv - 4 * (a / TWO) * -c)) / (2 * (a / TWO))) * (ONE / this.fps);
 				},
+				/**
+				 * Calculates the eased value at a given time.
+				 * @param {Number} t - Elapsed time in frames
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} The interpolated value
+				 */
 				calculate:function(t, b, c){
 					var f = c < 0 ? -1 : 1 ;
 					var n = t / (ONE / this.fps) ;
@@ -4924,16 +5990,35 @@
 				f:undefined,
 				th:undefined,
 				fps:undefined,
+				/**
+				 * Exponential decay physical ease.
+				 * @param {Number} f - Decay factor (0-1)
+				 * @param {Number} th - Threshold for stopping
+				 * @param {Number} fps - Frame rate
+				 */
 				constructor:PhysicalExponential = function PhysicalExponential(f, th, fps){
 					this.f = f ;
 					this.th = th ;
 					this.fps = fps ;
 				},
+				/**
+				 * Calculates duration given start value and change.
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} Duration in seconds
+				 */
 				getDuration:function(b, c){
-					return (Math.log(this.th / c) / Math.log(1 - this.f) + 1) * (ONE / this.fps) ;
+					return Math.log(this.th / c) / Math.log(1 - this.f) * (ONE / this.fps) ;
 				},
+				/**
+				 * Calculates the eased value at a given time.
+				 * @param {Number} t - Elapsed time in frames
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} The interpolated value
+				 */
 				calculate:function(t, b, c){
-					return -c * Math.pow(1 - this.f, (t / (ONE / this.fps)) - 1) + (b + c) ;
+					return b + c * (1 - Math.pow(1 - this.f, t / (ONE / this.fps))) ;
 				}
 			}) ;
 			var PhysicalUniform = Type.define({
@@ -4941,13 +6026,31 @@
 				inherits:Physical,
 				v:undefined,
 				fps:undefined,
+				/**
+				 * Uniform (constant velocity) physical ease.
+				 * @param {Number} v - Velocity
+				 * @param {Number} fps - Frame rate
+				 */
 				constructor:PhysicalUniform = function PhysicalUniform(v, fps){
 					this.v = v ;
 					this.fps = fps ;
 				},
+				/**
+				 * Calculates duration given start value and change.
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} Duration in seconds
+				 */
 				getDuration:function(b, c){
 					return (c / (c < 0 ? -this.v : this.v)) * (ONE / this.fps) ;
 				},
+				/**
+				 * Calculates the eased value at a given time.
+				 * @param {Number} t - Elapsed time in frames
+				 * @param {Number} b - Start value
+				 * @param {Number} c - Change (end - start)
+				 * @return {Number} The interpolated value
+				 */
 				calculate:function(t, b, c){
 					return b + (c < 0 ? -this.v : this.v) * (t / (ONE / this.fps)) ;
 				}
@@ -4970,38 +6073,24 @@
 					(also set to tick forever from start, to disable, @see BetweenJS.$.EnterFrameTicker.stop())
 				*/
 				
-				/*
-					create
-
-					Creates a regular tween object. (Parameters Object Shorthand)
-					Takes in the Options object, specifying all requirements and extras for the tween.
-					"target", ("to", "from", one of those two at least), "time" are required, the rest are optional.
-
-					@param options Object
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a tween from an options object.
+				 * @param {Object} options - Tween configuration with target, to/from, time, ease, etc.
+				 * @return {TweenLike} The created tween instance
+				 */
 				create:function create(options){
 					if(!!!options.target) throw new Error('BetweenJS: The target is undefined') ;
 					return BetweenJS.$.TweenFactory.create(options) ;
 				},
-				/*
-					tween
-
-					Creates a regular tween object.
-					Takes in a target object, any object. Values in target such as numerals or other objects with numerals, will be able to tween.
-					Passing in a 'to' and a 'from' object will set source and destination values for the tween.
-					time is the duration of the tween.
-					set an ease for the tween in the set of provided easings, or custom one @see CustomFunctionEasing
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a regular tween between from/to values.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} [to] - Destination property values
+				 * @param {Object} [from] - Starting property values
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				tween:function tween(target, to, from, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5011,16 +6100,14 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					to
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a tween that animates TO values from current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				to:function to(target, to, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5029,16 +6116,14 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					from
-
-					@param target Object/HtmlDomElement
-					@param from Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a tween that animates FROM values to current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} from - Starting property values
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				from:function from(target, from, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5047,18 +6132,12 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					apply
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param time Float (default : 1.0)
-					@param applyTime Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates and optionally applies a tween at a specific time.
+				 * @param {Object} options - Tween configuration options
+				 * @param {Boolean} [applyInBetweenContext] - Whether to apply in between context
+				 * @return {TweenLike} The created tween instance
+				 */
 				apply:function apply(options, applyInBetweenContext){
 					
 					var applyTime = options['applyTime'] || ZERO ;
@@ -5070,7 +6149,12 @@
 					
 					return tw ;
 				},
-				
+				/**
+				 * Instantly applies properties to a target object.
+				 * @param {Object|Element} target - The target object or DOM element
+				 * @param {Object} properties - Property values to apply instantly
+				 * @return {TweenLike} The created tween instance
+				 */
 				instant:function instant(target, properties){
 					
 					return BetweenJS.apply({
@@ -5080,18 +6164,16 @@
 						ease:Linear.easeOut
 					}, true) ;
 				},
-				/*
-					bezier
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param cuepoints Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a bezier tween between from/to values with cue points.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Object} from - Starting property values
+				 * @param {Object} cuepoints - Bezier curve cue points
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				bezier:function bezier(target, to, from, cuepoints, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5102,17 +6184,15 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					bezierTo
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param cuepoints Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a bezier tween animated TO values from current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Object} cuepoints - Bezier curve cue points
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				bezierTo:function bezierTo(target, to, cuepoints, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5122,17 +6202,15 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					bezierFrom
-
-					@param target Object/HtmlDomElement
-					@param from Object
-					@param cuepoints Object
-					@param time Float (default : 1.0)
-					@param ease Ease (default : Linear.easeNone)
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a bezier tween animated FROM values to current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} from - Starting property values
+				 * @param {Object} cuepoints - Bezier curve cue points
+				 * @param {Number} [time=1.0] - Duration of the tween
+				 * @param {Function} [ease=Linear.easeNone] - Easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				bezierFrom:function bezierFrom(target, from, cuepoints, time, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5142,16 +6220,14 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					physical
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param ease Ease (default : Physical.exponential())
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a physics-based tween between from/to values.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Object} from - Starting property values
+				 * @param {Function} [ease=Physical.exponential()] - Physics easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				physical:function physical(target, to, from, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5160,15 +6236,13 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					physicalTo
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param ease Ease (default : Physical.exponential())
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a physics-based tween TO values from current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Function} [ease=Physical.exponential()] - Physics easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				physicalTo:function physicalTo(target, to, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5176,15 +6250,13 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					physicalFrom
-
-					@param target Object/HtmlDomElement
-					@param from Object
-					@param ease Ease (default : Physical.exponential())
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates a physics-based tween FROM values to current state.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} from - Starting property values
+				 * @param {Function} [ease=Physical.exponential()] - Physics easing function
+				 * @return {TweenLike} The created tween instance
+				 */
 				physicalFrom:function physicalFrom(target, from, ease){
 					return BetweenJS.create({
 						target: target,
@@ -5192,17 +6264,15 @@
 						ease: ease
 					}) ;
 				},
-				/*
-					physicalApply
-
-					@param target Object/HtmlDomElement
-					@param to Object
-					@param from Object
-					@param applyTime Float (default : 1.0)
-					@param ease Ease (default : Physical.exponential())
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Creates and applies a physics-based tween at a specific time.
+				 * @param {Object|Element} target - The target object or DOM element to animate
+				 * @param {Object} to - Destination property values
+				 * @param {Object} from - Starting property values
+				 * @param {Function} [ease=Physical.exponential()] - Physics easing function
+				 * @param {Number} [applyTime] - Time position to apply
+				 * @return {TweenLike} The created tween instance
+				 */
 				physicalApply:function physicalApply(target, to, from, ease, applyTime){
 					return BetweenJS.create({
 						target: target,
@@ -5211,23 +6281,19 @@
 						ease: ease
 					}).update(applyTime).draw() ;
 				},
-				/*
-					parallel
-
-					@param [tween TweenLike, ...]
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Runs multiple tweens in parallel (variadic arguments).
+				 * @param {...TweenLike} tween - Tweens to run in parallel
+				 * @return {TweenLike} A parallel group tween
+				 */
 				parallel:function parallel(tween){
 					return BetweenJS.parallelTweens(__SLICE__.call(arguments)) ;
 				},
-				/*
-					parallelTweens
-
-					@param tweens Array[TweenLike]
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Runs an array of tweens in parallel.
+				 * @param {Array} tweens - Array of tweens to run in parallel
+				 * @return {TweenLike} A parallel group tween
+				 */
 				parallelTweens:function parallelTweens(tweens){
 					var options = {
 						groups:{
@@ -5238,23 +6304,19 @@
 					} ;
 					return BetweenJS.$.TweenFactory.createGroup(options) ;
 				},
-				/*
-					serial
-
-					@param [tween TweenLike, ...]
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Runs multiple tweens in sequence (variadic arguments).
+				 * @param {...TweenLike} tween - Tweens to run in sequence
+				 * @return {TweenLike} A serial group tween
+				 */
 				serial:function serial(tween){
 					return BetweenJS.serialTweens(__SLICE__.call(arguments)) ;
 				},
-				/*
-					serialTweens
-
-					@param tweens Array[TweenLike]
-
-					@return TweenLike Object
-				*/
+				/**
+				 * Runs an array of tweens in sequence.
+				 * @param {Array} tweens - Array of tweens to run in sequence
+				 * @return {TweenLike} A serial group tween
+				 */
 				serialTweens:function serialTweens(tweens){
 					var options = {
 						groups:{
@@ -5265,14 +6327,12 @@
 					} ;
 					return BetweenJS.$.TweenFactory.createGroup(options) ;
 				},
-				/*
-					scale
-
-					@param tween TweenLike
-					@param scale Float (percent, default : 1)
-
-					@return TweenLike TweenDecorator Object
-				*/
+				/**
+				 * Scales a tween's duration by a multiplier.
+				 * @param {TweenLike} tween - The tween to scale
+				 * @param {Number} [scale=1] - Duration scale multiplier
+				 * @return {TweenLike} A scaled tween decorator
+				 */
 				scale:function scale(tween, scale){
 
 					var options = {
@@ -5287,16 +6347,14 @@
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 
 				},
-				/*
-					slice
-
-					@param tween TweenLike
-					@param begin Float (default : 0)
-					@param end Float (default : 1)
-					@param isPercent Boolean (default : false)
-
-					@return TweenLike TweenDecorator Object
-				*/
+				/**
+				 * Slices a portion of a tween between begin and end.
+				 * @param {TweenLike} tween - The tween to slice
+				 * @param {Number} [begin=0] - Start position or percent
+				 * @param {Number} [end=1] - End position or percent
+				 * @param {Boolean} [isPercent=false] - Whether begin/end are percentages
+				 * @return {TweenLike} A sliced tween decorator
+				 */
 				slice:function slice(tween, begin, end, isPercent){
 					
 					var options = {
@@ -5311,14 +6369,11 @@
 					} ;
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
-				/*
-					reverse
-
-					@param tween TweenLike
-					@param reversePosition Float (default : 0.0)
-
-					@return TweenLike TweenDecorator Object
-				*/
+				/**
+				 * Reverses a tween's direction.
+				 * @param {TweenLike} tween - The tween to reverse
+				 * @return {TweenLike} A reversed tween decorator
+				 */
 				reverse:function reverse(tween){
 					
 					if(tween instanceof BetweenJS.$.ReversedTween && !!tween.baseTween){
@@ -5335,14 +6390,12 @@
 
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
-				/*
-					repeat
-
-					@param tween TweenLike
-					@param repeatCount Integer (default : 2)
-
-					@return TweenLike TweenDecorator Object
-				*/
+				/**
+				 * Repeats a tween a specified number of times.
+				 * @param {TweenLike} tween - The tween to repeat
+				 * @param {Number} [repeatCount=2] - Number of times to repeat
+				 * @return {TweenLike} A repeated tween decorator
+				 */
 				repeat:function repeat(tween, repeatCount){
 					var options = {
 						decorators:{
@@ -5355,15 +6408,13 @@
 
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
-				/*
-					delay
-
-					@param tween TweenLike
-					@param delay Float (default : 0)
-					@param postDelay Float (default : 0)
-
-					@return TweenLike TweenDecorator Object
-				*/
+				/**
+				 * Adds pre-delay and/or post-delay to a tween.
+				 * @param {TweenLike} tween - The tween to delay
+				 * @param {Number} [delay=0] - Pre-delay duration
+				 * @param {Number} [postDelay=0] - Post-delay duration
+				 * @return {TweenLike} A delayed tween decorator
+				 */
 				delay:function delay(tween, delay, postDelay){
 					var options = {
 						decorators:{
@@ -5376,14 +6427,12 @@
 					} ;
 					return BetweenJS.$.TweenFactory.createDecorator(options) ;
 				},
-				/*
-					addChild
-
-					@param target HtmlDomElement
-					@param parent HtmlDomElement
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates an action tween that appends a child DOM element to a parent.
+				 * @param {Element} target - The child element to add
+				 * @param {Element} parent - The parent element to append to
+				 * @return {TweenLike} An action tween instance
+				 */
 				addChild:function addChild(target, parent){
 
 					var options = {
@@ -5397,14 +6446,11 @@
 					
 					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
-				/*
-					removeFromParent
-
-					@param target HtmlDomElement
-					@param parent HtmlDomElement
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates an action tween that removes a DOM element from its parent.
+				 * @param {Element} target - The element to remove
+				 * @return {TweenLike} An action tween instance
+				 */
 				removeFromParent:function removeFromParent(target){
 
 					var options = {
@@ -5417,17 +6463,15 @@
 
 					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
-				/*
-					func
-
-					@param func Function
-					@param params Array
-					@param useRollback Boolean
-					@param rollbackFunc Function
-					@param rollbackParams Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates an action tween that calls a function with parameters.
+				 * @param {Function} closure - The function to call
+				 * @param {Array} [params] - Parameters to pass to the function
+				 * @param {Boolean} [useRollback] - Whether to use a rollback function
+				 * @param {Function} [rollbackClosure] - Function to call on rollback
+				 * @param {Array} [rollbackParams] - Parameters for the rollback function
+				 * @return {TweenLike} An action tween instance
+				 */
 				func:function func(closure, params, useRollback, rollbackClosure, rollbackParams){
 					var options = {
 						actions:{
@@ -5443,35 +6487,62 @@
 
 					return BetweenJS.$.TweenFactory.createAction(options) ;
 				},
-				/*
-					load
-
-					@param url String
-					@param callback Function
-					@param params Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates an action tween that loads a resource from a URL.
+				 * @param {String} url - The URL to load
+				 * @param {Function|Object} [callback] - Callback function or options object
+				 * @param {Array} [params] - Parameters to pass to the callback
+				 * @return {TweenLike} An action tween instance
+				 */
 				load:function(url, callback, params){
-					var options = {
+					var options = {url: url};
+					if(typeof callback === 'object'){
+						// Options form: BJS.load(url, {callback, params, nocache, postData})
+						var opts = callback;
+						if(typeof opts.callback === 'function') options.closure = opts.callback;
+						if(opts.params) options.params = opts.params;
+						if(opts.postData) options.postData = opts.postData;
+						if(opts.nocache){
+							options.forceBrowserNoCache = true ;
+							options.keepInLocalCache = false ;
+						}
+					}else{
+						// Positional form: BJS.load(url, callback, params)
+						if(typeof callback === 'function') options.closure = callback;
+						if(params) options.params = params;
+					}
+					var actionsOptions = {
 						actions:{
-							load:{
-								url:url
-							}
+							load:options
 						}
 					}
-					var tw = BetweenJS.$.TweenFactory.createAction(options) ;
-					return tw ;
+					var uid = getTimer() ;
+					var tw = BetweenJS.$.TweenFactory.createAction(actionsOptions) ;
+					tw.uid = uid ;
+					return (CACHE_LOAD[uid] = tw) ;
 				},
-				/*
-					interval
-
-					@param duration Float
-					@param func Function
-					@param params Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Stops and clears a load action tween by its UID.
+				 * @param {Number|Object} uid - UID or tween object to clear
+				 * @return {TweenLike} The stopped tween
+				 */
+				clearLoad:function(uid){
+					var cc = isNaN(uid)? uid : CACHE_LOAD[uid] ;
+					uid = cc.uid ;
+					delete CACHE_LOAD[uid] ;
+					return cc.stop() ;
+				},
+				/**
+				 * Creates a repeating interval action tween.
+				 * @param {Number} duration - Interval duration
+				 * @param {Function} closure - Function to call on each interval
+				 * @param {Array} [params] - Parameters to pass to the function
+				 * @param {Boolean} [useRollback] - Whether to use a rollback function
+				 * @param {Function} [rollbackClosure] - Function to call on rollback
+				 * @param {Array} [rollbackParams] - Parameters for the rollback function
+				 * @param {Boolean} [force] - Force creation even if duplicate
+				 * @return {TweenLike} An action tween instance
+				 */
 				interval:function(duration, closure, params, useRollback, rollbackClosure, rollbackParams, force){
 					var uid = getTimer() ;
 					
@@ -5493,15 +6564,17 @@
 					tw.uid = uid ;
 					return (CACHE_INTERVAL[uid] = tw) ;
 				},
-				/*
-					timeout
-
-					@param duration Float
-					@param func Function
-					@param params Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates a timeout action tween that fires once after a duration.
+				 * @param {Number} duration - Timeout duration
+				 * @param {Function} closure - Function to call after timeout
+				 * @param {Array} [params] - Parameters to pass to the function
+				 * @param {Boolean} [useRollback] - Whether to use a rollback function
+				 * @param {Function} [rollbackClosure] - Function to call on rollback
+				 * @param {Array} [rollbackParams] - Parameters for the rollback function
+				 * @param {Boolean} [force] - Force creation even if duplicate
+				 * @return {TweenLike} An action tween instance
+				 */
 				timeout:function(duration, closure, params, useRollback, rollbackClosure, rollbackParams, force){
 					var uid = getTimer() ;
 					
@@ -5523,33 +6596,38 @@
 					tw.uid = uid ;
 					return (CACHE_TIMEOUT[uid] = tw) ;
 				},
-				/*
-					clearTimeout
-
-					@param uid Integer
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Stops and clears a timeout action by its UID.
+				 * @param {Number|Object} uid - UID or tween object to clear
+				 * @return {TweenLike} The stopped tween
+				 */
 				clearTimeout:function(uid){
 					var cc = isNaN(uid)? uid : CACHE_TIMEOUT[uid] ;
 					uid = cc.uid ;
 					delete CACHE_TIMEOUT[uid] ;
 					return cc.stop() ;
 				},
+				/**
+				 * Stops and clears an interval action tween by its UID.
+				 * @param {Number|Object} uid - UID or tween object to clear
+				 * @return {TweenLike} The stopped tween
+				 */
 				clearInterval:function(uid){
 					var cc = isNaN(uid)? uid : CACHE_INTERVAL[uid] ;
 					uid = cc.uid ;
 					delete CACHE_INTERVAL[uid] ;
 					return cc.stop() ;
 				},
-				/*
-					animationframe
-
-					@param func Function
-					@param params Array
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Creates an animation frame action tween.
+				 * @param {Function} closure - Function to call on each animation frame
+				 * @param {Array} [params] - Parameters to pass to the function
+				 * @param {Boolean} [useRollback] - Whether to use a rollback function
+				 * @param {Function} [rollbackClosure] - Function to call on rollback
+				 * @param {Array} [rollbackParams] - Parameters for the rollback function
+				 * @param {Boolean} [force] - Force creation even if duplicate
+				 * @return {TweenLike} An action tween instance
+				 */
 				animationframe:function(closure, params, useRollback, rollbackClosure, rollbackParams, force){
 					var uid = getTimer() ;
 					
@@ -5571,13 +6649,11 @@
 
 					return (CACHE_ANIM_FRAME[uid] = tw) ;
 				},
-				/*
-					cancelanimationframe
-
-					@param uid Integer
-
-					@return TweenLike AbstractActionTween Object
-				*/
+				/**
+				 * Cancels and clears an animation frame action by its UID.
+				 * @param {Number|Object} uid - UID or tween object to cancel
+				 * @return {void}
+				 */
 				cancelanimationframe:function(uid){
 					var cc = isNaN(uid)? uid : CACHE_ANIM_FRAME[uid] ;
 					if(!!!cc) return ;
@@ -5591,7 +6667,279 @@
 		// BJS Shortcut
 		Type.appdomain['BJS'] = Type.appdomain['BTW'] = BetweenJS ;
 		
+		// ===== MODERN ENHANCEMENTS (May 2026) =====
+		// Backwards-compatible: Promise API, stagger, timeline, global controls
+		(function(bjs){
+			var AbstractTween = bjs.$.AbstractTween;
+			var AnimationTicker = bjs.$.AnimationTicker;
+			var EFT = bjs.$.EnterFrameTicker;
+			var origPlay = AbstractTween.prototype.play;
 
+			// 1. Promise support for .play() and .then()
+			// .play() returns the tween for chaining, now with .then() for Promise-style
+			// .then(onFulfilled) on a tween registers a completion callback and returns the tween for serial() chaining
+			// Does NOT interfere with existing .onComplete callback pattern
+			var origFire = AbstractTween.prototype.fire;
+			/**
+			 * Override: fires a tween event and resolves pending promises on complete.
+			 * @param {String} type - Event type (complete, start, play, etc.)
+			 * @return {Object} The tween instance
+			 */
+			AbstractTween.prototype.fire = function(type){
+				var result = origFire.call(this, type);
+				if(type === 'Complete' || type === 'complete'){
+					var list = this._deferreds;
+					if(list){
+						for(var i = 0; i < list.length; i++){
+							list[i].resolve(this);
+						}
+						this._deferreds = [];
+					}
+					var cbs = this._thenCallbacks;
+					if(cbs){
+						for(var i = 0; i < cbs.length; i++){
+							cbs[i](this);
+						}
+						this._thenCallbacks = [];
+					}
+				}
+				return result;
+			};
+			/**
+			 * Override: plays the tween and returns a Promise-aware result.
+			 * @return {Object} The tween instance with .then()/.catch() promise methods
+			 */
+			AbstractTween.prototype.play = function(){
+				var result = origPlay.call(this);
+				var self = this;
+				var deferred = {};
+				deferred.promise = new Promise(function(resolve){
+					deferred.resolve = resolve;
+				});
+				if(!this._deferreds) this._deferreds = [];
+				this._deferreds.push(deferred);
+				result.then = function(r, j){ return deferred.promise.then(r, j); };
+				result.catch = function(j){ return deferred.promise.catch(j); };
+				return result;
+			};
+
+			// .then(onFulfilled) on any tween instance — registers a completion callback,
+			// returns the tween itself so it can be used in serial()/parallel() chains:
+			//   BJS.serial(tw1, ajax.then(fn), tw2)
+			/**
+			 * Registers a completion callback on the tween (Promise-style).
+			 * @param {Function} onFulfilled - Callback when tween completes
+			 * @param {Function} [onRejected] - Optional rejection handler
+			 * @return {Object} The tween instance for chaining
+			 */
+			AbstractTween.prototype.then = function(onFulfilled, onRejected){
+				if(typeof onFulfilled === 'function'){
+					if(!this._thenCallbacks) this._thenCallbacks = [];
+					this._thenCallbacks.push(onFulfilled);
+				}
+				return this;
+			};
+
+			// 2. BJS.stagger() - animate array of targets with staggered delay
+			//   BJS.stagger([el1, el2, el3], {opacity:100}, {stagger:0.05, time:0.3, ease:Expo.easeOut})
+			/**
+			 * Creates staggered tweens for an array of targets.
+			 * @param {Array} targets - Array of target objects or DOM elements
+			 * @param {Object} to - Destination property values
+			 * @param {Object} [options] - Options with stagger, from, time, ease, onComplete
+			 * @return {TweenLike} A parallel group tween with staggered delays
+			 */
+			bjs.stagger = function(targets, to, options){
+				options = options || {};
+				var staggerDelay = options.stagger || 0.05;
+				var from = options.from;
+				var time = options.time || 0.5;
+				var ease = options.ease || Linear.easeOut;
+				var tweens = [];
+				var l = targets.length;
+				for(var i = 0; i < l; i++){
+					var tw = bjs.create({
+						target: targets[i],
+						to: to,
+						from: from,
+						time: time,
+						ease: ease
+					});
+					tweens.push(staggerDelay ? bjs.delay(tw, i * staggerDelay) : tw);
+				}
+				var parallel = bjs.parallelTweens(tweens);
+				if(options.onComplete) parallel.onComplete = options.onComplete;
+				return parallel;
+			};
+
+			// 3. BJS.timeline() - simple timeline builder (fluent API)
+			//   var tl = BJS.timeline();
+			//   tl.add(tween1).add(tween2, 0.5).play();
+			/**
+			 * Creates a simple timeline builder with fluent API.
+			 * @return {Object} A timeline object with add(), play(), onComplete(), getDuration()
+			 */
+			bjs.timeline = function(){
+				var tweens = [];
+				var currentTime = 0;
+				return {
+					add: function(tween, offset){
+						offset = offset || 0;
+						tweens.push(offset > 0 ? bjs.delay(tween, offset) : tween);
+						currentTime += (tween.time || 0) + offset;
+						return this;
+					},
+					play: function(){
+						var serial = bjs.serialTweens(tweens);
+						if(this._onComplete) serial.onComplete = this._onComplete;
+						serial.play();
+						return serial;
+					},
+					onComplete: function(fn){
+						this._onComplete = fn;
+						return this;
+					},
+					getDuration: function(){ return currentTime; }
+				};
+			};
+
+			// 4. Global play/pause/resume for the entire animation system
+			/**
+			 * Pauses the entire animation system.
+			 * @return {void}
+			 */
+			bjs.pause = function(){ AnimationTicker.haltSystem(); };
+			/**
+			 * Resumes the entire animation system after a pause.
+			 * @return {void}
+			 */
+			bjs.resume = function(){ AnimationTicker.restoreSystem(); };
+			/**
+			 * Checks if the animation system is currently playing.
+			 * @return {Boolean} Whether the system is active and not halted
+			 */
+			bjs.isPlaying = function(){ return AnimationTicker.started && !AnimationTicker.HALT; };
+
+			// 5. BJS.clear() - stop all active tweens immediately
+			/**
+			 * Stops all active tweens immediately and resets the ticker.
+			 * @return {void}
+			 */
+			bjs.clear = function(){
+				if(EFT.started) EFT.stop();
+				if(AnimationTicker.started) AnimationTicker.stop();
+				EFT.numListeners = 0;
+				EFT.first = undefined;
+				EFT.last = undefined;
+			};
+
+			// 6. Auto-pause on visibility change (battery-friendly)
+			// Note: blur/focus is handled by events.js with shift+space integration
+			if(typeof document !== 'undefined'){
+				var onVisChange = function(){
+					if(document.hidden || document.webkitHidden){
+						if(AnimationTicker.started && !AnimationTicker.HALT){
+							bjs.__suspended = true;
+							AnimationTicker.haltSystem();
+						}
+					}else if(bjs.__suspended){
+						bjs.__suspended = false;
+						AnimationTicker.restoreSystem();
+					}
+				};
+				document.addEventListener('visibilitychange', onVisChange);
+				document.addEventListener('webkitvisibilitychange', onVisChange);
+			}
+
+			// 7. Fix: BJS.instant had a bug (used 'tg' instead of 'target')
+			/**
+			 * Instantly applies properties to a target (fixed version).
+			 * @param {Object|Element} target - The target object or DOM element
+			 * @param {Object} properties - Property values to apply instantly
+			 * @return {TweenLike} The created tween instance
+			 */
+			bjs.instant = function instant(target, properties){
+				return bjs.apply({
+					target: target,
+					to: properties,
+					time: bjs.$.Tween.SAFE_TIME,
+					ease: Linear.easeOut
+				}, true);
+			};
+
+			// 8. BJS.restart(tween) - clean stop+replay from beginning
+			/**
+			 * Stops a tween and replays it from the beginning.
+			 * @param {Object} tween - The tween to restart
+			 * @return {Object} The restarted tween
+			 */
+			bjs.restart = function(tween){
+				return tween.restart();
+			};
+
+			// 9. BJS.stopAll() - stop every active tween across all sections
+			/**
+			 * Stops every active tween across the entire system.
+			 * @return {void}
+			 */
+			bjs.stopAll = function(){
+				var listeners = [];
+				var l = EFT.first;
+				while(!!l){
+					listeners.push(l);
+					l = l.nextListener;
+				}
+				for(var i = 0; i < listeners.length; i++){
+					if(listeners[i].isPlaying && listeners[i].stop) listeners[i].stop();
+				}
+			};
+
+			// 10. Fluent decorator API — chain on the tween directly:
+			//   BJS.create({target:el, to:{left:500}}).reverse().delay(0.3).play()
+			/**
+			 * Returns a reversed version of this tween.
+			 * @return {TweenLike} A reversed tween decorator
+			 */
+			AbstractTween.prototype.reverse = function(){
+				return bjs.reverse(this);
+			};
+			/**
+			 * Returns a sliced portion of this tween.
+			 * @param {Number} [begin=0] - Start position or percent
+			 * @param {Number} [end=1] - End position or percent
+			 * @param {Boolean} [isPercent=false] - Whether begin/end are percentages
+			 * @return {TweenLike} A sliced tween decorator
+			 */
+			AbstractTween.prototype.slice = function(begin, end, isPercent){
+				return bjs.slice(this, begin, end, isPercent);
+			};
+			/**
+			 * Returns a time-scaled version of this tween.
+			 * @param {Number} scale - Duration scale multiplier
+			 * @return {TweenLike} A scaled tween decorator
+			 */
+			AbstractTween.prototype.scale = function(scale){
+				return bjs.scale(this, scale);
+			};
+			/**
+			 * Returns a delayed version of this tween.
+			 * @param {Number} [delay=0] - Pre-delay duration
+			 * @param {Number} [postDelay=0] - Post-delay duration
+			 * @return {TweenLike} A delayed tween decorator
+			 */
+			AbstractTween.prototype.delay = function(delay, postDelay){
+				return bjs.delay(this, delay, postDelay);
+			};
+			/**
+			 * Returns a repeated version of this tween.
+			 * @param {Number} [repeatCount=2] - Number of times to repeat
+			 * @return {TweenLike} A repeated tween decorator
+			 */
+			AbstractTween.prototype.repeat = function(repeatCount){
+				return bjs.repeat(this, repeatCount);
+			};
+
+		})(BetweenJS);
 
 	})})()
 ) ;

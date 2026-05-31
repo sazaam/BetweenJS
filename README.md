@@ -2,13 +2,67 @@
 
 A lightweight, high-performance JavaScript animation library for the browser. Tween any numeric property of any object — DOM elements, canvas objects, Three.js vectors, custom models — with a rich ease system, composable tweens, action tweens, and full CSS 3D transform interpolation.
 
-**No dependencies. No build step. ~25 KB gzipped.**
+**No dependencies. No build step. ~65 KB gzipped.**
+
+> *Robust Tweens for Actionscript*
+
+Available globally as `BJS`, `BTW`, or `BetweenJS` — use whichever reads best to you.
+
+
+---
+
+## Quick Start
+
+BetweenJS is one of the best tools to **quickly prototype and refine advanced animations** — start basic and layer in power as you go, with minimal edits between each step.
+
+```javascript
+// --- 1. One-liner shortcut ---
+BJS.to(el, { left: 500 }, 2, Quad.easeOut).play();
+
+// --- 2. Same with create() — add features by editing the options object ---
+BJS.create({
+  target: el,
+  to:     { left: 500, top: 300 },       // multi-property
+  time:   2,
+  ease:   Quad.easeOut,
+  delay:  0.5,                            // wait before starting
+  repeat: 2,                              // repeat count (-1 = infinite)
+  cuepoints: { left: [250, 400] },        // bezier waypoints
+  transform: { translateX: 200, rotate: 45 },  // GSAP-style 2D/3D transforms
+  onComplete: function(){ /* ... */ }
+}).play();
+
+// --- 3. Compose: serial() / parallel() for sequences and simultaneity ---
+BJS.serial(
+  BJS.to(el, { left: 500 }, 1),
+  BJS.func(function(){ console.log('midpoint'); }),   // action tween
+  BJS.to(el, { top: 300 }, 1)
+).play();
+
+// --- 4. Fluent chaining: decorate, then play ---
+BJS.to(el, { left: 500 }, 2).reverse().delay(0.3).play();
+
+// --- 5. Action tweens block serial chains for real sequencing ---
+BJS.serial(
+  BJS.load('/data.json', function(d){ window.data = d; }),
+  BJS.to(el, { left: 500 }, 1, Quad.easeOut)
+).play();
+
+// --- 6. Physical eases compute their own duration ---
+BJS.create({ target: el, to: { left: 500 }, ease: Physical.uniform(200, 60) }).play();
+```
+
+
+**Why you'll love this workflow :** 
+
+Every step above is a trivial edit from the previous one. You never rewrite — you just add options, wrap in `serial()`, or slap on a decorator. The **ticker's yield system** gives you 60fps+ performance with automatic pause on tab-switch, zero garbage, and `AnimationTicker`-backed frame accuracy.
+
+
 
 ---
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Core Concepts](#core-concepts)
 - [API Reference](#api-reference)
@@ -29,22 +83,6 @@ A lightweight, high-performance JavaScript animation library for the browser. Tw
 
 ---
 
-## Quick Start
-
-```javascript
-// Animate an element's left from 0 to 500 over 2 seconds with Quad.easeOut
-BJS.create({
-  target: document.getElementById('box'),
-  to: { left: 500 },
-  time: 2,
-  ease: Quad.easeOut
-}).play();
-
-// Same thing with the shortcut
-BJS.to(document.getElementById('box'), { left: 500 }, 2, Quad.easeOut).play();
-```
-
----
 
 ## Installation
 
@@ -86,6 +124,83 @@ BetweenJS uses `requestAnimationFrame` via its own `EnterFrameTicker`. You never
 
 Any object with numeric properties works: DOM elements, canvas drawables, Three.js objects, plain JS objects, jQuery collections.
 
+### CSS Best Practices
+
+#### Property Naming — camelCase or Dash
+
+CSS properties can be written **either way** — BJS auto-converts camelCase to dash notation:
+
+```javascript
+// Both work identically:
+BJS.to(el, { backgroundColor: { r: 255, g: 0, b: 0 } }, 1).play();
+BJS.to(el, { 'background-color': { r: 255, g: 0, b: 0 } }, 1).play();
+```
+
+Use whichever you prefer.
+
+#### Match Your CSS Baseline
+
+BJS interpolates between a source and destination value. If the **initial CSS state** doesn't match how you declare properties in BJS, the tween will jump at completion.
+
+**Bad — shorthand vs specific property mismatch:**
+
+```css
+#box { background: rgb(255, 0, 0); }
+```
+
+```javascript
+// This will NOT tween smoothly — 'background' shorthand != 'background-color'
+BJS.to(el, { backgroundColor: { r: 0, g: 0, b: 0 } }, 1).play();
+// → element stays red for 1s, then SNAPS to black onComplete
+```
+
+**Good — be homogeneous:**
+
+```css
+#box { background-color: rgb(255, 0, 0); }
+```
+
+```javascript
+BJS.to(el, { backgroundColor: { r: 0, g: 0, b: 0 } }, 1).play();
+// → smoothly fades from red to black
+```
+
+#### Always Set a Starting Value
+
+If a CSS property isn't explicitly set, `getComputedStyle` may return `auto` or `none` — which BJS cannot interpolate from. **Always declare a baseline** in CSS or inline.
+
+```css
+#box {
+  opacity: 1;             /* explicit baseline */
+  width: 100px;
+}
+```
+
+```html
+<div id="box" style="opacity:1; width:100px;"></div>
+```
+
+```javascript
+// Now these work reliably:
+BJS.to(el, { opacity: 0 }, 1).play();
+BJS.to(el, { width: 500 }, 1).play();
+```
+
+#### Percentage Units — Commit From the Start
+
+If you animate with `%` units, make sure the **CSS baseline also uses `%`**. Mixing `%` with `px` or a non-unit initial value will break interpolation.
+
+```css
+/* Good — baseline uses % */
+#box { width: 50%; left: 0%; }
+```
+
+```javascript
+BJS.to(el, { 'width::%': 100, 'left::%': 50 }, 1).play();
+```
+
+If the initial CSS uses `px` but you animate with `%`, BJS won't know how to bridge the two — the tween will jump. Stick to one unit system throughout.
+
 ---
 
 ## API Reference
@@ -104,6 +219,7 @@ The universal tween factory. Returns a `Tween` (or a `ParallelTween` if targetin
 | `time` | `Number` | `1` | Duration in seconds |
 | `ease` | `Function` | `Linear.easeIn` | Easing function |
 | `delay` | `Number` | `0` | Seconds to wait before starting |
+| `cuepoints` | `Object` | — | Bezier waypoints, e.g. `{ left: [250, 400], top: [50, 300] }` |
 | `repeat` | `Number` | `0` | Repeat count (0 = no repeat, -1 = infinite) |
 | `onStart` | `Function` | — | `function()` — fires when tween starts |
 | `onUpdate` | `Function` | — | `function()` — fires each frame |
@@ -593,6 +709,23 @@ BJS.stopAll();     // Stop every active tween
 BJS.clear();       // Stop all tweens, reset ticker
 ```
 
+### Visibility Auto-Halt
+
+BJS detects page visibility changes via `document.hidden` / `visibilitychange`. When the user switches tabs or minimizes the window, the ticker **halts automatically** and resumes when they return. No more wasted CPU on invisible animations.
+
+For finer control, wire `pause()`/`resume()` to window focus events yourself:
+
+```javascript
+// Best practice: pause on blur, resume on focus
+window.addEventListener('blur',  function(){ BJS.pause();  });
+window.addEventListener('focus', function(){ BJS.resume(); });
+
+// Or use page visibility for mobile-friendly detection
+document.addEventListener('visibilitychange', function(){
+  document.hidden ? BJS.pause() : BJS.resume();
+});
+```
+
 ---
 
 ### CSS Transform Interpolation
@@ -946,6 +1079,47 @@ BJS.bezierTo(
 ).play();
 ```
 
+### 16. Exit Right, Enter Left (Seamless Loop)
+
+A 100px square exits the right edge of the window and re-enters from the left — a seamless horizontal loop. The trick: make the outbound tween wait half-way, then the inbound tween covers the rest, giving the illusion of one continuous scroll.
+
+```javascript
+var el = document.getElementById('box');
+var winW = window.innerWidth;
+var size = 100;
+
+// Exit right (0 → winW), then arrive from left (-size → 0)
+BJS.serial(
+  BJS.to(el, { left: winW,           /*        */ onComplete: function(){
+    el.style.left = -size + 'px';    //        instantly reposition off-screen left
+  }}, 1.5, Quad.easeIn),
+  BJS.to(el, { left: 0               /*        */ }, 1.5, Quad.easeOut)
+).repeat(-1).play();
+```
+
+The `.repeat(-1)` makes it loop forever. The `onComplete` callback snaps the element off-screen left between the two tweens — invisible because the element is outside the viewport.
+
+### 17. Same Effect with `slice()` — No Reposition Callback
+
+No manual `onComplete` hack needed. Create one long tween that overshoots both sides, then slice it in half and reorder the slices:
+
+```javascript
+var el = document.getElementById('box');
+var size = 100;
+
+// Single tween: off-screen left → off-screen right
+// (use .tween() with an explicit from, or .create())
+var tw = BJS.tween(el, { left: window.innerWidth }, { left: -size }, 3, Linear.easeIn);
+
+// Slice at midpoint, reorder: tail first, head second
+BJS.serial(
+  tw.slice(0.5, 1),         // second half: off-screen-left → center
+  tw.slice(0, 0.5)          // first half:  center → off-screen-right
+).repeat(-1).play();
+```
+
+This works because `slice(0.5, 1)` plays the tail of the original timeline (from the center to the right edge), then `slice(0, 0.5)` plays the head (from the left edge to the center). The element loops without ever needing a manual reposition — the `from` value (`-size`, off-screen left) is the starting position on first play, and `slice` just selects the correct portions of the path.
+
 ---
 
 ## Full API Table
@@ -1061,3 +1235,23 @@ BJS.create({
   onComplete: function(){ console.log('complete!'); }
 }).play();
 ```
+
+---
+
+## Go Forth and Animate
+
+BetweenJS is **one file**. No `npm install`, no bundler config, no build step. Drop it in a `<script>` tag and you have:
+
+- **11 ease families** with `easeIn`/`easeOut`/`easeInOut`/`easeOutIn` — plus physical eases that compute their own duration
+- **3D CSS transforms** with full matrix decomposition — the only thing lighter than GSAP that does this
+- **Composable tweens** — `serial()`, `parallel()`, decorators (`reverse`, `slice`, `scale`, `delay`, `repeat`), all chainable
+- **Action tweens** — `timeout()`, `interval()`, `load()`, `func()`, `animationframe()` — that block serial chains for real sequencing
+- **No dependencies. ~25 KB gzipped. ES5 — runs everywhere.**
+
+That's it. Open your console and try it now:
+
+```javascript
+BJS.to(document.body, { backgroundColor: { r: 30, g: 30, b: 50 } }, 1).play();
+```
+
+Happy tweening 🚀
